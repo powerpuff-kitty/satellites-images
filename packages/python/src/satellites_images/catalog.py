@@ -287,9 +287,20 @@ def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | Non
             continue
         roles = tuple(r for r in asset.get("roles", []) if isinstance(r, str)) if isinstance(asset.get("roles"), list) else ()
         assets.append(SceneAsset(str(key), href, asset.get("type") if isinstance(asset.get("type"), str) else None, roles))
-    preview = next((a.href for a in assets if "thumbnail" in a.roles), None)
-    if preview is None:
-        preview = next((a.href for a in assets if a.key in ("thumbnail", "preview", "rendered_preview")), None)
+    asset_preview = next((a.href for a in assets if "thumbnail" in a.roles), None)
+    if asset_preview is None:
+        asset_preview = next((a.href for a in assets if a.key in ("thumbnail", "preview", "rendered_preview")), None)
+    raw_links = obj.get("links")
+    thumbnail_link = next((l.get("href") for l in raw_links if isinstance(l, dict) and l.get("rel") == "thumbnail"), None) if isinstance(raw_links, list) else None
+
+    def _is_http_url(value: object) -> bool:
+        return isinstance(value, str) and value.startswith(("http://", "https://"))
+
+    # Prefer an http(s) preview: an asset thumbnail, else the item's `thumbnail` link
+    # (Earth Search serves this for Landsat, whose asset hrefs are s3:// URIs).
+    preview = next((v for v in (asset_preview, thumbnail_link) if _is_http_url(v)), None)
+    if preview is None and isinstance(asset_preview, str):
+        preview = asset_preview
     cloud = props.get("eo:cloud_cover")
     cloud_value = float(cloud) if isinstance(cloud, (int, float)) and not isinstance(cloud, bool) and math.isfinite(cloud) and 0 <= cloud <= 100 else None
     gsd = props.get("gsd")

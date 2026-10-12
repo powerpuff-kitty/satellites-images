@@ -337,6 +337,14 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
   const gsdMeters = typeof gsd === "number" && Number.isFinite(gsd) && gsd > 0 ? gsd : null;
   const originalLinks = Array.isArray(raw.links) ? raw.links : [];
   const link = originalLinks.map(object).find((v) => v.rel === "self");
+  // Prefer an http(s) preview: an asset thumbnail (e.g. Sentinel-2 `preview.jpg`), else the
+  // item's `thumbnail` link (Earth Search serves this for Landsat, whose asset hrefs are s3://).
+  const isHttp = (value: string | null): value is string => Boolean(value && /^https?:\/\//i.test(value));
+  const thumbnailLink = originalLinks.map(object).find((v) => v.rel === "thumbnail");
+  const thumbnailHref = thumbnailLink ? stringOrNull(thumbnailLink.href) : null;
+  const previewUrl = isHttp(preview?.href ?? null) ? preview!.href
+    : isHttp(thumbnailHref) ? thumbnailHref
+    : preview?.href ?? null;
   const geometry = object(raw.geometry);
   const bbox = Array.isArray(raw.bbox) && raw.bbox.every((v) => typeof v === "number") ? raw.bbox as number[] : null;
   return {
@@ -350,7 +358,7 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
     cloudCoverPercent,
     gsdMeters,
     coveragePercent: coveragePercent(bbox, boxes),
-    previewUrl: preview?.href ?? null,
+    previewUrl,
     access: "unknown",
     assets,
     sourceUrl: link ? stringOrNull(link.href) : null,

@@ -195,6 +195,20 @@ test("STAC pagination, normalization, and precise acquisition times",async()=>{
   assert.equal(calls[1].body.token,"page2");
   assert.ok(Array.isArray(calls[1].body.bbox));
 });
+test("falls back to the item thumbnail link when the asset preview is not http(s)",async()=>{
+  const item={type:"Feature",id:"LC09_1",collection:"landsat-c2-l2",bbox:[1,2,3,4],
+    properties:{datetime:"2025-01-10T02:12:00Z",platform:"landsat-9"},
+    assets:{thumbnail:{href:"s3://usgs-landsat/collection02/LC09_1_thumb_small.jpeg",type:"image/jpeg",roles:["thumbnail"]}},
+    links:[{rel:"self",href:"https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1"},
+      {rel:"thumbnail",href:"https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1/thumbnail"}]};
+  const mock=async()=>new Response(JSON.stringify({type:"FeatureCollection",features:[item],links:[]}),{status:200});
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["landsat-c2-l2"],fetchImpl:mock});
+  const catalog=new SatelliteCatalog([provider]);
+  const pages=[];
+  for await(const p of catalog.search(search)) pages.push(p);
+  assert.equal(pages[0].items[0].previewUrl,
+    "https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1/thumbnail");
+});
 test("rejects cross-origin pagination before requesting the next page",async()=>{
   const mock=async()=>new Response(JSON.stringify({...sample,links:[{rel:"next",href:"https://untrusted.invalid/search"}]}),{status:200});
   const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock});

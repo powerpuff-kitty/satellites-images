@@ -402,6 +402,28 @@ test("the card and map preview prefer a higher-resolution provider asset", async
   await expect(page.locator("#results img")).toHaveAttribute("src", /rendered-hq\.png/);
 });
 
+test("a Landsat-style scene uses the item thumbnail link for its image", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  const item = {
+    type: "Feature", id: "LC09_1", collection: "landsat-c2-l2",
+    geometry: { type: "Polygon", coordinates: [[[116.0, -8.7], [116.3, -8.7], [116.3, -8.4], [116.0, -8.4], [116.0, -8.7]]] },
+    bbox: [116.0, -8.7, 116.3, -8.4],
+    properties: { datetime: "2025-03-10T02:00:00Z", platform: "landsat-9", "eo:cloud_cover": 5 },
+    assets: { thumbnail: { href: "s3://usgs-landsat/collection02/LC09_1_thumb_small.jpeg", type: "image/jpeg", roles: ["thumbnail"] } },
+    links: [
+      { rel: "self", href: "https://example.test/items/LC09_1" },
+      { rel: "thumbnail", href: "https://example.test/items/LC09_1/thumbnail" },
+    ],
+  };
+  await page.route("**/search", (route) => respond(route, { json: collection([item], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await expect(page.locator("#results img")).toHaveAttribute("src", /LC09_1\/thumbnail/);
+});
+
 test("a provider tile set is used when the scene exposes one", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   let tilejsonRequests = 0;

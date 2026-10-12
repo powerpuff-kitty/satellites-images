@@ -224,6 +224,26 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(seen[1][2]["token"], "page2")
         self.assertIn("bbox", seen[1][2])
 
+    def test_thumbnail_link_fallback_for_non_http_assets(self):
+        item = {
+            "type": "Feature", "id": "LC09_1", "collection": "landsat-c2-l2", "bbox": [1, 2, 3, 4],
+            "properties": {"datetime": "2025-01-10T02:12:00Z", "platform": "landsat-9"},
+            "assets": {"thumbnail": {"href": "s3://usgs-landsat/collection02/LC09_1_thumb_small.jpeg",
+                                     "type": "image/jpeg", "roles": ["thumbnail"]}},
+            "links": [
+                {"rel": "self", "href": "https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1"},
+                {"rel": "thumbnail", "href": "https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1/thumbnail"},
+            ],
+        }
+        def mock(url, method, body):
+            return {"type": "FeatureCollection", "features": [item], "links": []}
+        catalog = SatelliteCatalog([EarthSearch(transport=mock)])
+        pages = list(catalog.search(self.query))
+        self.assertEqual(
+            pages[0].items[0].preview_url,
+            "https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1/thumbnail",
+        )
+
     def test_next_post_without_merge_replaces_body(self):
         calls = []
         def mock(url, method, body):

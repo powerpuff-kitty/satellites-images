@@ -390,9 +390,19 @@ pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -
             }
         }
     }
-    let preview_url = assets.iter().find(|a| a.roles.iter().any(|r| r == "thumbnail"))
+    let asset_preview = assets.iter().find(|a| a.roles.iter().any(|r| r == "thumbnail"))
         .or_else(|| assets.iter().find(|a| ["thumbnail", "preview", "rendered_preview"].contains(&a.key.as_str())))
         .map(|a| a.href.clone());
+    // Prefer an http(s) preview: an asset thumbnail, else the item's `thumbnail` link
+    // (Earth Search serves this for Landsat, whose asset hrefs are s3:// URIs).
+    let is_http = |value: &str| value.starts_with("http://") || value.starts_with("https://");
+    let thumbnail_link = item.get("links").and_then(Value::as_array)
+        .and_then(|links| links.iter().filter_map(Value::as_object)
+            .find(|link| link.get("rel").and_then(Value::as_str) == Some("thumbnail"))
+            .and_then(|link| link.get("href")).and_then(Value::as_str))
+        .map(str::to_owned);
+    let preview_url = [asset_preview.clone(), thumbnail_link].into_iter().flatten()
+        .find(|href| is_http(href)).or(asset_preview);
     let cloud = props.get("eo:cloud_cover").and_then(Value::as_f64)
         .filter(|n| n.is_finite() && (0.0..=100.0).contains(n));
     let gsd_meters = props.get("gsd").and_then(Value::as_f64).filter(|n| n.is_finite() && *n > 0.0);
@@ -1137,6 +1147,22 @@ mod tests {
         assert_eq!(scene.acquired_at, "2025-01-10T02:12:00.000Z");
         assert_eq!(scene.access, "unknown");
         assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/preview.png"));
+    }
+    #[test]
+    fn stac_preview_falls_back_to_thumbnail_link() {
+        let fixture = json!({
+            "id": "LC09_1", "collection": "landsat-c2-l2",
+            "properties": {"datetime": "2025-01-10T02:12:00Z", "platform": "landsat-9"},
+            "assets": {"thumbnail": {"href":"s3://usgs-landsat/collection02/LC09_1_thumb_small.jpeg",
+                "type":"image/jpeg", "roles":["thumbnail"]}},
+            "links": [
+                {"rel":"self","href":"https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1"},
+                {"rel":"thumbnail","href":"https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1/thumbnail"}
+            ]
+        });
+        let scene = normalize_stac_item(fixture, "earth-search", &[]).unwrap();
+        assert_eq!(scene.preview_url.as_deref(),
+            Some("https://earth-search.aws.element84.com/v1/collections/landsat-c2-l2/items/LC09_1/thumbnail"));
     }
     #[tokio::test]
     async fn future_plan_is_explicitly_unavailable() {

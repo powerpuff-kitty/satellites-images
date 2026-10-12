@@ -205,6 +205,8 @@ const DISPLAYABLE_IMAGE=/^image\/(jpeg|png|webp|avif)$/i;
 const RASTER_EXTENSION=/\.(jpe?g|png|webp|avif)(\?|#|$)/i;
 const PREVIEW_PRIORITY=["rendered_preview","overview","visual","preview","thumbnail"];
 function isDisplayable(asset:SceneAsset):boolean {
+  // Only http(s) assets can be shown in an <img>/raster layer (Landsat's hrefs are s3://).
+  if(!/^https?:\/\//i.test(asset.href))return false;
   return (asset.type!==null&&DISPLAYABLE_IMAGE.test(asset.type))||RASTER_EXTENSION.test(asset.href);
 }
 /** The best displayable still image the provider exposes for a scene. */
@@ -220,7 +222,7 @@ function previewUrlFor(scene:Scene):string|null {
 }
 /** A provider-rendered tile set (e.g. Planetary Computer) at full resolution. */
 function tileUrlFor(scene:Scene):string|null {
-  return scene.assets.find((asset)=>asset.roles.includes("tiles"))?.href??null;
+  return scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href??null;
 }
 function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCorner,PreviewCorner] {
   const box=Array.isArray(scene.bbox)&&scene.bbox.length===4?scene.bbox as number[]:null;

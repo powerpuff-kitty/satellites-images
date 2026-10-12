@@ -82,8 +82,10 @@ so you can pan/zoom with the map; the **‹ / ›** arrows step through the load
 **Esc** closes the overlay. Opening an image leaves the camera alone (no zoom change). The
 image is the best the source publishes — a provider **rendered tile set** where one exists
 (Planetary Computer's true-colour tiles, full resolution) or the largest **displayable
-preview** asset, overlaid on the footprint (Earth Search only publishes a fixed-size
-`preview.jpg`, so its quality is capped by the source). The explorer loads **one year at a time** in a **single
+preview** asset, overlaid on the footprint. When a provider's asset hrefs are not http(s)
+(Landsat's are `s3://` requester-pays), the item's **`thumbnail` link** is used instead;
+Earth Search's Sentinel-2 only publishes a fixed-size `preview.jpg`, so its quality is
+capped by the source. The explorer loads **one year at a time** in a **single
 request**: use the **month navigation above the calendar** (← / → and the month field) to
 move the visible month; stepping past the edge of what's loaded fetches the next year and
 appends it. Cloud cover is scene-wide metadata, not per-AOI.

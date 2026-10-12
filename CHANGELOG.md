@@ -153,6 +153,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the day matrix no longer disappears when a year returns no observations — it
   always draws the window's grid (placeholder cells), and switches to the new year's grid
   immediately when the window moves.
+- SDKs (TS/Python/Rust): **Landsat previews now resolve** — `previewUrl` prefers an http(s)
+  preview asset and falls back to the STAC item's **`thumbnail` link**, which Earth Search
+  serves for Landsat (whose asset hrefs are `s3://` requester-pays). The explorer likewise
+  ignores non-http(s) assets, so Landsat-9 images appear.
 
 ## [0.2.0] - 2026-10-12
 
