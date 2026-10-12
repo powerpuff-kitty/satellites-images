@@ -102,6 +102,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the timelines are now **all shown stacked** on one shared date axis — daily
   bars by **cloud cover**, **mission** and **provider**, plus a **time-of-day** heatmap —
   replacing the earlier View/Split selectors.
+- Explorer: clicking a timeline bar now **selects** the clicked day (it no longer
+  deselects), zooms the map to that day's footprints, and the redundant "pagination
+  exhausted" status line was removed.
 
 ## [0.2.0] - 2026-10-12
 

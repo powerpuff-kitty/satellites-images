@@ -188,11 +188,21 @@ function cloudClassOf(percent: number | null): CloudClass {
   return "cloudy";
 }
 const SPLIT_PALETTE = ["#e0ae54","#6fb3d2","#b98ad6","#4fbf7a","#d98a6a","#9aa0a2","#c0d76a","#7f8cff","#e58fb0","#7ad1c0"];
+function fitToDay(day:string):void {
+  const boxes = loadedScenes
+    .filter((scene) => scene.acquiredAt.slice(0, 10) === day && Array.isArray(scene.bbox) && scene.bbox.length === 4)
+    .map((scene) => scene.bbox as number[]);
+  if (!boxes.length) return;
+  let west = 180, south = 90, east = -180, north = -90;
+  for (const [w, s, e, n] of boxes) { west = Math.min(west, w); south = Math.min(south, s); east = Math.max(east, e); north = Math.max(north, n); }
+  try { map.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 12 }); } catch { /* degenerate bounds */ }
+}
 function selectTimelineDay(day:string):void {
-  selectedDay = selectedDay === day ? null : day;
+  selectedDay = day;
   displayedLimit = 40;
   redrawAvailability();
   renderLoadedScenes();
+  fitToDay(day);
   storeSearchLink();
 }
 function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, dayMs:number, colW:number, padL:number, height:number, padB:number):void {
@@ -655,8 +665,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     if(summary.uniqueItems===0 && summary.complete) {
       status.textContent="No scenes returned by this catalogue for the selected time window.";
     }else if(summary.complete){
-      status.textContent=summary.uniqueItems+" unique scenes returned; "+
-        "catalogue pagination exhausted for this query.";
+      status.textContent="";
     }else if(session.ended){
       status.textContent=summary.uniqueItems+" unique scenes loaded. "+
         "Search reached its 50-page safety limit; narrow the period for more coverage.";
