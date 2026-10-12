@@ -400,16 +400,20 @@ class StacProvider:
         seen: set[str] = set()
         page_number = 0
         truncated_earlier = False
-        for box_index, box in enumerate(boxes):
-            last_box = box_index == len(boxes) - 1
+        # A polygon already constrains the query, so one request suffices.
+        used_boxes = boxes[:1] if polygon is not None else boxes
+        for box_index, box in enumerate(used_boxes):
+            last_box = box_index == len(used_boxes) - 1
             body: dict[str, Any] = {
-                "bbox": list(box),
                 "datetime": query.start + "T00:00:00Z/" + query.end + "T23:59:59Z",
                 "collections": list(collections),
                 "limit": query.limit,
             }
+            # STAC allows exactly one spatial filter: bbox OR intersects.
             if polygon is not None:
                 body["intersects"] = polygon
+            else:
+                body["bbox"] = list(box)
             href = self.base_url + "/search"
             method = "POST"
             visited: set[str] = set()

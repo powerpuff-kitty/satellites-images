@@ -162,10 +162,13 @@ let activeTab:"historical"|"upcoming"="historical";
 function scheduleForTab():void{ if(activeTab==="upcoming") scheduleUpcoming(); else scheduleSearch(); }
 map.on("click", (e) => {
   if(drawingArea){ draftRing.push([e.lngLat.lng,e.lngLat.lat]); renderAoi(); return; }
+  // Choosing a different location replaces any drawn area.
+  if(aoiRing){ aoiRing=null; setAreaMode(false); }
   updateLocation(e.lngLat.lat, e.lngLat.lng); hideMapLabel(); scheduleForTab();
 });
 for (const el of [lat,lon]) el.addEventListener("change", () => {
   if (Number.isFinite(lat.valueAsNumber) && Number.isFinite(lon.valueAsNumber)) {
+    if(aoiRing){ aoiRing=null; setAreaMode(false); }
     updateLocation(lat.valueAsNumber, lon.valueAsNumber, true);
     hideMapLabel();
     scheduleForTab();
@@ -851,8 +854,13 @@ function sceneCoversPoint(scene:Scene, lng:number, latitude:number):boolean {
 function passesFilters(scene:Scene):boolean {
   if(sensorFilter==="radar"&&!isRadarScene(scene))return false;
   if(sensorFilter==="optical"&&isRadarScene(scene))return false;
-  const pointLng=Number(lon.value), pointLat=Number(lat.value);
-  if(Number.isFinite(pointLng)&&Number.isFinite(pointLat)&&!sceneCoversPoint(scene,pointLng,pointLat))return false;
+  // Point searches require the scene to cover the chosen location. A drawn area is already
+  // restricted to intersecting footprints by the query, and the area's centroid need not sit
+  // inside every one of them.
+  if(!aoiRing){
+    const pointLng=Number(lon.value), pointLat=Number(lat.value);
+    if(Number.isFinite(pointLng)&&Number.isFinite(pointLat)&&!sceneCoversPoint(scene,pointLng,pointLat))return false;
+  }
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
   if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
@@ -940,11 +948,13 @@ function renderCoverage():void {
   const days=summary.days.length, months=summary.months.length;
   const catalogues=summary.providers.map((provider)=>
     provider.id+(provider.uniqueItems?" "+provider.uniqueItems:"")+(provider.hasMore?"+":""));
+  const failed=summary.erroredProviders;
   coverage.textContent=[
     shown+" observation"+(shown===1?"":"s")+" shown",
     days+" day"+(days===1?"":"s")+" with data",
     months+" month"+(months===1?"":"s"),
     catalogues.join(" \u00b7 "),
+    failed.length?failed.join(", ")+" failed":"",
   ].filter((part)=>part.length>0).join(" \u00b7 ");
 }
 function redrawAvailability():void {
@@ -953,7 +963,7 @@ function redrawAvailability():void {
   allDaysButton.hidden=selectedDay===null;
   const statusParts:string[]=[];
   const pointLng=Number(lon.value), pointLat=Number(lat.value);
-  if(Number.isFinite(pointLng)&&Number.isFinite(pointLat)){
+  if(!aoiRing&&Number.isFinite(pointLng)&&Number.isFinite(pointLat)){
     const hidden=loadedScenes.filter((scene)=>!sceneCoversPoint(scene,pointLng,pointLat)).length;
     if(hidden)statusParts.push(hidden+" scene"+(hidden===1?"":"s")+
       " hidden: the footprint does not cover this location.");

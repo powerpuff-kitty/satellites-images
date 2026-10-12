@@ -92,9 +92,19 @@ test("a drawn area is searched as a polygon and can be cleared", async ({ page }
   await page.locator("#draw-area").click();
   await expect.poll(() => bodies.some((body) => JSON.stringify(body).includes("intersects"))).toBe(true);
   await expect(page.locator("#clear-area")).toBeVisible();
-  // ...and clearing it falls back to the point + radius query.
+  // Clicking another location replaces the drawn area with that point.
+  await page.mouse.click(box.x + 220, box.y + 220);
+  await expect(page.locator("#clear-area")).toBeHidden();
+  await expect.poll(() => JSON.stringify(bodies.at(-1) ?? {}).includes("bbox")).toBe(true);
+  // ...and the explicit control does the same.
+  await page.locator("#draw-area").click();
+  await page.mouse.click(box.x + 60, box.y + 60);
+  await page.mouse.click(box.x + 140, box.y + 60);
+  await page.mouse.click(box.x + 140, box.y + 140);
+  await page.locator("#draw-area").click();
+  await expect(page.locator("#clear-area")).toBeVisible();
   await page.locator("#clear-area").click();
-  await expect.poll(() => bodies.some((body) => JSON.stringify(body).includes("bbox"))).toBe(true);
+  await expect.poll(() => JSON.stringify(bodies.at(-1) ?? {}).includes("bbox")).toBe(true);
 });
 
 test("the matrix keeps its size when switching tabs", async ({ page }) => {

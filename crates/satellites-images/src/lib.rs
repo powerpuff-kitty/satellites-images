@@ -565,16 +565,24 @@ impl StacProvider {
         let mut seen_items: HashSet<String> = HashSet::new();
         let mut page_number = 0usize;
         let mut truncated_earlier = false;
-        for (box_index, box_) in boxes.iter().enumerate() {
-            let last_box = box_index + 1 == boxes.len();
+        // A polygon already constrains the query, so one request suffices.
+        let used_boxes: Vec<[f64; 4]> = if polygon.is_some() {
+            boxes.iter().take(1).copied().collect()
+        } else {
+            boxes.clone()
+        };
+        for (box_index, box_) in used_boxes.iter().enumerate() {
+            let last_box = box_index + 1 == used_boxes.len();
             let mut body = json!({
-                "bbox": box_,
                 "datetime": format!("{}T00:00:00Z/{}T23:59:59Z", query.start, query.end),
                 "collections": query.collections,
                 "limit": query.limit,
             });
+            // STAC allows exactly one spatial filter: bbox OR intersects.
             if let Some(poly) = &polygon {
                 body["intersects"] = poly.clone();
+            } else {
+                body["bbox"] = json!(box_);
             }
             let mut href = self.endpoint.join("search")
                 .map_err(|e| Error::InvalidResponse(e.to_string()))?;

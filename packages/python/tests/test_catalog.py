@@ -235,6 +235,19 @@ class CatalogTests(unittest.TestCase):
             ["sentinel-2-l2a", "landsat-c2-l2", "sentinel-1-rtc", "naip"],
         )
 
+    def test_polygon_aoi_sends_intersects_not_bbox(self):
+        import dataclasses
+        seen = []
+        def mock(url, method, body):
+            seen.append(dict(body or {}))
+            return {"type": "FeatureCollection", "features": [], "links": []}
+        aoi = {"type": "Polygon", "coordinates": [[[116, -9], [117, -9], [117, -8], [116, -8], [116, -9]]]}
+        query = dataclasses.replace(self.query, aoi=aoi)
+        list(EarthSearch(transport=mock).search(query))
+        self.assertEqual(len(seen), 1)          # one request, not one per split box
+        self.assertIn("intersects", seen[0])
+        self.assertNotIn("bbox", seen[0])
+
     def test_thumbnail_link_fallback_for_non_http_assets(self):
         item = {
             "type": "Feature", "id": "LC09_1", "collection": "landsat-c2-l2", "bbox": [1, 2, 3, 4],

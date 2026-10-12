@@ -174,6 +174,16 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: a **coverage rollup** (from the availability summary) reports observations shown,
   days with data, months, and a per-catalogue split, marking catalogues that still have more
   pages.
+- SDKs (TS/Python/Rust): **fix polygon AOI search** — the STAC request sent `bbox` *and*
+  `intersects` together, which the public APIs reject with HTTP 400, so every drawn-area
+  search returned nothing. It now sends `intersects` alone (and one request rather than one
+  per split box).
+- Explorer: clicking a different location (or typing coordinates) while an area is drawn
+  **clears the area** and searches that point, and the point-coverage rule is skipped for
+  area searches (the query already restricts results to the polygon).
+- Tools: the live smoke test now covers **Planetary Computer** (including NAIP and Sentinel-1
+  RTC at a US location); the explorer has an opt-in live Playwright check (`LIVE=1`) that
+  runs a real search and a drawn-area search.
 - Explorer: **draw an area on the map** — "Draw area", click three or more corners, "Finish
   area" searches that polygon through the SDK's `aoi` path (the SDK handles box splitting and
   the antimeridian); "Use a point + radius" clears it. The polygon is rendered on the map and

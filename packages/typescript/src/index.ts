@@ -263,12 +263,13 @@ function makeBody(query: SearchQuery, defaults: string[], box: BoundingBox, poly
     throw new SatelliteError("INVALID_QUERY", "Provide at least one collection");
   }
   const body: Record<string, unknown> = {
-    bbox: box,
     datetime: query.from + "T00:00:00Z/" + query.to + "T23:59:59Z",
     collections,
     limit: query.limit ?? 50,
   };
+  // STAC allows exactly one spatial filter: bbox OR intersects (sending both is a 400).
   if (polygon) body.intersects = polygon;
+  else body.bbox = box;
   return body;
 }
 
@@ -420,12 +421,15 @@ export class StacProvider {
     checkDate(query.from, "from");
     checkDate(query.to, "to");
     const { boxes, polygon } = resolveAreas(query);
+    // One request suffices when filtering by polygon: the geometry already constrains the
+    // result, so iterating the split boxes would only repeat it.
+    const boxList = polygon ? boxes.slice(0, 1) : boxes;
     const seen = new Set<string>();
     let pageNumber = 0;
     let truncatedEarlier = false;
-    for (let boxIndex = 0; boxIndex < boxes.length; boxIndex++) {
-      const box = boxes[boxIndex];
-      const lastBox = boxIndex === boxes.length - 1;
+    for (let boxIndex = 0; boxIndex < boxList.length; boxIndex++) {
+      const box = boxList[boxIndex];
+      const lastBox = boxIndex === boxList.length - 1;
       let body = makeBody(query, this.collections, box, polygon);
       let href = this.baseUrl + "/search";
       let method = "POST";

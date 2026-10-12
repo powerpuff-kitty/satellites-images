@@ -94,6 +94,11 @@ A **coverage** line under the filters summarises the loaded result set from the 
 summary: observations shown, days with data, months, and a per-catalogue split (a trailing `+`
 marks a catalogue that still advertises more pages).
 
+The end-to-end suite is fully mocked; for a real check run
+`LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "live search"` (it performs
+a live point search and a live drawn-area search and prints the coverage rollup), and
+`node tools/smoke/live.mjs` for provider-level reachability.
+
 A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
 knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which
 SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex** radar, **NASA CMR-STAC (ASF)**,

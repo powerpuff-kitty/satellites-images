@@ -5,8 +5,8 @@
 //   node tools/smoke/live.mjs
 //
 // No credentials are used; results are whatever the public services return today.
-import { SatelliteCatalog, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac,
-  asfSearch, jaxaGPortal, esaSentinelPlans } from "../../packages/typescript/dist/index.js";
+import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook,
+  cmrStac, asfSearch, jaxaGPortal, esaSentinelPlans } from "../../packages/typescript/dist/index.js";
 
 const base = { latitude: -8.5833, longitude: 116.1167, radiusMeters: 25000, maxPages: 1, limit: 5 };
 async function run(name, fn) {
@@ -21,6 +21,10 @@ const count = async (provider, query) => {
 };
 
 await run("earth-search", () => count(earthSearch(), { ...base, from: "2025-05-01", to: "2025-05-31" }));
+await run("planetary-computer", () => count(planetaryComputer(), { ...base, from: "2025-05-01", to: "2025-05-31" }));
+// US location: exercises the NAIP (0.6 m aerial) and Sentinel-1 RTC collections.
+await run("pc-usa(naip/s1)", () => count(planetaryComputer(),
+  { latitude: 38.9, longitude: -77.0, radiusMeters: 25000, maxPages: 1, limit: 5, from: "2023-01-01", to: "2025-12-31" }));
 await run("copernicus", () => count(copernicusDataSpace(), { ...base, from: "2025-05-01", to: "2025-05-31" }));
 await run("usgs-landsatlook", () => count(usgsLandsatLook(), { ...base, from: "2025-05-01", to: "2025-05-31", collections: ["landsat-c2l2-sr"] }));
 await run("cmr-stac ASF", () => count(cmrStac("ASF", ["sentinel-1-rtc"]), { ...base, from: "2025-05-01", to: "2025-05-31" }));

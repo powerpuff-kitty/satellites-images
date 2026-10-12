@@ -195,6 +195,17 @@ test("STAC pagination, normalization, and precise acquisition times",async()=>{
   assert.equal(calls[1].body.token,"page2");
   assert.ok(Array.isArray(calls[1].body.bbox));
 });
+test("a polygon AOI sends intersects instead of bbox",async()=>{
+  const bodies=[];
+  const mock=async(_href,init)=>{ bodies.push(JSON.parse(init.body));
+    return new Response(JSON.stringify({type:"FeatureCollection",features:[],links:[]}),{status:200}); };
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock});
+  const aoi={type:"Polygon",coordinates:[[[116,-9],[117,-9],[117,-8],[116,-8],[116,-9]]]};
+  for await (const _ of provider.search({aoi,...search})){ /* drain */ }
+  assert.equal(bodies.length,1);                    // one request, not one per split box
+  assert.ok(bodies[0].intersects,              "intersects is sent");
+  assert.equal(bodies[0].bbox,undefined);      // ...and bbox is not (STAC allows one)
+});
 test("falls back to the item thumbnail link when the asset preview is not http(s)",async()=>{
   const item={type:"Feature",id:"LC09_1",collection:"landsat-c2-l2",bbox:[1,2,3,4],
     properties:{datetime:"2025-01-10T02:12:00Z",platform:"landsat-9"},
