@@ -9,7 +9,7 @@ const oldS2=origin+"s2b_mp_acq__kml_20260924t120000_20261012t150000";
 const s1=origin+"s1c_mp_user_20261012t173841_20261103t194800";
 const index='<html><a href="'+oldS2+'">old</a><a href="'+s2+'">new</a>'+
   '<a href="'+s1+'">S1</a><a href="https://evil.test/documents/d/sentinel/s2a_mp_acq__kml_20261012t120000_20261028t120000">external</a></html>';
-const matching="-8.7,116.0,0 -8.4,116.0,0 -8.4,116.3,0 -8.7,116.3,0 -8.7,116.0,0";
+const matching="116.0,-8.7,0 116.3,-8.7,0 116.3,-8.4,0 116.0,-8.4,0 116.0,-8.7,0";
 const outside="1,1,0 2,1,0 2,2,0 1,2,0 1,1,0";
 const placemark=(name,style,coords,date="2026-10-15T02:12:00.000") =>
   '<Placemark><name>'+name+'</name><styleUrl>'+style+'</styleUrl><ExtendedData>'+
