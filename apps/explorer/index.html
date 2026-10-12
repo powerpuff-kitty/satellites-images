@@ -84,6 +84,12 @@
       <section class="map-container" aria-label="Interactive map">
         <div id="map"></div>
         <div class="map-label">SELECT ANY LOCATION ON THE MAP</div>
+        <div class="map-preview" id="map-preview" hidden role="group" aria-label="Scene image preview on the map">
+          <button id="preview-prev" class="map-preview-arrow" type="button" aria-label="Previous image"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+          <p id="preview-caption" class="map-preview-caption"></p>
+          <button id="preview-next" class="map-preview-arrow" type="button" aria-label="Next image"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+          <button id="preview-close" class="map-preview-close" type="button" aria-label="Close image view"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
+        </div>
       </section>
       <aside class="observations" aria-label="Observations">
         <header class="observations-header">
@@ -115,10 +121,6 @@
         <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
       </aside>
     </main>
-    <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Full-screen preview">
-      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close preview"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-      <img id="lightbox-image" alt="" />
-    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

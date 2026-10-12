@@ -125,6 +125,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the search window is now **twelve months**, fetched as **four three-month
   chunks**; the month arrows move within the loaded year and fetch the next quarter when
   you step past its edge (results append instead of resetting).
+- Explorer: clicking a scene **preview overlays the image on the map** (georeferenced via
+  its footprint) so it pans/zooms with the map; **‹ / ›** arrows step through the loaded
+  images. Replaces the full-screen lightbox.
 
 ## [0.2.0] - 2026-10-12
 

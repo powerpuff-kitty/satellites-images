@@ -94,7 +94,7 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .timeline-legend .sw.m1 { background:#e0ae54; } .timeline-legend .sw.m2 { background:#6fb3d2; }
 .timeline-legend .sw.m3 { background:#b98ad6; } .timeline-legend .sw.m4 { background:#4fbf7a; }
 .timeline .heat-cell { stroke:#111512; stroke-width:0.5; }
-.timeline-nav .fa-solid, .month-arrow .fa-solid, .lightbox-close .fa-solid { line-height:1; }
+.timeline-nav .fa-solid, .month-arrow .fa-solid, .map-preview-arrow .fa-solid, .map-preview-close .fa-solid { line-height:1; }
 .timeline-range { display:flex; align-items:center; gap:8px; margin:6px 0 2px; }
 .timeline-range select { height:32px; padding:4px 8px; width:auto; }
 .timeline-caption { font-size:9px; letter-spacing:.07em; text-transform:uppercase; color:#9aa39a; margin:8px 0 1px; }
@@ -129,6 +129,7 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .timeline-nav #window-label { text-align:center; }
 
 /* Full-screen image preview. */
-.lightbox { position:fixed; inset:0; z-index:20; background:#05070599; display:flex; align-items:center; justify-content:center; padding:24px; }
-.lightbox img { max-width:96vw; max-height:92vh; object-fit:contain; background:#000; }
-.lightbox-close { position:absolute; top:14px; right:16px; width:auto; margin:0; padding:8px 12px; background:#1c231e; color:#edece6; border:1px solid #4a5348; font-size:16px; display:grid; place-items:center; }
+.map-preview { position:absolute; z-index:4; top:14px; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:8px; pointer-events:none; }
+.map-preview-arrow, .map-preview-close { pointer-events:auto; display:inline-grid; place-items:center; width:36px; height:36px; margin:0; padding:0; background:#111512e6; color:#edece6; border:1px solid #4a5348; border-radius:999px; font-size:15px; cursor:pointer; }
+.map-preview-arrow:hover, .map-preview-close:hover { background:#1c231e; border-color:#8dd7c1; }
+.map-preview-caption { pointer-events:auto; margin:0; background:#111512e6; color:#e8e6dd; border:1px solid #394037; padding:8px 12px; font-size:11px; letter-spacing:.03em; }

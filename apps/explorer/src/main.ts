@@ -43,9 +43,11 @@ const hasPreview = element<HTMLInputElement>("has-preview");
 const includeUnknown = element<HTMLInputElement>("include-unknown");
 const clearFilters = element<HTMLButtonElement>("clear-filters");
 const timeline = element<HTMLElement>("timeline");
-const lightbox = element<HTMLElement>("lightbox");
-const lightboxImage = element<HTMLImageElement>("lightbox-image");
-const lightboxClose = element<HTMLButtonElement>("lightbox-close");
+const mapPreview = element<HTMLElement>("map-preview");
+const previewCaption = element<HTMLElement>("preview-caption");
+const previewPrev = element<HTMLButtonElement>("preview-prev");
+const previewNext = element<HTMLButtonElement>("preview-next");
+const previewClose = element<HTMLButtonElement>("preview-close");
 
 const plansResults = element<HTMLOListElement>("plans-results");
 const tabHistorical = element<HTMLButtonElement>("tab-historical");
@@ -163,8 +165,15 @@ function makeScene(scene: Scene): HTMLLIElement {
         image.alt = "Provider preview of satellite scene " + scene.id;
         image.loading = "lazy";
         image.referrerPolicy = "no-referrer";
+        image.tabIndex = 0;
+        image.setAttribute("role", "button");
+        image.title = "Show this image on the map";
         image.addEventListener("error", () => image.remove());
-        image.addEventListener("click", () => openLightbox(url.toString(), image.alt));
+        const open = () => openScenePreview(scene);
+        image.addEventListener("click", open);
+        image.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
+        });
         item.append(image);
       }
     } catch { /* Invalid preview: no link */ }
@@ -186,19 +195,65 @@ function makeScene(scene: Scene): HTMLLIElement {
   return item;
 }
 
-// --- Full-screen preview ------------------------------------------------------
-function openLightbox(src: string, alt: string): void {
-  lightboxImage.src = src;
-  lightboxImage.alt = alt;
-  lightbox.hidden = false;
+// --- Scene image overlaid on the map (pan/zoom like the map) ------------------
+let previewScenes:Scene[]=[];
+let previewIndex=0;
+type PreviewCorner=[number,number];
+function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCorner,PreviewCorner] {
+  const box=Array.isArray(scene.bbox)&&scene.bbox.length===4?scene.bbox as number[]:null;
+  if(box&&box.every((value)=>Number.isFinite(value))){
+    const [west,south,east,north]=box;
+    return [[west,north],[east,north],[east,south],[west,south]];
+  }
+  // No footprint: anchor a square over the current search location, sized by radius.
+  const lng=Number(lon.value), centerLat=Number(lat.value);
+  const d=Math.max(0.005, Number(radius.value)/111320);
+  return [[lng-d,centerLat+d],[lng+d,centerLat+d],[lng+d,centerLat-d],[lng-d,centerLat-d]];
 }
-function closeLightbox(): void {
-  lightbox.hidden = true;
-  lightboxImage.removeAttribute("src");
+function removePreviewLayer():void {
+  if(!map.isStyleLoaded())return;
+  if(map.getLayer("scene-preview-layer"))map.removeLayer("scene-preview-layer");
+  if(map.getSource("scene-preview"))map.removeSource("scene-preview");
 }
-lightboxClose.addEventListener("click", closeLightbox);
-lightbox.addEventListener("click", (event) => { if (event.target === lightbox) closeLightbox(); });
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !lightbox.hidden) closeLightbox(); });
+function showMapPreview(index:number):void {
+  const scene=previewScenes[index];
+  const url=scene?.previewUrl;
+  if(!scene||!url){ closeMapPreview(); return; }
+  previewIndex=index;
+  const coordinates=previewCoordinates(scene);
+  const apply=()=>{
+    removePreviewLayer();
+    map.addSource("scene-preview",{type:"image",url,coordinates});
+    map.addLayer({id:"scene-preview-layer",type:"raster",source:"scene-preview",
+      paint:{"raster-opacity":0.96}});
+    try{ map.fitBounds([[coordinates[0][0],coordinates[3][1]],[coordinates[2][0],coordinates[1][1]]],{padding:70,maxZoom:14}); }
+    catch { /* degenerate bounds */ }
+  };
+  if(map.isStyleLoaded())apply();else map.once("load",apply);
+  previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
+    new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
+  mapPreview.hidden=false;
+}
+function closeMapPreview():void {
+  if(mapPreview.hidden)return;
+  mapPreview.hidden=true;
+  removePreviewLayer();
+}
+function stepPreview(delta:number):void {
+  if(!previewScenes.length)return;
+  showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
+}
+function openScenePreview(scene:Scene):void {
+  const withPreviews=loadedScenes.filter((candidate)=>Boolean(candidate.previewUrl));
+  const index=withPreviews.indexOf(scene);
+  if(index<0)return;
+  previewScenes=withPreviews;
+  showMapPreview(index);
+}
+previewPrev.addEventListener("click",()=>stepPreview(-1));
+previewNext.addEventListener("click",()=>stepPreview(1));
+previewClose.addEventListener("click",closeMapPreview);
+document.addEventListener("keydown",(event)=>{ if(event.key==="Escape"&&!mapPreview.hidden)closeMapPreview(); });
 
 // --- Timeline: observations per day, stacked by cloud cover (readable at a glance) ---
 type CloudClass = "clear" | "partial" | "cloudy" | "unknown";
@@ -752,6 +807,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     currentPlanSearch++;
     plansResults.replaceChildren();
     displaySwaths([]);
+    closeMapPreview();
   }
   const accumulator=scanAccumulator??(scanAccumulator=new AvailabilityAccumulator());
   const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();

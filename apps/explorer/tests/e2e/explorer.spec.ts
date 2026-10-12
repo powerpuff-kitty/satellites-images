@@ -285,18 +285,24 @@ test("timeline bars are a fixed width and the chart scrolls horizontally", async
   expect([...new Set(widths)]).toEqual(["4"]);
 });
 
-test("clicking a preview opens a full-screen lightbox and Escape closes it", async ({ page }) => {
+test("clicking a preview overlays the image on the map with prev/next navigation", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
-  await page.route("**/search", (route) => respond(route, { json: collection([stacScene("img", "2025-03-09T02:00:00Z")], [], 1) }));
+  await page.route("**/search", (route) => respond(route, { json: collection([
+    stacScene("img-a", "2025-03-09T02:00:00Z"), stacScene("img-b", "2025-03-12T02:00:00Z")], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await expect(page.locator("#results img")).toHaveCount(1);
-  await page.locator("#results img").click();
-  await expect(page.locator("#lightbox")).toBeVisible();
-  await expect(page.locator("#lightbox-image")).toHaveAttribute("src", /thumb-img\.jpg/);
+  await expect(page.locator("#results img")).toHaveCount(2);
+  await page.locator("#results img").first().click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  const firstCaption = (await page.locator("#preview-caption").textContent()) ?? "";
+  expect(firstCaption.length).toBeGreaterThan(0);
+  await page.locator("#preview-next").click();
+  await expect(page.locator("#preview-caption")).not.toHaveText(firstCaption);
+  await page.locator("#preview-prev").click();
+  await expect(page.locator("#preview-caption")).toHaveText(firstCaption);
   await page.keyboard.press("Escape");
-  await expect(page.locator("#lightbox")).toBeHidden();
+  await expect(page.locator("#map-preview")).toBeHidden();
 });
 
 test("cloud-cover and hour filters narrow the loaded results", async ({ page }) => {

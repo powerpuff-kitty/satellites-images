@@ -74,8 +74,9 @@ Published observations live in an independent, scrollable **right-hand panel** (
 controls and the map stay accessible). Its header is **sticky** and contains a **timeline
 chart** of the loaded observations: one **bar per day** (height = number of observations),
 **stacked by scene-wide cloud cover** (green <10%, amber <60%, grey ≥60%, dark = unknown).
-Click a bar to select that day. Clicking a scene **preview image opens a full-screen
-lightbox** (Esc closes it). The explorer loads **one year at a time** (twelve months) in
+Click a bar to select that day. Clicking a scene **preview image overlays it on the map**
+so you can pan/zoom with the map; the **‹ / ›** arrows step through the loaded images and
+**Esc** closes the overlay. The explorer loads **one year at a time** (twelve months) in
 **three-month chunks**: use the **month navigation above the calendar** (← / → and the month
 field) to move the visible month; stepping past the edge of what's loaded fetches the next
 three-month chunk and appends it. Cloud cover is scene-wide metadata, not per-AOI.
