@@ -2,7 +2,7 @@
   "name": "satellites-images-workspace",
   "private": true,
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "workspaces": [
     "packages/typescript",
     "apps/explorer"
@@ -11,6 +11,6 @@
     "generate:registry": "node tools/generate-registry.mjs",
     "build": "npm run build -w @powerpuff-kitty/satellites-images && npm run build -w @satellites-images/explorer",
     "test": "npm run test -w @powerpuff-kitty/satellites-images",
-    "check": "npm run generate:registry && npm run build && npm run test"
+    "check": "npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test"
   }
 }

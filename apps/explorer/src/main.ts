@@ -1,4 +1,5 @@
 import maplibregl from "maplibre-gl";
+import type { FeatureCollection, Geometry } from "geojson";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
@@ -184,10 +185,9 @@ function displaySwaths(items:AcquisitionOpportunity[]):void {
   const features = items.flatMap((item) => {
     if (!item.footprint) return [];
     return [{type:"Feature" as const, properties:{mission:item.mission,time:item.expectedAt},
-      geometry:item.footprint}];
+      geometry:item.footprint as unknown as Geometry}];
   });
-  const data = {type:"FeatureCollection" as const,features} as
-    unknown as GeoJSON.FeatureCollection;
+  const data:FeatureCollection = {type:"FeatureCollection",features};
   const render=() => {
     const existing = map.getSource("planned-swaths") as maplibregl.GeoJSONSource | undefined;
     if (existing) existing.setData(data);
