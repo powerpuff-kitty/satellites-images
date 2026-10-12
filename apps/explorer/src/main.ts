@@ -234,7 +234,7 @@ function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, day
     const date = new Date(first + index * dayMs);
     const label = document.createElementNS(NS, "text");
     label.setAttribute("x", (padL + index * colW + colW / 2).toFixed(1));
-    label.setAttribute("y", String(height - padB - 2));
+    label.setAttribute("y", String(height - padB + 10));
     label.setAttribute("text-anchor", "middle");
     label.setAttribute("class", "tick");
     label.textContent = date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
@@ -258,7 +258,7 @@ function renderTimeline(): void {
 function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string, opts:{keyOf?:(s:Scene)=>string; colourOf?:(k:string)=>string; interactive?:boolean} = {}): void {
   const NS = "http://www.w3.org/2000/svg";
   const width = Math.max(240, container.clientWidth || 320);
-  const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
+  const height = 82, padL = 28, padR = 8, padT = 6, padB = 14;
   const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000;
   const byDay = new Map<string, Map<string, number>>();
   const totals = new Map<string, number>();
@@ -324,7 +324,7 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
 function renderTimelineHeat(container:HTMLElement, scenes:Scene[], title:string): void {
   const NS = "http://www.w3.org/2000/svg";
   const width = Math.max(240, container.clientWidth || 320);
-  const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
+  const height = 82, padL = 28, padR = 8, padT = 6, padB = 14;
   const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000, rows = 4;
   const cells = new Map<string, number>();
   const daySet = new Set<string>();

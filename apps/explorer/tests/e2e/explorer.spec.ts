@@ -238,6 +238,20 @@ test("the results header timeline plots per-day observations", async ({ page }) 
   await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
 });
 
+test("timeline date labels sit below the axis line", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, {
+    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-20T02:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  const positions = await page.locator("#timeline svg").first().evaluate((svg) => {
+    const axis = svg.querySelector(".axis");
+    const tick = svg.querySelector(".tick");
+    return { axisY: Number(axis?.getAttribute("y1")), labelY: Number(tick?.getAttribute("y")) };
+  });
+  expect(positions.labelY).toBeGreaterThan(positions.axisY);
+});
+
 test("clicking a preview opens a full-screen lightbox and Escape closes it", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
