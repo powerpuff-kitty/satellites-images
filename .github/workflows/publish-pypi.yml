@@ -1,0 +1,64 @@
+name: Publish PyPI
+
+# Publish only on an explicit version tag. Never on ordinary pushes.
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build and verify only (do not publish)"
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install test tooling
+        run: python -m pip install --upgrade pip build
+      - name: Install package and run tests
+        run: |
+          python -m pip install -e packages/python
+          python -m unittest discover -s packages/python/tests -v
+      - name: Guard tag matches package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg="$(python -c "import tomllib,pathlib;print(tomllib.loads(pathlib.Path('packages/python/pyproject.toml').read_text())['project']['version'])")"
+          if [ "$tag" != "$pkg" ]; then
+            echo "Tag $tag does not match pyproject version $pkg" >&2
+            exit 1
+          fi
+      - name: Build sdist and wheel
+        run: python -m build packages/python
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: packages/python/dist/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
+    permissions:
+      id-token: write # PyPI trusted publishing
+    environment:
+      name: pypi
+      url: https://pypi.org/p/satellites-images
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist

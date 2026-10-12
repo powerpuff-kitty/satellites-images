@@ -59,6 +59,15 @@
       "minimum": 0,
       "maximum": 100
     },
+    "coveragePercent": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Approximate bbox-overlap percentage of the requested AOI, 0-100"
+    },
     "access": {
       "enum": [
         "open",

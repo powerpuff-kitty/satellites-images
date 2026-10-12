@@ -29,10 +29,29 @@
           <button id="search-button" type="submit">Find observations <span aria-hidden="true">↗</span></button>
         </form>
         <div class="heading">
+          <h2>Availability calendar</h2>
+          <div class="month-nav">
+            <button id="month-prev" class="icon-button" type="button" aria-label="Previous month">‹</button>
+            <span id="month-label" class="muted">—</span>
+            <button id="month-next" class="icon-button" type="button" aria-label="Next month">›</button>
+          </div>
+        </div>
+        <div id="calendar" class="calendar" role="grid" aria-label="Observation count per day"></div>
+        <p class="status" id="calendar-status" role="status">Search a location to build a calendar of the scenes found in the loaded pages.</p>
+        <div class="pair">
+          <label>Mission filter<select id="mission-filter"><option value="all">All missions</option></select></label>
+          <label>Selected day<input id="selected-day" type="text" readonly aria-readonly="true" placeholder="any day" /></label>
+        </div>
+        <div class="heading">
           <h2>Published observations</h2>
           <span id="counter">—</span>
         </div>
         <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
+        <div class="inline-actions">
+          <button id="scan-more" class="secondary-button" type="button" disabled>Scan 5 more pages <span aria-hidden="true">↗</span></button>
+          <button id="copy-link" class="secondary-button" type="button">Copy shareable link</button>
+        </div>
+        <p class="status" id="scan-status" role="status">Scans are limited to 5 pages at a time and 50 pages in total.</p>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
         <div class="planning-area">
           <div class="heading">

@@ -94,6 +94,26 @@ pub struct AcquisitionOpportunity {
     pub orbit_relative: Option<u32>,
 }
 
+/// One selected plan contributing to an upcoming query.
+#[derive(Debug,Clone,Serialize,Deserialize)]
+pub struct ESAPlanDiagnostic {
+    pub mission: String,
+    pub source_url: String,
+    pub starts_at: String,
+    pub ends_at: String,
+    pub from_cache: bool,
+}
+
+#[derive(Debug,Clone,Serialize,Deserialize)]
+pub struct ESAUpcomingResult {
+    pub opportunities: Vec<AcquisitionOpportunity>,
+    /// UTC time the query last downloaded a plan body, or None when none was read.
+    pub fetched_at: Option<String>,
+    pub plans: Vec<ESAPlanDiagnostic>,
+    /// "ok" | "no-current-plan" | "no-overlap".
+    pub status: String,
+}
+
 pub fn parse_esa_plan_index(html:&str)->Result<Vec<ESAPlan>,Error>{
     if html.len()>2_000_000 {return Err(Error::InvalidResponse("ESA index size limit exceeded".into()));}
     let href=Regex::new(r#"(?i)href\s*=\s*["']([^"']+)["']"#)
@@ -244,10 +264,13 @@ pub fn parse_esa_plan_kml(kml:&str,plan:&ESAPlan,bbox:[f64;4],
     Ok(results)
 }
 
+/// Cached ESA document: (fetched-at, body, ETag, Last-Modified).
+type PlanCacheEntry = (Instant, String, Option<String>, Option<String>);
+
 pub struct ESAPlansProvider {
     client: Client,
     missions: Vec<String>,
-    cache: Mutex<HashMap<String, (Instant, String)>>,
+    cache: Mutex<HashMap<String, PlanCacheEntry>>,
 }
 impl Default for ESAPlansProvider {
     fn default()->Self {Self::new().expect("ESA provider client")}
@@ -261,28 +284,46 @@ impl ESAPlansProvider {
             cache:Mutex::new(HashMap::new()),
         })
     }
-    async fn fetch_text(&self,url:&str,max_bytes:usize)->Result<String,Error> {
+    fn ttl(url:&str)->u64 { if url==S1_INDEX||url==S2_INDEX {900} else {3600} }
+    async fn fetch_text(&self,url:&str,max_bytes:usize)->Result<(String,bool),Error> {
         let parsed=Url::parse(url).map_err(|e|Error::InvalidResponse(e.to_string()))?;
         if parsed.scheme()!="https"||parsed.host_str()!=Some("sentinels.copernicus.eu")||
           (url!=S1_INDEX&&url!=S2_INDEX&&!parsed.path().starts_with("/documents/")){
             return Err(Error::InvalidResponse("Unexpected ESA URL".into()));
         }
-        {
+        let validators={
             let cache=self.cache.lock().map_err(|_|Error::InvalidResponse("Cache lock poisoned".into()))?;
-            if let Some((created,value))=cache.get(url) {
-                let ttl=if url==S1_INDEX||url==S2_INDEX {900} else {3600};
-                if created.elapsed()<StdDuration::from_secs(ttl) && value.len()<=max_bytes {
-                    return Ok(value.clone());
+            match cache.get(url) {
+                Some((created,value,etag,last_modified))=>{
+                    if created.elapsed()<StdDuration::from_secs(Self::ttl(url)) && value.len()<=max_bytes {
+                        return Ok((value.clone(),true));
+                    }
+                    (etag.clone(),last_modified.clone())
                 }
+                None=>(None,None),
             }
+        };
+        // RFC 9110 conditional request: only send validators ESA actually supplied.
+        let mut request=self.client.get(parsed)
+            .header("Accept","text/html, application/xml, application/vnd.google-earth.kml+xml");
+        if let (Some(etag),_) = &validators { request=request.header("If-None-Match",etag); }
+        if let (_,Some(last_modified)) = &validators { request=request.header("If-Modified-Since",last_modified); }
+        let mut response=request.send().await?;
+        if response.status()==reqwest::StatusCode::NOT_MODIFIED {
+            let mut cache=self.cache.lock().map_err(|_|Error::InvalidResponse("Cache lock poisoned".into()))?;
+            if let Some((_,value,etag,last_modified))=cache.get(url).cloned() {
+                if value.len()>max_bytes {return Err(Error::InvalidResponse("ESA response exceeds size limit".into()));}
+                cache.insert(url.to_owned(),(Instant::now(),value.clone(),etag,last_modified));
+                return Ok((value,true));
+            }
+            return Err(Error::InvalidResponse("ESA returned 304 without a cached plan".into()));
         }
-        let mut response=self.client.get(parsed)
-            .header("Accept","text/html, application/xml, application/vnd.google-earth.kml+xml")
-            .send().await?;
         if !response.status().is_success(){return Err(Error::Http(response.status().as_u16()));}
         if response.content_length().is_some_and(|size|size>max_bytes as u64){
             return Err(Error::InvalidResponse("ESA response exceeds size limit".into()));
         }
+        let etag=response.headers().get(reqwest::header::ETAG).and_then(|v|v.to_str().ok()).map(str::to_owned);
+        let last_modified=response.headers().get(reqwest::header::LAST_MODIFIED).and_then(|v|v.to_str().ok()).map(str::to_owned);
         let mut bytes=Vec::new();
         while let Some(chunk)=response.chunk().await? {
             if bytes.len()+chunk.len()>max_bytes {
@@ -294,11 +335,11 @@ impl ESAPlansProvider {
         {
             let mut cache=self.cache.lock().map_err(|_|Error::InvalidResponse("Cache lock poisoned".into()))?;
             if cache.len()>=12 {cache.clear();}
-            cache.insert(url.to_owned(),(Instant::now(),text.clone()));
+            cache.insert(url.to_owned(),(Instant::now(),text.clone(),etag,last_modified));
         }
-        Ok(text)
+        Ok((text,false))
     }
-    pub async fn upcoming(&self,query:&AcquisitionQuery)->Result<Vec<AcquisitionOpportunity>,Error>{
+    pub async fn upcoming_with_diagnostics(&self,query:&AcquisitionQuery)->Result<ESAUpcomingResult,Error>{
         let (start,stop,bbox)=query.window(Utc::now())?;
         let missions:HashSet<&str>=query.missions.iter().map(String::as_str).collect();
         let mut pages=Vec::new();
@@ -306,7 +347,7 @@ impl ESAPlansProvider {
         if missions.iter().any(|m|m.starts_with("S2")){pages.push(S2_INDEX);}
         let mut plans=Vec::new();
         for page in pages {
-            plans.extend(parse_esa_plan_index(&self.fetch_text(page,2_000_000).await?)?);
+            plans.extend(parse_esa_plan_index(&self.fetch_text(page,2_000_000).await?.0)?);
         }
         let mut newest:HashMap<String,ESAPlan>=HashMap::new();
         for plan in plans {
@@ -319,12 +360,32 @@ impl ESAPlansProvider {
             if replacing {newest.insert(plan.mission.clone(),plan);}
         }
         let mut items=Vec::new();
+        let mut diagnostics=Vec::new();
+        let mut fetched_at:Option<DateTime<Utc>>=None;
         for plan in newest.into_values(){
-            let kml=self.fetch_text(&plan.url,20_000_000).await?;
+            let (kml,from_cache)=self.fetch_text(&plan.url,20_000_000).await?;
+            if !from_cache {
+                let now=Utc::now();
+                if fetched_at.is_none_or(|previous|now>previous){fetched_at=Some(now);}
+            }
+            diagnostics.push(ESAPlanDiagnostic{
+                mission:plan.mission.clone(),source_url:plan.url.clone(),
+                starts_at:plan.starts_at.clone(),ends_at:plan.ends_at.clone(),from_cache,
+            });
             items.extend(parse_esa_plan_kml(&kml,&plan,bbox,start,stop)?);
         }
         items.sort_by(|a,b|a.expected_at.cmp(&b.expected_at).then_with(||a.id.cmp(&b.id)));
-        Ok(items)
+        let status=if !items.is_empty() {"ok"}
+            else if diagnostics.is_empty() {"no-current-plan"} else {"no-overlap"};
+        Ok(ESAUpcomingResult{
+            opportunities:items,
+            fetched_at:fetched_at.map(|t|t.to_rfc3339_opts(SecondsFormat::Millis,true)),
+            plans:diagnostics,
+            status:status.into(),
+        })
+    }
+    pub async fn upcoming(&self,query:&AcquisitionQuery)->Result<Vec<AcquisitionOpportunity>,Error>{
+        Ok(self.upcoming_with_diagnostics(query).await?.opportunities)
     }
     pub fn missions(&self)->&[String] {&self.missions}
     pub fn clear_cache(&self) {

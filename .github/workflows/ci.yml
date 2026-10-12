@@ -31,3 +31,16 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --manifest-path crates/satellites-images/Cargo.toml
       - run: cargo package --manifest-path crates/satellites-images/Cargo.toml --list --allow-dirty
+  explorer-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm install --no-audit --no-fund
+      - name: Install Playwright browser
+        working-directory: apps/explorer
+        run: npx playwright install --with-deps chromium
+      - name: Run browser E2E with offline fixtures
+        run: npm run test:e2e -w @satellites-images/explorer

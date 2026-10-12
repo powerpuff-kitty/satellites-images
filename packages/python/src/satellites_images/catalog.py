@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from importlib.resources import files
@@ -23,11 +24,16 @@ class SatelliteError(Exception):
 
 @dataclass(frozen=True)
 class SearchQuery:
-    latitude: float
-    longitude: float
-    radius_meters: float
-    start: str
-    end: str
+    #: Centre latitude. Required unless ``aoi`` is supplied.
+    latitude: float | None = None
+    #: Centre longitude. Required unless ``aoi`` is supplied.
+    longitude: float | None = None
+    #: Radius in metres (0 < r <= 100000). Required unless ``aoi`` is supplied.
+    radius_meters: float | None = None
+    start: str = ""
+    end: str = ""
+    #: Optional GeoJSON Polygon/MultiPolygon (RFC 7946 ``[lon, lat]``). Overrides centre/radius.
+    aoi: dict[str, Any] | None = None
     collections: tuple[str, ...] | None = None
     limit: int = 50
     max_pages: int = 3
@@ -49,6 +55,13 @@ class SearchQuery:
             not self.collections or any(not isinstance(c, str) or not c.strip() for c in self.collections)
         ):
             raise SatelliteError("INVALID_QUERY", "collections cannot be empty")
+        has_radius = (
+            self.latitude is not None and self.longitude is not None and self.radius_meters is not None
+        )
+        if self.aoi is None and not has_radius:
+            raise SatelliteError(
+                "INVALID_QUERY", "Provide latitude/longitude/radius_meters or a GeoJSON aoi"
+            )
 
 
 @dataclass(frozen=True)
@@ -75,6 +88,8 @@ class Scene:
     assets: tuple[SceneAsset, ...]
     source_url: str | None
     raw: dict[str, Any]
+    #: Approximate bbox-overlap percentage of the requested AOI (0-100), or None.
+    coverage_percent: float | None = None
 
 
 @dataclass(frozen=True)
@@ -86,33 +101,233 @@ class SearchPage:
     matched: int | None
 
 
+@dataclass(frozen=True)
+class DayAvailability:
+    date: str
+    count: int
+    providers: tuple[str, ...]
+    missions: tuple[str, ...]
+    collections: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class MonthAvailability:
+    month: str
+    count: int
+
+
+@dataclass(frozen=True)
+class AvailabilitySummary:
+    days: tuple[DayAvailability, ...]
+    months: tuple[MonthAvailability, ...]
+    total_scenes: int
+    #: False when any collected page still advertised a next link (truncated search).
+    complete: bool
+    truncated_providers: tuple[str, ...]
+    providers: dict[str, int]
+    missions: dict[str, int]
+    collections: dict[str, int]
+
+
+def availability_summary(pages: Any) -> AvailabilitySummary:
+    """Summarize collected search pages into UTC day/month availability.
+
+    De-duplicates by provider-native item id while retaining cross-provider
+    provenance, and marks the summary incomplete when any page was truncated.
+    It never asserts that absent days have no imagery.
+    """
+    seen: set[str] = set()
+    days: dict[str, dict[str, Any]] = {}
+    months: dict[str, int] = {}
+    providers: dict[str, int] = {}
+    missions: dict[str, int] = {}
+    collections: dict[str, int] = {}
+    truncated: set[str] = set()
+    total = 0
+    complete = True
+    for page in pages:
+        if page.has_next:
+            complete = False
+            truncated.add(page.provider_id)
+        for scene in page.items:
+            key = page.provider_id + ":" + scene.id
+            if key in seen:
+                continue
+            seen.add(key)
+            total += 1
+            date = scene.acquired_at[:10]
+            bucket = days.setdefault(
+                date, {"count": 0, "providers": set(), "missions": set(), "collections": set()})
+            bucket["count"] += 1
+            bucket["providers"].add(page.provider_id)
+            if scene.mission:
+                bucket["missions"].add(scene.mission)
+            if scene.collection:
+                bucket["collections"].add(scene.collection)
+            months[date[:7]] = months.get(date[:7], 0) + 1
+            providers[page.provider_id] = providers.get(page.provider_id, 0) + 1
+            if scene.mission:
+                missions[scene.mission] = missions.get(scene.mission, 0) + 1
+            if scene.collection:
+                collections[scene.collection] = collections.get(scene.collection, 0) + 1
+    return AvailabilitySummary(
+        days=tuple(
+            DayAvailability(date, bucket["count"], tuple(sorted(bucket["providers"])),
+                            tuple(sorted(bucket["missions"])), tuple(sorted(bucket["collections"])))
+            for date, bucket in sorted(days.items())
+        ),
+        months=tuple(MonthAvailability(month, months[month]) for month in sorted(months)),
+        total_scenes=total,
+        complete=complete,
+        truncated_providers=tuple(sorted(truncated)),
+        providers=providers,
+        missions=missions,
+        collections=collections,
+    )
+
+
 def list_sources() -> list[dict[str, Any]]:
     """Return detached registry entries; this does not imply implemented adapters."""
     return json.loads(files("satellites_images").joinpath("sources.json").read_text(encoding="utf-8"))["sources"]
 
 
-def bounds_around(latitude: float, longitude: float, radius_meters: float) -> list[float]:
+def radius_boxes(latitude: float, longitude: float, radius_meters: float) -> list[list[float]]:
+    """Convert a centre/radius search into one or two STAC-safe bounding boxes.
+
+    Antimeridian-crossing searches are split at +/-180; pole-crossing searches use
+    the full longitude range instead of raising.
+    """
     if not all(math.isfinite(x) for x in (latitude, longitude, radius_meters)) or not (
         -90 <= latitude <= 90 and -180 <= longitude <= 180 and 0 < radius_meters <= 100000
     ):
         raise SatelliteError("INVALID_QUERY", "Invalid coordinates or radius")
     lat_delta = radius_meters / 110574
-    if latitude - lat_delta < -90 or latitude + lat_delta > 90:
-        raise SatelliteError("UNSUPPORTED_AREA", "AOI crosses a pole")
+    south = latitude - lat_delta
+    north = latitude + lat_delta
+    touches_pole = south <= -90 or north >= 90
+    south = max(south, -90.0)
+    north = min(north, 90.0)
     cos = math.cos(math.radians(latitude))
-    if cos < .001:
-        raise SatelliteError("UNSUPPORTED_AREA", "AOI too close to a pole")
+    if touches_pole or cos < .001:
+        return [[-180.0, south, 180.0, north]]
     lon_delta = radius_meters / (111320 * cos)
-    if longitude - lon_delta < -180 or longitude + lon_delta > 180:
-        raise SatelliteError("UNSUPPORTED_AREA", "AOI crosses antimeridian")
-    return [longitude - lon_delta, latitude - lat_delta, longitude + lon_delta, latitude + lat_delta]
+    west = longitude - lon_delta
+    east = longitude + lon_delta
+    if east > 180:
+        return [[west, south, 180.0, north], [-180.0, south, east - 360, north]]
+    if west < -180:
+        return [[west + 360, south, 180.0, north], [-180.0, south, east, north]]
+    return [[west, south, east, north]]
+
+
+def _position(value: Any) -> bool:
+    return (
+        isinstance(value, (list, tuple)) and len(value) == 2
+        and all(isinstance(c, (int, float)) and not isinstance(c, bool) and math.isfinite(c) for c in value)
+        and -180 <= value[0] <= 180 and -90 <= value[1] <= 90
+    )
+
+
+def _polygon_rings(aoi: Any) -> list[list[list[float]]]:
+    if not isinstance(aoi, dict):
+        raise SatelliteError("INVALID_QUERY", "AOI must be a GeoJSON Polygon or MultiPolygon")
+    kind = aoi.get("type")
+    coordinates = aoi.get("coordinates")
+    if kind == "Polygon":
+        rings = coordinates
+    elif kind == "MultiPolygon":
+        if not isinstance(coordinates, list) or not all(isinstance(p, list) for p in coordinates):
+            raise SatelliteError("INVALID_QUERY", "AOI geometry has no rings")
+        rings = [ring for polygon in coordinates for ring in polygon]
+    else:
+        raise SatelliteError("INVALID_QUERY", "AOI must be a GeoJSON Polygon or MultiPolygon")
+    if not isinstance(rings, list) or not rings:
+        raise SatelliteError("INVALID_QUERY", "AOI geometry has no rings")
+    for ring in rings:
+        if not isinstance(ring, list) or len(ring) < 4 or not all(_position(p) for p in ring):
+            raise SatelliteError(
+                "INVALID_QUERY", "AOI ring must hold at least 4 ordered [lon,lat] positions"
+            )
+    return rings
+
+
+def _crosses_antimeridian(rings: list[list[list[float]]]) -> bool:
+    for ring in rings:
+        for index, point in enumerate(ring):
+            following = ring[(index + 1) % len(ring)]
+            if abs(following[0] - point[0]) > 180:
+                return True
+    return False
+
+
+def polygon_boxes(aoi: Any) -> list[list[float]]:
+    """Convert a GeoJSON polygon AOI into one or two STAC-safe bounding boxes."""
+    rings = _polygon_rings(aoi)
+    lats = [p[1] for ring in rings for p in ring]
+    south, north = min(lats), max(lats)
+    if not _crosses_antimeridian(rings):
+        lons = [p[0] for ring in rings for p in ring]
+        return [[min(lons), south, max(lons), north]]
+    east_of_line, west_of_line = 180.0, -180.0
+    for ring in rings:
+        for lon, _ in ring:
+            if 0 < lon < east_of_line:
+                east_of_line = lon
+            if lon <= 0 and lon > west_of_line:
+                west_of_line = lon
+    boxes: list[list[float]] = []
+    if east_of_line < 180:
+        boxes.append([east_of_line, south, 180.0, north])
+    if west_of_line > -180:
+        boxes.append([-180.0, south, west_of_line, north])
+    if not boxes:
+        raise SatelliteError("INVALID_QUERY", "AOI geometry is degenerate")
+    return sorted(boxes, key=lambda box: box[0])
+
+
+def resolve_areas(query: SearchQuery) -> tuple[list[list[float]], dict[str, Any] | None]:
+    """Resolve a query into STAC-safe bounding boxes plus an optional intersects geometry."""
+    if query.aoi is not None:
+        boxes = polygon_boxes(query.aoi)
+        return boxes, (query.aoi if len(boxes) == 1 else None)
+    if query.latitude is None or query.longitude is None or query.radius_meters is None:
+        raise SatelliteError("INVALID_QUERY", "Provide latitude/longitude/radius_meters or a GeoJSON aoi")
+    return radius_boxes(query.latitude, query.longitude, query.radius_meters), None
+
+
+def _box_area(box: list[float]) -> float:
+    return max(0.0, box[2] - box[0]) * max(0.0, box[3] - box[1])
+
+
+def _overlap_area(a: list[float], b: list[float]) -> float:
+    width = min(a[2], b[2]) - max(a[0], b[0])
+    height = min(a[3], b[3]) - max(a[1], b[1])
+    return max(0.0, width) * max(0.0, height)
+
+
+def coverage_percent(scene_bbox: Any, boxes: list[list[float]]) -> float | None:
+    """bbox-overlap percentage of a scene within the requested area boxes (0-100)."""
+    if (not isinstance(scene_bbox, list) or len(scene_bbox) != 4
+            or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+                       for v in scene_bbox)):
+        return None
+    total = sum(_box_area(box) for box in boxes)
+    if total <= 0:
+        return None
+    covered = sum(_overlap_area(scene_bbox, box) for box in boxes)
+    return max(0.0, min(100.0, covered / total * 100))
+
+
+def bounds_around(latitude: float, longitude: float, radius_meters: float) -> list[float]:
+    """Backwards-compatible single bounding box; returns the first STAC-safe box."""
+    return radius_boxes(latitude, longitude, radius_meters)[0]
 
 
 def _dictionary(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
-def _normalized_scene(raw: Any, provider_id: str) -> Scene:
+def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | None = None) -> Scene:
     obj = _dictionary(raw)
     props = _dictionary(obj.get("properties"))
     identifier = obj.get("id")
@@ -156,6 +371,7 @@ def _normalized_scene(raw: Any, provider_id: str) -> Scene:
         assets=tuple(assets),
         source_url=source_link if isinstance(source_link, str) else None,
         raw=obj,
+        coverage_percent=coverage_percent(bbox, boxes) if boxes else None,
     )
 
 
@@ -201,59 +417,76 @@ class StacProvider:
         collections = query.collections if query.collections is not None else self.collections
         if not collections:
             raise SatelliteError("INVALID_QUERY", "Provide at least one collection")
-        body: dict[str, Any] = {
-            "bbox": bounds_around(query.latitude, query.longitude, query.radius_meters),
-            "datetime": query.start + "T00:00:00Z/" + query.end + "T23:59:59Z",
-            "collections": list(collections),
-            "limit": query.limit,
-        }
-        href = self.base_url + "/search"
-        method = "POST"
-        visited: set[str] = set()
-        for index in range(query.max_pages):
-            cursor = json.dumps([href, method, body], sort_keys=True)
-            if cursor in visited:
-                raise SatelliteError("PAGINATION_LOOP", "Repeating next link", self.id)
-            visited.add(cursor)
-            try:
-                result = self._transport(href, method, body if method == "POST" else None)
-            except SatelliteError as exc:
-                if exc.provider_id is None:
-                    exc.provider_id = self.id
-                raise
-            except Exception as exc:
-                raise SatelliteError("NETWORK", "Request failed: " + str(exc), self.id) from exc
-            if not isinstance(result, dict) or not isinstance(result.get("features"), list):
-                raise SatelliteError("INVALID_RESPONSE", "STAC response lacks features", self.id)
-            links = result.get("links", [])
-            if not isinstance(links, list):
-                links = []
-            next_link = next((link for link in links if isinstance(link, dict) and link.get("rel") == "next"), None)
-            context = _dictionary(result.get("context"))
-            matched = context.get("matched", result.get("numberMatched"))
-            yield SearchPage(
-                self.id,
-                tuple(_normalized_scene(item, self.id) for item in result["features"]),
-                index + 1,
-                next_link is not None,
-                matched if isinstance(matched, int) and not isinstance(matched, bool) else None,
-            )
-            if next_link is None:
-                break
-            if not isinstance(next_link.get("href"), str):
-                raise SatelliteError("INVALID_RESPONSE", "STAC next link has no href", self.id)
-            next_url = urljoin(href, next_link["href"])
-            requested = urlsplit(next_url)
-            allowed = urlsplit(self.base_url)
-            if (requested.scheme, requested.netloc) != (allowed.scheme, allowed.netloc):
-                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing cross-origin next link", self.id)
-            method = str(next_link.get("method", "GET")).upper()
-            if method not in ("GET", "POST"):
-                raise SatelliteError("INVALID_RESPONSE", "Unsupported next link method", self.id)
-            if method == "POST":
-                next_body = _dictionary(next_link.get("body"))
-                body = next_body if next_link.get("merge") is False else {**body, **next_body}
-            href = next_url
+        boxes, polygon = resolve_areas(query)
+        seen: set[str] = set()
+        page_number = 0
+        for box in boxes:
+            body: dict[str, Any] = {
+                "bbox": list(box),
+                "datetime": query.start + "T00:00:00Z/" + query.end + "T23:59:59Z",
+                "collections": list(collections),
+                "limit": query.limit,
+            }
+            if polygon is not None:
+                body["intersects"] = polygon
+            href = self.base_url + "/search"
+            method = "POST"
+            visited: set[str] = set()
+            box_pages = 0
+            while box_pages < query.max_pages:
+                cursor = json.dumps([href, method, body], sort_keys=True)
+                if cursor in visited:
+                    raise SatelliteError("PAGINATION_LOOP", "Repeating next link", self.id)
+                visited.add(cursor)
+                try:
+                    result = self._transport(href, method, body if method == "POST" else None)
+                except SatelliteError as exc:
+                    if exc.provider_id is None:
+                        exc.provider_id = self.id
+                    raise
+                except Exception as exc:
+                    raise SatelliteError("NETWORK", "Request failed: " + str(exc), self.id) from exc
+                if not isinstance(result, dict) or not isinstance(result.get("features"), list):
+                    raise SatelliteError("INVALID_RESPONSE", "STAC response lacks features", self.id)
+                links = result.get("links", [])
+                if not isinstance(links, list):
+                    links = []
+                next_link = next((link for link in links if isinstance(link, dict) and link.get("rel") == "next"), None)
+                context = _dictionary(result.get("context"))
+                matched = context.get("matched", result.get("numberMatched"))
+                items: list[Scene] = []
+                for item in result["features"]:
+                    scene = _normalized_scene(item, self.id, boxes)
+                    if scene.id in seen:
+                        continue
+                    seen.add(scene.id)
+                    items.append(scene)
+                box_pages += 1
+                page_number += 1
+                yield SearchPage(
+                    self.id,
+                    tuple(items),
+                    page_number,
+                    next_link is not None,
+                    matched if isinstance(matched, int) and not isinstance(matched, bool) else None,
+                )
+                if next_link is None:
+                    break
+                if not isinstance(next_link.get("href"), str):
+                    raise SatelliteError("INVALID_RESPONSE", "STAC next link has no href", self.id)
+                next_url = urljoin(href, next_link["href"])
+                requested = urlsplit(next_url)
+                allowed = urlsplit(self.base_url)
+                if (requested.scheme, requested.netloc) != (allowed.scheme, allowed.netloc):
+                    raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing cross-origin next link", self.id)
+                method = str(next_link.get("method", "GET")).upper()
+                if method not in ("GET", "POST"):
+                    raise SatelliteError("INVALID_RESPONSE", "Unsupported next link method", self.id)
+                if method == "POST":
+                    next_body = _dictionary(next_link.get("body"))
+                    # STAC pagination: merge defaults to false, so the next body replaces the query.
+                    body = {**body, **next_body} if next_link.get("merge") is True else next_body
+                href = next_url
 
 
 class EarthSearch(StacProvider):
@@ -262,6 +495,53 @@ class EarthSearch(StacProvider):
             id="earth-search",
             base_url="https://earth-search.aws.element84.com/v1",
             collections=("sentinel-2-l2a", "landsat-c2-l2"),
+            transport=transport,
+        )
+
+
+class PlanetaryComputer(StacProvider):
+    def __init__(self, transport: Transport | None = None):
+        super().__init__(
+            id="planetary-computer",
+            base_url="https://planetarycomputer.microsoft.com/api/stac/v1",
+            collections=("sentinel-2-l2a", "landsat-c2-l2"),
+            transport=transport,
+        )
+
+
+class CopernicusDataSpace(StacProvider):
+    def __init__(self, transport: Transport | None = None):
+        super().__init__(
+            id="copernicus",
+            base_url="https://stac.dataspace.copernicus.eu/v1",
+            collections=("sentinel-2-l2a", "sentinel-1-grd"),
+            transport=transport,
+        )
+
+
+class UsgsLandsatLook(StacProvider):
+    """USGS LandsatLook STAC server. Server-side only: its CORS policy blocks other origins."""
+
+    def __init__(self, transport: Transport | None = None):
+        super().__init__(
+            id="usgs-landsatlook",
+            base_url="https://landsatlook.usgs.gov/stac-server",
+            collections=("landsat-c2l2-sr", "landsat-c2l2-st", "landsat-c2l1"),
+            transport=transport,
+        )
+
+
+class CmrStac(StacProvider):
+    """NASA CMR-STAC, provider-scoped (e.g. "ASF", "USGS_LTA", "JAXA")."""
+
+    def __init__(self, provider_id: str, collections: tuple[str, ...],
+                 transport: Transport | None = None):
+        if not re.fullmatch(r"[A-Za-z0-9_-]+", provider_id):
+            raise SatelliteError("INVALID_PROVIDER", "CMR provider id must be alphanumeric")
+        super().__init__(
+            id="nasa-cmr",
+            base_url="https://cmr.earthdata.nasa.gov/stac/" + provider_id,
+            collections=collections,
             transport=transport,
         )
 

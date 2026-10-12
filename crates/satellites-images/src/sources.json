@@ -31,11 +31,11 @@
       "scheduled": "separate-official-plans",
       "collections": [],
       "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
+        "typescript": true,
+        "python": true,
+        "rust": true
       },
-      "notes": "Public discovery; downloads and other APIs may require registration and authentication."
+      "notes": "Public discovery; downloads and other APIs may require registration and authentication. STAC adapter implemented in all three SDKs."
     },
     {
       "id": "earth-search",
@@ -119,11 +119,11 @@
       "scheduled": "no",
       "collections": [],
       "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
+        "typescript": true,
+        "python": true,
+        "rust": true
       },
-      "notes": "Earthdata authentication required for some downloads. Mission coverage varies."
+      "notes": "Earthdata authentication required for some downloads. Mission coverage varies. STAC adapter implemented in all three SDKs."
     },
     {
       "id": "nasa-gibs",
@@ -208,8 +208,8 @@
       ],
       "implemented": {
         "typescript": true,
-        "python": false,
-        "rust": false
+        "python": true,
+        "rust": true
       },
       "notes": "Catalog search is public; actual assets often require a signed URL and access rules apply."
     },
@@ -258,11 +258,11 @@
       "scheduled": "separate-calendar",
       "collections": [],
       "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
+        "typescript": true,
+        "python": true,
+        "rust": true
       },
-      "notes": "Historical Landsat imagery. Future collection calendar is a separate service, not a published STAC item."
+      "notes": "Historical Landsat imagery. Future collection calendar is a separate service, not a published STAC item. STAC adapter implemented in all three SDKs."
     },
     {
       "id": "vantor",

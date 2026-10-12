@@ -2,7 +2,7 @@
 name = "satellites-images"
 version = "0.2.0"
 edition = "2021"
-rust-version = "1.81"
+rust-version = "1.82"
 description = "Asynchronous STAC satellite imagery metadata discovery and availability client"
 license = "MIT"
 repository = "https://github.com/powerpuff-kitty/satellites-images"

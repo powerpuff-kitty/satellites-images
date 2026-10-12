@@ -31,6 +31,27 @@ export interface ESAPlansOptions {
   missions?: string[];
   maxKmlBytes?: number;
 }
+/** One selected plan contributing to an upcoming query. */
+export interface ESAPlanDiagnostic {
+  mission: string;
+  sourceUrl: string;
+  /** File-name coverage window start (not a verified publication time). */
+  startsAt: string;
+  endsAt: string;
+  /** True when the plan document was served from the in-memory cache. */
+  fromCache: boolean;
+}
+export interface ESAUpcomingResult {
+  opportunities: AcquisitionOpportunity[];
+  /** UTC time a plan body was last downloaded, or null when no plan document was read. */
+  fetchedAt: string | null;
+  plans: ESAPlanDiagnostic[];
+  /**
+   * `ok` when at least one datatake matched, `no-current-plan` when no plan was
+   * selected for the window, `no-overlap` when plans were read but nothing matched.
+   */
+  status: "ok" | "no-current-plan" | "no-overlap";
+}
 type AnyNode = Record<string, unknown>;
 const asObject = (value: unknown): AnyNode | null =>
   typeof value === "object" && value !== null && !Array.isArray(value) ? value as AnyNode : null;
@@ -239,9 +260,10 @@ export class ESAPlansProvider {
   private readonly clock:()=>Date;
   private readonly missions:string[];
   private readonly maxKmlBytes:number;
-  private readonly cache=new Map<string,{until:number;text:string}>();
+  private readonly cache=new Map<string,{until:number;text:string;etag?:string;lastModified?:string}>();
+  private readonly lastFetched=new Map<string,number>();
   constructor(options:ESAPlansOptions={}) {
-    this.transport=options.fetchImpl??fetch;
+    this.transport=options.fetchImpl??((input,init)=>fetch(input,init));
     this.clock=options.clock??(()=>new Date());
     this.missions=options.missions??DEFAULT_MISSIONS;
     if(!this.missions.length||this.missions.some(m=>!DEFAULT_MISSIONS.includes(m)))
@@ -250,34 +272,47 @@ export class ESAPlansProvider {
     if(!Number.isInteger(this.maxKmlBytes)||this.maxKmlBytes<1000||this.maxKmlBytes>50_000_000)
       throw new SatelliteError("INVALID_PROVIDER","Invalid KML size limit",this.id);
   }
-  private async load(url:string,maxBytes:number):Promise<string> {
+  private async load(url:string,maxBytes:number):Promise<{text:string;fromCache:boolean}> {
     const parsed=new URL(url);
     if(parsed.origin!==ESA_ORIGIN || !(INDEXES.includes(url as typeof INDEXES[number]) ||
         parsed.pathname.startsWith("/documents/")))
       throw new SatelliteError("INVALID_PROVIDER","Unexpected ESA URL",this.id);
     const now=this.clock().getTime();
     const cached=this.cache.get(url);
-    if(cached && cached.until>now && cached.text.length<=maxBytes) return cached.text;
+    if(cached && cached.until>now && cached.text.length<=maxBytes) return {text:cached.text,fromCache:true};
     if(cached) this.cache.delete(url);
+    // RFC 9110 conditional requests: only send validators ESA actually supplied.
+    const headers:Record<string,string>={"Accept":"text/html, application/xml, application/vnd.google-earth.kml+xml"};
+    if(cached?.etag) headers["If-None-Match"]=cached.etag;
+    if(cached?.lastModified) headers["If-Modified-Since"]=cached.lastModified;
     let response:Response;
-    try { response=await this.transport(url,{signal:AbortSignal.timeout(25000),headers:{"Accept":"text/html, application/xml, application/vnd.google-earth.kml+xml"}}); }
+    try { response=await this.transport(url,{signal:AbortSignal.timeout(25000),headers}); }
     catch(e){throw new SatelliteError("NETWORK","Failed to request ESA plans: "+String(e),this.id);}
+    if(response.status===304 && cached) {
+      // Not modified: keep the body, refresh the TTL and reuse validators.
+      this.cache.set(url,{...cached,until:now+this.ttl(url)});
+      return {text:cached.text,fromCache:true};
+    }
     if(!response.ok) throw new SatelliteError("HTTP_ERROR","ESA returned HTTP "+response.status,this.id);
     const length=Number(response.headers.get("content-length"));
     if(length>maxBytes) throw new SatelliteError("INVALID_RESPONSE","ESA document exceeds size limit",this.id);
     const value=await response.text();
     if(value.length>maxBytes) throw new SatelliteError("INVALID_RESPONSE","ESA document exceeds size limit",this.id);
     if(this.cache.size>=12) this.cache.delete(this.cache.keys().next().value!);
-    this.cache.set(url,{until:now+(INDEXES.includes(url as typeof INDEXES[number])?15*60_000:60*60_000),text:value});
-    return value;
+    this.cache.set(url,{until:now+this.ttl(url),text:value,
+      etag:response.headers.get("etag")??undefined,
+      lastModified:response.headers.get("last-modified")??undefined});
+    this.lastFetched.set(url,now);
+    return {text:value,fromCache:false};
   }
-  clearCache():void { this.cache.clear(); }
-  async upcoming(query:AcquisitionQuery):Promise<AcquisitionOpportunity[]> {
+  private ttl(url:string):number { return INDEXES.includes(url as typeof INDEXES[number])?15*60_000:60*60_000; }
+  clearCache():void { this.cache.clear(); this.lastFetched.clear(); }
+  async upcomingWithDiagnostics(query:AcquisitionQuery):Promise<ESAUpcomingResult> {
     const {start,end,bounds}=queryWindow(query,this.clock);
     const missions=new Set(query.missions??this.missions);
     const pages=new Set([...missions].map(m=>m.startsWith("S1")?INDEXES[0]:INDEXES[1]));
     const plans:ESAPlan[]=[];
-    for(const pageUrl of pages) plans.push(...parseESAPlanIndex(await this.load(pageUrl,MAX_INDEX_CHARS)));
+    for(const pageUrl of pages) plans.push(...parseESAPlanIndex((await this.load(pageUrl,MAX_INDEX_CHARS)).text));
     const selected=new Map<string,ESAPlan>();
     for(const plan of plans) {
       if(!missions.has(plan.mission) || Date.parse(plan.endsAt)<start || Date.parse(plan.startsAt)>end) continue;
@@ -286,10 +321,21 @@ export class ESAPlansProvider {
         (plan.startsAt===current.startsAt&&plan.endsAt>current.endsAt)) selected.set(plan.mission,plan);
     }
     const all:AcquisitionOpportunity[]=[];
+    const diagnostics:ESAPlanDiagnostic[]=[];
+    let fetchedAt:string|null=null;
     for(const plan of selected.values()) {
-      all.push(...parseESAPlanKml(await this.load(plan.url,this.maxKmlBytes),plan,bounds,start,end));
+      const loaded=await this.load(plan.url,this.maxKmlBytes);
+      const fetched=this.lastFetched.get(plan.url);
+      if(fetched!==undefined && (fetchedAt===null || fetched>Date.parse(fetchedAt))) fetchedAt=new Date(fetched).toISOString();
+      diagnostics.push({mission:plan.mission,sourceUrl:plan.url,startsAt:plan.startsAt,endsAt:plan.endsAt,fromCache:loaded.fromCache});
+      all.push(...parseESAPlanKml(loaded.text,plan,bounds,start,end));
     }
-    return all.sort((a,b)=>a.expectedAt.localeCompare(b.expectedAt)||a.mission.localeCompare(b.mission));
+    all.sort((a,b)=>a.expectedAt.localeCompare(b.expectedAt)||a.mission.localeCompare(b.mission));
+    const status:ESAUpcomingResult["status"]=all.length?"ok":(selected.size?"no-overlap":"no-current-plan");
+    return {opportunities:all,fetchedAt,plans:diagnostics,status};
+  }
+  async upcoming(query:AcquisitionQuery):Promise<AcquisitionOpportunity[]> {
+    return (await this.upcomingWithDiagnostics(query)).opportunities;
   }
 }
 export function esaSentinelPlans(options:ESAPlansOptions={}):ESAPlansProvider {

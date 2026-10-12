@@ -65,6 +65,27 @@ class AcquisitionOpportunity:
     orbit_relative: int | None = None
 
 
+@dataclass(frozen=True)
+class ESAPlanDiagnostic:
+    """One selected plan contributing to an upcoming query."""
+
+    mission: str
+    source_url: str
+    starts_at: str
+    ends_at: str
+    from_cache: bool
+
+
+@dataclass(frozen=True)
+class ESAUpcomingResult:
+    opportunities: list[AcquisitionOpportunity]
+    #: UTC time the query last downloaded a plan body, or None when none was read.
+    fetched_at: str | None
+    plans: list[ESAPlanDiagnostic]
+    #: "ok" | "no-current-plan" | "no-overlap".
+    status: str
+
+
 class _Links(HTMLParser):
     def __init__(self):
         super().__init__(convert_charrefs=True)
@@ -261,23 +282,31 @@ def parse_esa_plan_kml(kml: str, plan: ESAPlan, bbox: list[float], start: dateti
     return results
 
 
-def _http_text(url: str, max_bytes: int) -> str:
-    req = Request(url, headers={
+def _http_text(url: str, max_bytes: int, etag: str | None = None,
+               last_modified: str | None = None) -> tuple[str, str | None, str | None, bool]:
+    headers = {
         "User-Agent": "satellites-images/0.2 (public satellite acquisition plan reader)",
         "Accept": "text/html, application/xml, application/vnd.google-earth.kml+xml",
-    })
+    }
+    # RFC 9110 conditional request: only send validators ESA actually supplied.
+    if etag:
+        headers["If-None-Match"] = etag
+    if last_modified:
+        headers["If-Modified-Since"] = last_modified
+    req = Request(url, headers=headers)
     try:
         with urlopen(req, timeout=25) as result:
             if int(result.headers.get("Content-Length", "0") or "0") > max_bytes:
                 raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
             body = result.read(max_bytes + 1)
+            return (body.decode("utf-8", errors="replace"),
+                    result.headers.get("ETag"), result.headers.get("Last-Modified"), False)
     except HTTPError as exc:
+        if exc.code == 304:
+            return "", None, None, True
         raise SatelliteError("HTTP_ERROR", "ESA returned HTTP " + str(exc.code)) from exc
     except (URLError, OSError, TimeoutError) as exc:
         raise SatelliteError("NETWORK", "ESA request failed: " + str(exc)) from exc
-    if len(body) > max_bytes:
-        raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
-    return body.decode("utf-8", errors="replace")
 
 
 class ESASentinelPlans:
@@ -295,9 +324,10 @@ class ESASentinelPlans:
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self.missions = missions
         self.max_kml_bytes = max_kml_bytes
-        self._cache: dict[str, tuple[float, str]] = {}
+        self._cache: dict[str, tuple[float, str, str | None, str | None]] = {}
+        self._last_fetched: dict[str, float] = {}
 
-    def _load(self, url: str, maximum: int) -> str:
+    def _load(self, url: str, maximum: int) -> tuple[str, bool]:
         parts = urlsplit(url)
         if parts.scheme != "https" or parts.netloc != "sentinels.copernicus.eu" or (
             url not in INDEXES.values() and not parts.path.startswith("/documents/")
@@ -306,27 +336,44 @@ class ESASentinelPlans:
         now = self._clock().timestamp()
         cached = self._cache.get(url)
         if cached and cached[0] > now and len(cached[1]) <= maximum:
-            return cached[1]
+            return cached[1], True
         if cached:
             del self._cache[url]
-        value = self._transport(url) if self._transport else _http_text(url, maximum)
+        etag = cached[2] if cached else None
+        last_modified = cached[3] if cached else None
+        if self._transport is not None:
+            value = self._transport(url)
+            not_modified = False
+            new_etag = new_last_modified = None
+        else:
+            value, new_etag, new_last_modified, not_modified = _http_text(
+                url, maximum, etag, last_modified
+            )
+        if not_modified:
+            if cached is None:
+                raise SatelliteError("HTTP_ERROR", "ESA returned HTTP 304 without a cached plan")
+            ttl = 900 if url in INDEXES.values() else 3600
+            self._cache[url] = (now + ttl, cached[1], cached[2], cached[3])
+            return cached[1], True
         if len(value) > maximum:
             raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
         if len(self._cache) >= 12:
             self._cache.pop(next(iter(self._cache)))
         ttl = 900 if url in INDEXES.values() else 3600
-        self._cache[url] = (now + ttl, value)
-        return value
+        self._cache[url] = (now + ttl, value, new_etag, new_last_modified)
+        self._last_fetched[url] = now
+        return value, False
 
     def clear_cache(self) -> None:
         self._cache.clear()
+        self._last_fetched.clear()
 
-    def upcoming(self, query: AcquisitionQuery) -> list[AcquisitionOpportunity]:
+    def upcoming_with_diagnostics(self, query: AcquisitionQuery) -> ESAUpcomingResult:
         start, end, bounds = _window(query, self._clock)
         missions = set(query.missions or self.missions)
         page_urls = {INDEXES[mission[:2]] for mission in missions}
         plans = [plan for url in sorted(page_urls)
-                 for plan in parse_esa_plan_index(self._load(url, MAX_INDEX_CHARS))]
+                 for plan in parse_esa_plan_index(self._load(url, MAX_INDEX_CHARS)[0])]
         selected: dict[str, ESAPlan] = {}
         for plan in plans:
             if plan.mission not in missions or _parse_time(plan.ends_at) < start or _parse_time(plan.starts_at) > end:
@@ -335,8 +382,21 @@ class ESASentinelPlans:
             if current is None or (plan.starts_at, plan.ends_at) > (current.starts_at, current.ends_at):
                 selected[plan.mission] = plan
         results: list[AcquisitionOpportunity] = []
+        diagnostics: list[ESAPlanDiagnostic] = []
+        fetched_at: str | None = None
         for plan in selected.values():
-            results.extend(parse_esa_plan_kml(
-                self._load(plan.url, self.max_kml_bytes), plan, bounds, start, end
-            ))
-        return sorted(results, key=lambda o: (o.expected_at, o.mission, o.id))
+            text, from_cache = self._load(plan.url, self.max_kml_bytes)
+            fetched = self._last_fetched.get(plan.url)
+            if fetched is not None:
+                stamp = datetime.fromtimestamp(fetched, tz=timezone.utc)
+                if fetched_at is None or stamp > datetime.fromisoformat(fetched_at.replace("Z", "+00:00")):
+                    fetched_at = stamp.isoformat(timespec="milliseconds").replace("+00:00", "Z")
+            diagnostics.append(ESAPlanDiagnostic(plan.mission, plan.url, plan.starts_at,
+                                                 plan.ends_at, from_cache))
+            results.extend(parse_esa_plan_kml(text, plan, bounds, start, end))
+        results.sort(key=lambda o: (o.expected_at, o.mission, o.id))
+        status = "ok" if results else ("no-overlap" if selected else "no-current-plan")
+        return ESAUpcomingResult(results, fetched_at, diagnostics, status)
+
+    def upcoming(self, query: AcquisitionQuery) -> list[AcquisitionOpportunity]:
+        return self.upcoming_with_diagnostics(query).opportunities

@@ -11,6 +11,7 @@
     "generate:registry": "node tools/generate-registry.mjs",
     "build": "npm run build -w @powerpuff-kitty/satellites-images && npm run build -w @satellites-images/explorer",
     "test": "npm run test -w @powerpuff-kitty/satellites-images",
+    "test:e2e": "npm run test:e2e -w @satellites-images/explorer",
     "check": "npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test"
   }
 }

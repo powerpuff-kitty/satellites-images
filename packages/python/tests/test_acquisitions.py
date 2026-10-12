@@ -70,6 +70,25 @@ class ESAPlanTests(unittest.TestCase):
         self.assertEqual(len(catalog.upcoming(AcquisitionQuery(-8.5833, 116.1167, 5000, days=10))), 2)
         self.assertEqual(len(seen), 4, "Second query should read from ESA plan cache")
 
+    def test_upcoming_diagnostics_statuses(self):
+        esa = ESASentinelPlans(
+            transport=lambda url: INDEX if url.endswith("/acquisition-plans") else {S2: KML, S1: S1KML}[url],
+            clock=lambda: datetime(2026, 10, 12, 16, tzinfo=timezone.utc),
+            missions=("S1C", "S2B"),
+        )
+        result = esa.upcoming_with_diagnostics(AcquisitionQuery(-8.5833, 116.1167, 5000, days=10))
+        self.assertEqual(result.status, "ok")
+        self.assertEqual(len(result.plans), 2)
+        self.assertTrue(all(not p.from_cache for p in result.plans))
+        self.assertIsNotNone(result.fetched_at)
+        # No matching plan in the window yields an explicit no-current-plan status.
+        empty = ESASentinelPlans(transport=lambda url: "<html></html>",
+                                 clock=lambda: datetime(2026, 10, 12, 16, tzinfo=timezone.utc),
+                                 missions=("S2B",))
+        none = empty.upcoming_with_diagnostics(AcquisitionQuery(0, 0, 1000, days=5))
+        self.assertEqual(none.status, "no-current-plan")
+        self.assertEqual(none.plans, [])
+        self.assertIsNone(none.fetched_at)
 
     def test_real_esa_kml_fixture(self):
         from pathlib import Path

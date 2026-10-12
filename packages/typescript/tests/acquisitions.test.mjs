@@ -92,3 +92,51 @@ test("real ESA S2A 2024 KML datatake can be parsed with its original metadata",(
   assert.equal(result[0].orbitRelative,95);
   assert.equal(result[0].mode,"NOBS");
 });
+
+test("HTTP conditional 304 refreshes plan cache without re-downloading bodies",async()=>{
+  let now=new Date("2026-10-12T16:00:00Z");
+  const fetched=new Set();
+  const mock=async(url,init={})=>{
+    const conditional=(init.headers||{})["If-None-Match"];
+    if(fetched.has(url)&&conditional) return new Response(null,{status:304});
+    fetched.add(url);
+    if(url.endsWith("/acquisition-plans")) return new Response(index,{status:200,headers:{"etag":'"i"'}});
+    if(url===s2) return new Response(kml,{status:200,headers:{"etag":'"k"'}});
+    if(url===s1) return new Response(s1kml,{status:200,headers:{"etag":'"k1"'}});
+    throw Error("Unexpected "+url);
+  };
+  const provider=esaSentinelPlans({fetchImpl:mock,clock:()=>now,missions:["S1C","S2B"]});
+  const q={latitude:-8.5833,longitude:116.1167,radiusMeters:5000,days:10};
+  const first=await provider.upcomingWithDiagnostics(q);
+  assert.equal(first.status,"ok");
+  assert.equal(first.opportunities.length,2);
+  assert.ok(first.fetchedAt);
+  assert.ok(first.plans.every(p=>p.fromCache===false));
+  now=new Date("2026-10-12T17:30:00Z"); // beyond the 15/60 minute plan TTLs
+  const second=await provider.upcomingWithDiagnostics(q);
+  assert.equal(second.status,"ok");
+  assert.equal(second.opportunities.length,2);
+  assert.ok(second.plans.every(p=>p.fromCache===true),"revalidated 304 responses reuse the cached plan");
+});
+
+test("diagnostics distinguish no-current-plan from no-overlap",async()=>{
+  const outsideKml='<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'+
+    placemark('far','S2B_NOBS_NOMINAL',outside)+'</Document></kml>';
+  const emptyMock=async()=>new Response("<html></html>",{status:200});
+  const empty=await esaSentinelPlans({fetchImpl:emptyMock,clock:()=>new Date("2026-10-12T16:00:00Z"),
+    missions:["S2B"]}).upcomingWithDiagnostics({latitude:0,longitude:0,radiusMeters:1000,days:5});
+  assert.equal(empty.status,"no-current-plan");
+  assert.equal(empty.plans.length,0);
+  assert.equal(empty.fetchedAt,null);
+  const outsideMock=async(url)=>{
+    if(url.endsWith("/acquisition-plans")) return new Response(index,{status:200});
+    if(url===s2) return new Response(outsideKml,{status:200});
+    throw Error("Unexpected "+url);
+  };
+  const outsideResult=await esaSentinelPlans({fetchImpl:outsideMock,
+    clock:()=>new Date("2026-10-12T16:00:00Z"),missions:["S2B"]})
+    .upcomingWithDiagnostics({latitude:-8.5833,longitude:116.1167,radiusMeters:5000,days:10});
+  assert.equal(outsideResult.status,"no-overlap");
+  assert.equal(outsideResult.plans.length,1);
+  assert.equal(outsideResult.plans[0].mission,"S2B");
+});

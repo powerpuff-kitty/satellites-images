@@ -1,13 +1,23 @@
 import registry from "./sources.json" with { type: "json" };
 
 export type BoundingBox = [number, number, number, number];
+export type Position = [number, number];
+export interface PolygonGeometry { type: "Polygon"; coordinates: Position[][]; }
+export interface MultiPolygonGeometry { type: "MultiPolygon"; coordinates: Position[][][]; }
+/** GeoJSON polygon area of interest, RFC 7946 `[longitude, latitude]` order. */
+export type AoiGeometry = PolygonGeometry | MultiPolygonGeometry;
 export type ImageAccess = "open" | "authentication-required" | "payment-required" | "unknown";
 export type AcquisitionStatus = "planned" | "predicted";
 
 export interface SearchQuery {
-  latitude: number;
-  longitude: number;
-  radiusMeters: number;
+  /** Centre latitude. Required unless `aoi` is supplied. */
+  latitude?: number;
+  /** Centre longitude. Required unless `aoi` is supplied. */
+  longitude?: number;
+  /** Search radius in metres (0 < r <= 100000). Required unless `aoi` is supplied. */
+  radiusMeters?: number;
+  /** Optional GeoJSON Polygon/MultiPolygon. Overrides centre/radius when present. */
+  aoi?: AoiGeometry;
   from: string;
   to: string;
   collections?: string[];
@@ -30,6 +40,12 @@ export interface Scene {
   geometry: Record<string, unknown> | null;
   bbox: number[] | null;
   cloudCoverPercent: number | null;
+  /**
+   * Approximate percentage of the requested area of interest whose bounding box
+   * overlaps this scene's bounding box (0-100), or null when the scene has no
+   * bbox. This is a bbox-overlap heuristic, not a geometric intersection area.
+   */
+  coveragePercent: number | null;
   previewUrl: string | null;
   access: ImageAccess;
   assets: SceneAsset[];
@@ -42,6 +58,25 @@ export interface SearchPage {
   pageNumber: number;
   hasNext: boolean;
   matched: number | null;
+}
+export interface DayAvailability {
+  date: string;
+  count: number;
+  providers: string[];
+  missions: string[];
+  collections: string[];
+}
+export interface MonthAvailability { month: string; count: number }
+export interface AvailabilitySummary {
+  days: DayAvailability[];
+  months: MonthAvailability[];
+  totalScenes: number;
+  /** False when any collected page still advertised a `next` link (truncated search). */
+  complete: boolean;
+  truncatedProviders: string[];
+  providers: Record<string, number>;
+  missions: Record<string, number>;
+  collections: Record<string, number>;
 }
 export interface AcquisitionOpportunity {
   providerId: string;
@@ -87,28 +122,202 @@ function checkDate(value: string, label: string): void {
   }
 }
 
-export function boundsAround(latitude: number, longitude: number, radiusMeters: number): BoundingBox {
+function isPosition(value: unknown): value is Position {
+  return Array.isArray(value) && value.length === 2 &&
+    typeof value[0] === "number" && typeof value[1] === "number" &&
+    Number.isFinite(value[0]) && Number.isFinite(value[1]) &&
+    value[0] >= -180 && value[0] <= 180 && value[1] >= -90 && value[1] <= 90;
+}
+
+function polygonRings(aoi: AoiGeometry): Position[][] {
+  const geometry = aoi as unknown as { type?: unknown; coordinates?: unknown };
+  if (!geometry || typeof geometry !== "object" ||
+      (geometry.type !== "Polygon" && geometry.type !== "MultiPolygon")) {
+    throw new SatelliteError("INVALID_QUERY", "AOI must be a GeoJSON Polygon or MultiPolygon");
+  }
+  if (!Array.isArray(geometry.coordinates)) {
+    throw new SatelliteError("INVALID_QUERY", "AOI geometry has no rings");
+  }
+  const rings = geometry.type === "Polygon"
+    ? geometry.coordinates
+    : (geometry.coordinates as unknown[]).flat();
+  if (!Array.isArray(rings) || rings.length === 0) {
+    throw new SatelliteError("INVALID_QUERY", "AOI geometry has no rings");
+  }
+  for (const ring of rings) {
+    if (!Array.isArray(ring) || ring.length < 4 || !ring.every(isPosition)) {
+      throw new SatelliteError("INVALID_QUERY", "AOI ring must hold at least 4 ordered [lon,lat] positions");
+    }
+  }
+  return rings;
+}
+
+function crossesAntimeridian(rings: Position[][]): boolean {
+  return rings.some((ring) => ring.some((point, index) => {
+    const next = ring[(index + 1) % ring.length];
+    return Math.abs(next[0] - point[0]) > 180;
+  }));
+}
+
+function latitudeSpan(rings: Position[][]): [number, number] {
+  let south = 90, north = -90;
+  for (const ring of rings) for (const [, lat] of ring) {
+    if (lat < south) south = lat;
+    if (lat > north) north = lat;
+  }
+  return [south, north];
+}
+
+/**
+ * Convert a GeoJSON polygon AOI into one or two STAC-safe bounding boxes.
+ * A geometry that crosses the antimeridian is split at +/-180 rather than rejected.
+ */
+export function polygonBoxes(aoi: AoiGeometry): BoundingBox[] {
+  const rings = polygonRings(aoi);
+  const [south, north] = latitudeSpan(rings);
+  if (!crossesAntimeridian(rings)) {
+    let west = 180, east = -180;
+    for (const ring of rings) for (const [lon] of ring) {
+      if (lon < west) west = lon;
+      if (lon > east) east = lon;
+    }
+    return [[west, south, east, north]];
+  }
+  let eastOfLine = 180, westOfLine = -180; // longitudes just east (-) and west (+) of the seam
+  for (const ring of rings) for (const [lon] of ring) {
+    if (lon > 0 && lon < eastOfLine) eastOfLine = lon;
+    if (lon <= 0 && lon > westOfLine) westOfLine = lon;
+  }
+  const boxes: BoundingBox[] = [];
+  if (eastOfLine < 180) boxes.push([Math.max(-180, Math.min(180, eastOfLine)), south, 180, north]);
+  if (westOfLine > -180) boxes.push([-180, south, Math.max(-180, Math.min(180, westOfLine)), north]);
+  if (!boxes.length) throw new SatelliteError("INVALID_QUERY", "AOI geometry is degenerate");
+  return boxes.sort((a, b) => a[0] - b[0]);
+}
+
+/**
+ * Convert a centre/radius search into one or two STAC-safe bounding boxes.
+ * Antimeridian-crossing searches are split; pole-crossing searches use the full
+ * longitude range instead of throwing.
+ */
+export function radiusBoxes(latitude: number, longitude: number, radiusMeters: number): BoundingBox[] {
   if (![latitude, longitude, radiusMeters].every(Number.isFinite) ||
       latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180 ||
       radiusMeters <= 0 || radiusMeters > 100000) {
     throw new SatelliteError("INVALID_QUERY", "Invalid coordinates or radius (must be >0 and <=100km)");
   }
   const latDelta = radiusMeters / 110574;
-  const north = latitude + latDelta;
-  const south = latitude - latDelta;
-  if (south < -90 || north > 90) {
-    throw new SatelliteError("UNSUPPORTED_AREA", "AOI crosses a pole; geographic bbox not supported");
-  }
+  let south = latitude - latDelta;
+  let north = latitude + latDelta;
+  const touchesPole = south <= -90 || north >= 90;
+  if (south < -90) south = -90;
+  if (north > 90) north = 90;
   const cos = Math.cos(latitude * Math.PI / 180);
-  if (cos < 0.001) throw new SatelliteError("UNSUPPORTED_AREA", "AOI too close to a pole");
+  if (touchesPole || cos < 0.001) return [[-180, south, 180, north]];
   const lonDelta = radiusMeters / (111320 * cos);
-  if (longitude - lonDelta < -180 || longitude + lonDelta > 180) {
-    throw new SatelliteError("UNSUPPORTED_AREA", "AOI crosses the antimeridian; use a different AOI");
-  }
-  return [longitude - lonDelta, south, longitude + lonDelta, north];
+  const west = longitude - lonDelta;
+  const east = longitude + lonDelta;
+  if (east > 180) return [[west, south, 180, north], [-180, south, east - 360, north]];
+  if (west < -180) return [[west + 360, south, 180, north], [-180, south, east, north]];
+  return [[west, south, east, north]];
 }
 
-function makeBody(query: SearchQuery, defaults: string[]): Record<string, unknown> {
+/** Backwards-compatible single bounding box; returns the first STAC-safe box. */
+export function boundsAround(latitude: number, longitude: number, radiusMeters: number): BoundingBox {
+  return radiusBoxes(latitude, longitude, radiusMeters)[0];
+}
+
+export interface ResolvedAreas {
+  boxes: BoundingBox[];
+  /** Present only when a non-splitting polygon AOI can be sent as STAC `intersects`. */
+  polygon: AoiGeometry | null;
+}
+
+/** Resolve a search query into one or more STAC-safe bounding boxes. */
+export function resolveAreas(query: Pick<SearchQuery, "latitude" | "longitude" | "radiusMeters" | "aoi">): ResolvedAreas {
+  if (query.aoi) {
+    const boxes = polygonBoxes(query.aoi);
+    return { boxes, polygon: boxes.length === 1 ? query.aoi : null };
+  }
+  const { latitude, longitude, radiusMeters } = query;
+  if (typeof latitude !== "number" || typeof longitude !== "number" || typeof radiusMeters !== "number") {
+    throw new SatelliteError("INVALID_QUERY", "Provide latitude/longitude/radiusMeters or a GeoJSON aoi");
+  }
+  return { boxes: radiusBoxes(latitude, longitude, radiusMeters), polygon: null };
+}
+
+function boxArea(box: BoundingBox): number {
+  return Math.max(0, box[2] - box[0]) * Math.max(0, box[3] - box[1]);
+}
+function overlapArea(a: BoundingBox, b: BoundingBox): number {
+  const width = Math.min(a[2], b[2]) - Math.max(a[0], b[0]);
+  const height = Math.min(a[3], b[3]) - Math.max(a[1], b[1]);
+  return Math.max(0, width) * Math.max(0, height);
+}
+
+/** bbox-overlap percentage of a scene within the requested area boxes (0-100). */
+export function coveragePercent(sceneBbox: number[] | null, boxes: BoundingBox[]): number | null {
+  if (!sceneBbox || sceneBbox.length !== 4 || !sceneBbox.every((v) => Number.isFinite(v))) return null;
+  const scene: BoundingBox = [sceneBbox[0], sceneBbox[1], sceneBbox[2], sceneBbox[3]];
+  const total = boxes.reduce((sum, box) => sum + boxArea(box), 0);
+  if (total <= 0) return null;
+  const covered = boxes.reduce((sum, box) => sum + overlapArea(scene, box), 0);
+  return Math.max(0, Math.min(100, (covered / total) * 100));
+}
+
+/**
+ * Summarize collected search pages into UTC day/month availability.
+ *
+ * De-duplicates by provider-native item id while retaining cross-provider
+ * provenance, and marks the summary incomplete when any page was truncated
+ * (still advertising a `next` link). It never asserts that absent days have no
+ * imagery — only what the collected pages contained.
+ */
+export function availabilitySummary(pages: Iterable<SearchPage>): AvailabilitySummary {
+  const seen = new Set<string>();
+  const days = new Map<string, { count: number; providers: Set<string>; missions: Set<string>; collections: Set<string> }>();
+  const months = new Map<string, number>();
+  const providers: Record<string, number> = {};
+  const missions: Record<string, number> = {};
+  const collections: Record<string, number> = {};
+  const truncated = new Set<string>();
+  let totalScenes = 0;
+  let complete = true;
+  for (const page of pages) {
+    if (page.hasNext) { complete = false; truncated.add(page.providerId); }
+    for (const scene of page.items) {
+      const key = page.providerId + ":" + scene.id;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      totalScenes += 1;
+      const date = scene.acquiredAt.slice(0, 10);
+      const day = days.get(date) ?? { count: 0, providers: new Set<string>(), missions: new Set<string>(), collections: new Set<string>() };
+      day.count += 1;
+      day.providers.add(page.providerId);
+      if (scene.mission) day.missions.add(scene.mission);
+      if (scene.collection) day.collections.add(scene.collection);
+      days.set(date, day);
+      months.set(date.slice(0, 7), (months.get(date.slice(0, 7)) ?? 0) + 1);
+      providers[page.providerId] = (providers[page.providerId] ?? 0) + 1;
+      if (scene.mission) missions[scene.mission] = (missions[scene.mission] ?? 0) + 1;
+      if (scene.collection) collections[scene.collection] = (collections[scene.collection] ?? 0) + 1;
+    }
+  }
+  return {
+    days: [...days.entries()]
+      .map(([date, value]) => ({ date, count: value.count, providers: [...value.providers].sort(), missions: [...value.missions].sort(), collections: [...value.collections].sort() }))
+      .sort((a, b) => a.date.localeCompare(b.date)),
+    months: [...months.entries()].map(([month, count]) => ({ month, count })).sort((a, b) => a.month.localeCompare(b.month)),
+    totalScenes,
+    complete,
+    truncatedProviders: [...truncated].sort(),
+    providers,
+    missions,
+    collections,
+  };
+}
+
+function makeBody(query: SearchQuery, defaults: string[], box: BoundingBox, polygon: AoiGeometry | null): Record<string, unknown> {
   checkDate(query.from, "from");
   checkDate(query.to, "to");
   if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
@@ -119,12 +328,14 @@ function makeBody(query: SearchQuery, defaults: string[]): Record<string, unknow
   if (!collections.length || collections.some((x) => typeof x !== "string" || !x.trim())) {
     throw new SatelliteError("INVALID_QUERY", "Provide at least one collection");
   }
-  return {
-    bbox: boundsAround(query.latitude, query.longitude, query.radiusMeters),
+  const body: Record<string, unknown> = {
+    bbox: box,
     datetime: query.from + "T00:00:00Z/" + query.to + "T23:59:59Z",
     collections,
     limit: query.limit ?? 50,
   };
+  if (polygon) body.intersects = polygon;
+  return body;
 }
 
 function object(value: unknown): Record<string, unknown> {
@@ -134,7 +345,7 @@ function object(value: unknown): Record<string, unknown> {
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length ? value : null;
 }
-function normalise(item: unknown, providerId: string): Scene {
+function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Scene {
   const raw = object(item);
   const properties = object(raw.properties);
   const id = stringOrNull(raw.id);
@@ -155,6 +366,7 @@ function normalise(item: unknown, providerId: string): Scene {
   const originalLinks = Array.isArray(raw.links) ? raw.links : [];
   const link = originalLinks.map(object).find((v) => v.rel === "self");
   const geometry = object(raw.geometry);
+  const bbox = Array.isArray(raw.bbox) && raw.bbox.every((v) => typeof v === "number") ? raw.bbox as number[] : null;
   return {
     providerId,
     id,
@@ -162,8 +374,9 @@ function normalise(item: unknown, providerId: string): Scene {
     acquiredAt: new Date(date).toISOString(),
     mission: stringOrNull(properties.platform),
     geometry: Object.keys(geometry).length ? geometry : null,
-    bbox: Array.isArray(raw.bbox) && raw.bbox.every((v) => typeof v === "number") ? raw.bbox as number[] : null,
+    bbox,
     cloudCoverPercent,
+    coveragePercent: coveragePercent(bbox, boxes),
     previewUrl: preview?.href ?? null,
     access: "unknown",
     assets,
@@ -188,7 +401,7 @@ export class StacProvider {
     this.id = options.id;
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.collections = [...options.collections];
-    this.fetchImpl = options.fetchImpl ?? fetch;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
     const url = new URL(this.baseUrl);
     if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
       throw new SatelliteError("INVALID_PROVIDER", "Provider must use HTTPS except localhost", this.id);
@@ -200,50 +413,64 @@ export class StacProvider {
     if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 50) {
       throw new SatelliteError("INVALID_QUERY", "maxPages must be between 1 and 50");
     }
-    let body = makeBody(query, this.collections);
-    let href = this.baseUrl + "/search";
-    let method = "POST";
+    checkDate(query.from, "from");
+    checkDate(query.to, "to");
+    const { boxes, polygon } = resolveAreas(query);
     const seen = new Set<string>();
-    for (let index = 0; index < maxPages; index++) {
-      const requestId = JSON.stringify([href,method,body]);
-      if (seen.has(requestId)) throw new SatelliteError("PAGINATION_LOOP", "Repeating STAC next link", this.id);
-      seen.add(requestId);
-      let response: Response;
-      try {
-        response = await this.fetchImpl(href, {
-          method,
-          headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
-          body: method === "POST" ? JSON.stringify(body) : undefined,
-          signal: AbortSignal.timeout(20000),
-        });
-      } catch (error) {
-        throw new SatelliteError("NETWORK", "STAC request failed: " + String(error), this.id);
-      }
-      if (!response.ok) throw new SatelliteError("HTTP_ERROR", "STAC API returned HTTP " + response.status, this.id);
-      let data: unknown;
-      try { data = await response.json(); }
-      catch { throw new SatelliteError("INVALID_RESPONSE", "STAC response was not valid JSON", this.id); }
-      const page = object(data);
-      if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "STAC response lacks a features array", this.id);
-      const links = (Array.isArray(page.links) ? page.links : []).map(object);
-      const next = links.find((link) => link.rel === "next") as unknown as NextLink | undefined;
-      const matched = object(page.context).matched ?? object(page.numberMatched).value;
-      const scenes = page.features.map((feature) => normalise(feature, this.id));
-      yield { providerId:this.id, items:scenes, pageNumber:index+1, hasNext:Boolean(next), matched: typeof matched === "number" ? matched : (typeof page.numberMatched === "number" ? page.numberMatched : null) };
-      if (!next) break;
-      if (typeof next.href !== "string") throw new SatelliteError("INVALID_RESPONSE", "STAC next link has no URL", this.id);
-      const resolved = new URL(next.href, href);
-      const allowed = new URL(this.baseUrl);
-      if (resolved.origin !== allowed.origin || (allowed.protocol === "https:" && resolved.protocol !== "https:")) {
-        throw new SatelliteError("UNSAFE_NEXT_LINK", "STAC pagination cannot follow a different origin", this.id);
-      }
-      const nextMethod = (next.method ?? "GET").toUpperCase();
-      if (nextMethod !== "GET" && nextMethod !== "POST") throw new SatelliteError("INVALID_RESPONSE", "Unsupported STAC pagination method", this.id);
-      method = nextMethod;
-      href = resolved.toString();
-      if (method === "POST") {
-        const nextBody = object(next.body);
-        body = next.merge === false ? nextBody : { ...body, ...nextBody };
+    let pageNumber = 0;
+    for (const box of boxes) {
+      let body = makeBody(query, this.collections, box, polygon);
+      let href = this.baseUrl + "/search";
+      let method = "POST";
+      const visited = new Set<string>();
+      let boxPages = 0;
+      while (boxPages < maxPages) {
+        const requestId = JSON.stringify([href,method,body]);
+        if (visited.has(requestId)) throw new SatelliteError("PAGINATION_LOOP", "Repeating STAC next link", this.id);
+        visited.add(requestId);
+        let response: Response;
+        try {
+          response = await this.fetchImpl(href, {
+            method,
+            headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
+            body: method === "POST" ? JSON.stringify(body) : undefined,
+            signal: AbortSignal.timeout(20000),
+          });
+        } catch (error) {
+          throw new SatelliteError("NETWORK", "STAC request failed: " + String(error), this.id);
+        }
+        if (!response.ok) throw new SatelliteError("HTTP_ERROR", "STAC API returned HTTP " + response.status, this.id);
+        let data: unknown;
+        try { data = await response.json(); }
+        catch { throw new SatelliteError("INVALID_RESPONSE", "STAC response was not valid JSON", this.id); }
+        const page = object(data);
+        if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "STAC response lacks a features array", this.id);
+        const links = (Array.isArray(page.links) ? page.links : []).map(object);
+        const next = links.find((link) => link.rel === "next") as unknown as NextLink | undefined;
+        const matched = object(page.context).matched ?? object(page.numberMatched).value;
+        const scenes = page.features
+          .map((feature) => normalise(feature, this.id, boxes))
+          .filter((scene) => !seen.has(scene.id));
+        scenes.forEach((scene) => seen.add(scene.id));
+        boxPages += 1;
+        pageNumber += 1;
+        yield { providerId:this.id, items:scenes, pageNumber, hasNext:Boolean(next), matched: typeof matched === "number" ? matched : (typeof page.numberMatched === "number" ? page.numberMatched : null) };
+        if (!next) break;
+        if (typeof next.href !== "string") throw new SatelliteError("INVALID_RESPONSE", "STAC next link has no URL", this.id);
+        const resolved = new URL(next.href, href);
+        const allowed = new URL(this.baseUrl);
+        if (resolved.origin !== allowed.origin || (allowed.protocol === "https:" && resolved.protocol !== "https:")) {
+          throw new SatelliteError("UNSAFE_NEXT_LINK", "STAC pagination cannot follow a different origin", this.id);
+        }
+        const nextMethod = (next.method ?? "GET").toUpperCase();
+        if (nextMethod !== "GET" && nextMethod !== "POST") throw new SatelliteError("INVALID_RESPONSE", "Unsupported STAC pagination method", this.id);
+        method = nextMethod;
+        href = resolved.toString();
+        if (method === "POST") {
+          const nextBody = object(next.body);
+          // STAC pagination: `merge` defaults to false, so the next body replaces the query.
+          body = next.merge === true ? { ...body, ...nextBody } : nextBody;
+        }
       }
     }
   }
@@ -261,13 +488,37 @@ export function planetaryComputer(fetchImpl?: typeof fetch): StacProvider {
     collections:["sentinel-2-l2a","landsat-c2-l2"], fetchImpl,
   });
 }
+/** Copernicus Data Space Ecosystem STAC (anonymous metadata; assets are account-gated). */
+export function copernicusDataSpace(fetchImpl?: typeof fetch): StacProvider {
+  return new StacProvider({
+    id:"copernicus", baseUrl:"https://stac.dataspace.copernicus.eu/v1",
+    collections:["sentinel-2-l2a","sentinel-1-grd"], fetchImpl,
+  });
+}
+/** USGS LandsatLook STAC server. Server-side use only: its CORS policy blocks other browser origins. */
+export function usgsLandsatLook(fetchImpl?: typeof fetch): StacProvider {
+  return new StacProvider({
+    id:"usgs-landsatlook", baseUrl:"https://landsatlook.usgs.gov/stac-server",
+    collections:["landsat-c2l2-sr","landsat-c2l2-st","landsat-c2l1"], fetchImpl,
+  });
+}
+/** NASA CMR-STAC, provider-scoped (e.g. "ASF", "USGS_LTA", "JAXA", "EUMETSAT"). */
+export function cmrStac(providerId: string, collections: string[], fetchImpl?: typeof fetch): StacProvider {
+  if (!/^[A-Za-z0-9_-]+$/.test(providerId)) {
+    throw new SatelliteError("INVALID_PROVIDER", "CMR provider id must be alphanumeric");
+  }
+  return new StacProvider({
+    id:"nasa-cmr", baseUrl:`https://cmr.earthdata.nasa.gov/stac/${providerId}`,
+    collections, fetchImpl,
+  });
+}
 
 export interface AcquisitionProvider {
   readonly id: string;
   upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;
 }
 export { ESAPlansProvider, esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml } from "./acquisitions.js";
-export type { ESAPlan, ESAPlansOptions, AcquisitionQuery } from "./acquisitions.js";
+export type { ESAPlan, ESAPlansOptions, AcquisitionQuery, ESAPlanDiagnostic, ESAUpcomingResult } from "./acquisitions.js";
 
 export class SatelliteCatalog {
   constructor(private readonly providers: StacProvider[],

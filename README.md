@@ -10,6 +10,7 @@ A cross-language, open-source satellite **catalogue discovery SDK**. Search exis
 - Normalize acquisition timestamps, footprints, preview links, band assets, and provider provenance.
 - List a curated registry of open, account-gated and commercial providers, including providers **not yet implemented**.
 - Explicitly distinguish `published` imagery from `planned` acquisitions and `predicted` passes. Official ESA Sentinel-1C/1D/2A/2B/2C planned swath queries are implemented. Orbital prediction is not.
+- Search by centre/radius **or** a GeoJSON `Polygon`/`MultiPolygon`; antimeridian-crossing areas are split rather than rejected, and each scene reports an approximate `coveragePercent`.
 - Bound searches by date, area, number of result pages and providers; preserve raw provider metadata.
 
 This package does **not** process pixels, guarantee coverage, promise free downloads, price commercial imagery, or list every image ever taken.
@@ -78,7 +79,7 @@ Upcoming acquisition queries use current ESA KML plans, intersecting approximate
 
 ## Sources and scope
 
-Read [sources/registry.json](sources/registry.json) and [docs/SOURCES.md](docs/SOURCES.md). The registry distinguishes *documented service capability* from *implemented adapter*. Earth Search and Microsoft Planetary Computer are supported by the TypeScript STAC adapter. ESA official future plan discovery is supported by all three language packages. The Python and Rust packages implement Earth Search and official ESA planned acquisition discovery. All provider-specific authentication and image-usage terms remain the user's responsibility.
+Read [sources/registry.json](sources/registry.json) and [docs/SOURCES.md](docs/SOURCES.md). The registry distinguishes *documented service capability* from *implemented adapter*. Earth Search, Microsoft Planetary Computer, Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC are supported by the shared STAC adapter in all three language packages. ESA official future plan discovery is supported by all three language packages, now with conditional caching and coverage/freshness diagnostics. All provider-specific authentication and image-usage terms remain the user's responsibility.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data contracts, pagination, limitations and future plans.
 
@@ -91,10 +92,13 @@ A manual-only GitHub Pages workflow is available. See [docs/DEPLOYMENT.md](docs/
 ```sh
 npm install
 npm run check
+npm run test:e2e
 python -m unittest discover -s packages/python/tests -v
 cargo test --manifest-path crates/satellites-images/Cargo.toml
 ```
 
-Tests use deterministic local fixtures and do **not** depend on external APIs. Live API smoke checks are opt-in; catalogue availability, data age and rate limits are not guaranteed.
+Tests use deterministic local fixtures and do **not** depend on external APIs. The browser
+E2E suite (`npm run test:e2e`) intercepts all catalogue and map responses offline. Live API
+smoke checks are opt-in; catalogue availability, data age and rate limits are not guaranteed.
 
 This project is not affiliated with satellite operators. Library code is MIT-licensed; source imagery and metadata are subject to each provider's separate terms.
