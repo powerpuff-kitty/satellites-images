@@ -24,7 +24,7 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 ## Historical availability calendar (V0.3)
 
 1. Choose a point on the map or enter latitude/longitude.
-2. Choose a STAC catalogue and date range, then **Find observations**.
+2. Choose a STAC catalogue and date range; the search runs automatically (the explorer fetches on any input change and when you pick a location on the map — there is no search button).
 3. Browse the UTC month/date calendar (numbers show unique scenes **in the loaded results**).
 4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
 5. Choose the previous/next month to search that month, or press **Load next 5 catalogue pages** to continue the original search without restarting it.

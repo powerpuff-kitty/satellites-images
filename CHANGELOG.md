@@ -110,6 +110,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: **month-at-a-time** model — removed the range preset and the window
   steppers; navigation is per month via the month controls above the calendar (one
   bounded query per month), and the default range is a single month.
+- Explorer: removed the **Find observations** button — the search now runs
+  automatically when the location is chosen on the map or any query field changes.
 
 ## [0.2.0] - 2026-10-12
 

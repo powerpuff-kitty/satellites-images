@@ -65,7 +65,6 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#counter")).toHaveText("2");
   await expect(page.locator(".day-cell.has-scenes")).toHaveCount(2);
@@ -80,7 +79,6 @@ test("month navigation issues a narrowed month search", async ({ page }) => {
   });
   await page.goto("/");
   await setRange(page, "2025-01-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect.poll(() => months.at(-1)).toBe("2025-01");
   await page.getByRole("button", { name: /Search next month/ }).click();
   await expect.poll(() => months.at(-1)).toBe("2025-04");
@@ -97,7 +95,6 @@ test("selecting a calendar day filters the result cards", async ({ page }) => {
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.locator(".day-cell.has-scenes").first().click();
   await expect(page.locator(".day-cell.selected")).toHaveCount(1);
@@ -113,7 +110,7 @@ test("load-next-pages scans another five-page batch", async ({ page }) => {
     await respond(route, { json: collection([stacScene("p" + index, "2025-03-05T02:00:00Z")], [nextLink(String(index + 1))], 100) });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: /Find observations/ }).click();
+  await setRange(page, "2025-03-01", "2025-03-31");
   await expect.poll(() => requests).toBe(5);
   await expect(page.locator("#load-next-pages")).toBeVisible();
   await page.locator("#load-next-pages").click();
@@ -130,7 +127,7 @@ test("a mid-scan catalogue failure is reported and keeps partial results", async
     return respond(route, { status: 429, body: "rate limited", contentType: "text/plain" });
   });
   await page.goto("/");
-  await page.getByRole("button", { name: /Find observations/ }).click();
+  await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#status")).toContainText(/failed/i);
 });
@@ -149,7 +146,6 @@ test("calendar days are keyboard operable", async ({ page }) => {
     respond(route, { json: collection([stacScene("k", "2025-03-12T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   const cell = page.locator(".day-cell.has-scenes").first();
   await cell.focus();
   await page.keyboard.press("Enter");
@@ -161,7 +157,7 @@ test("responsive viewport keeps the search form usable", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection([], [], 0) }));
   await page.goto("/");
   await expect(page.locator("#search-form")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Find observations/ })).toBeVisible();
+  await expect(page.locator("#date-from")).toBeVisible();
 });
 
 test("planned ESA acquisitions are shown separately from published scenes", async ({ page }) => {
@@ -195,7 +191,6 @@ test("the results header timeline plots per-day observations", async ({ page }) 
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(3);
   await expect(page.locator("#timeline .timeline-caption")).toHaveCount(4); // cloud, mission, provider, time-of-day
   await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
@@ -207,7 +202,6 @@ test("clicking a preview opens a full-screen lightbox and Escape closes it", asy
   await page.route("**/search", (route) => respond(route, { json: collection([stacScene("img", "2025-03-09T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results img")).toHaveCount(1);
   await page.locator("#results img").click();
   await expect(page.locator("#lightbox")).toBeVisible();
@@ -221,7 +215,6 @@ test("cloud-cover and hour filters narrow the loaded results", async ({ page }) 
     [stacScene("f1", "2025-03-10T02:00:00Z"), stacScene("f2", "2025-03-11T02:00:00Z")], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.selectOption("#cloud-max", "10"); // scenes are 12.5% cloud
   await expect(page.locator("#results li")).toHaveCount(0);
@@ -242,7 +235,6 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection([sentinel, landsat], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.selectOption("#collection-filter", "landsat-c2-l2");
   await expect(page.locator("#results li")).toHaveCount(1);
@@ -257,7 +249,6 @@ test("clicking timeline bars selects the clicked day (does not deselect)", async
     [stacScene("b1", "2025-03-10T02:00:00Z"), stacScene("b2", "2025-03-12T02:00:00Z")], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator('#timeline .bar-group[data-day="2025-03-10"]').first()).toBeVisible();
   await page.locator('#timeline .bar-group[data-day="2025-03-10"]').first().click();
   await expect(page.locator(".day-cell.selected")).toHaveCount(1);

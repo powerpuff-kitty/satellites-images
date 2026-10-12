@@ -22,7 +22,6 @@ const provider = element<HTMLSelectElement>("provider");
 const status = element<HTMLElement>("status");
 const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
-const button = element<HTMLButtonElement>("search-button");
 const form = element<HTMLFormElement>("search-form");
 const calendarMonth = element<HTMLInputElement>("calendar-month");
 const calendarGrid = element<HTMLElement>("day-calendar");
@@ -93,11 +92,16 @@ function updateLocation(latitude: number, longitude: number, fly = false): void 
   marker.setLngLat([longitude, latitude]);
   if (fly) map.flyTo({center:[longitude,latitude], zoom:Math.max(map.getZoom(), 8)});
 }
-map.on("click", (e) => updateLocation(e.lngLat.lat, e.lngLat.lng));
+let searchTimer=0;
+function scheduleSearch():void{ window.clearTimeout(searchTimer); searchTimer=window.setTimeout(()=>void runSearch(), 350); }
+map.on("click", (e) => { updateLocation(e.lngLat.lat, e.lngLat.lng); scheduleSearch(); });
 for (const el of [lat,lon]) el.addEventListener("change", () => {
-  if (Number.isFinite(lat.valueAsNumber) && Number.isFinite(lon.valueAsNumber))
+  if (Number.isFinite(lat.valueAsNumber) && Number.isFinite(lon.valueAsNumber)) {
     updateLocation(lat.valueAsNumber, lon.valueAsNumber, true);
+    scheduleSearch();
+  }
 });
+for (const el of [radius,provider,from,to]) el.addEventListener("change", scheduleSearch);
 
 function icon(cls:string):HTMLElement {
   const node=document.createElement("i");
@@ -419,7 +423,7 @@ function restoreSearchLink():void {
   map.jumpTo({center:[Number(lon.value),Number(lat.value)]});
   // A query permalink should reproduce its search, not just fill dormant inputs.
   if(validDate(params.get("from")??"") && validDate(params.get("to")??""))
-    queueMicrotask(()=>form.requestSubmit());
+    queueMicrotask(()=>void runSearch());
 }
 function storeSearchLink():void {
   const url=new URL(window.location.href);
@@ -557,7 +561,7 @@ function searchMonth(month:string):void {
   selectedDay=null;
   from.value=dates.from;
   to.value=dates.to;
-  form.requestSubmit();
+  void runSearch();
 }
 prevMonth.addEventListener("click",()=>searchMonth(shiftMonth(calendarMonth.value,-1)));
 nextMonth.addEventListener("click",()=>searchMonth(shiftMonth(calendarMonth.value,1)));
@@ -614,7 +618,6 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     return;
   }
   session.fetching=true;
-  button.disabled=true;
   loadNextPagesButton.disabled=true;
   loadNextPagesButton.hidden=true;
   try {
@@ -667,7 +670,6 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
   }finally{
     session.fetching=false;
     if(session===activeScan){
-      button.disabled=false;
       loadNextPagesButton.disabled=false;
     }
   }
@@ -676,8 +678,11 @@ loadNextPagesButton.addEventListener("click",()=>{
   if(activeScan)void scanNextBatch(activeScan);
 });
 
-form.addEventListener("submit",async(event)=>{
+form.addEventListener("submit",(event)=>{
   event.preventDefault();
+  void runSearch();
+});
+async function runSearch():Promise<void>{
   activeScan?.controller.abort();
   const controller=new AbortController();
   const accumulator=new AvailabilityAccumulator();
@@ -718,7 +723,7 @@ form.addEventListener("submit",async(event)=>{
   activeScan=session;
   storeSearchLink();
   await scanNextBatch(session);
-});
+}
 restoreSearchLink();
 
 
