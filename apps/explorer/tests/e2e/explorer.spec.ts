@@ -249,7 +249,8 @@ test("the day matrix plots one 12x12 px cell per day across the loaded year", as
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"] title')).toHaveText(/no observations/);
   // Padding days outside the window have no fill, and a month legend sits under the grid.
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-02-25"]')).toHaveAttribute("fill", "transparent");
-  await expect(page.locator("#matrix-months")).toContainText(/mar/i);
+  await expect(page.locator("#matrix-svg .matrix-month").first()).toHaveText("MAR");
+  await expect(page.locator("#matrix-svg .matrix-month")).toHaveCount(1); // only March is in this window
 });
 
 test("the matrix data links switch the metric it shows", async ({ page }) => {

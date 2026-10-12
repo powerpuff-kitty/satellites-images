@@ -39,7 +39,6 @@ const clearFilters = element<HTMLButtonElement>("clear-filters");
 const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
-const matrixMonths = element<HTMLElement>("matrix-months");
 const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
 const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
@@ -476,13 +475,22 @@ function renderMatrix():void {
     matrixSvg.append(rect);
   }
   matrixSvg.setAttribute("aria-label","Observations per day across the loaded year");
-  // Month legend under the grid, aligned to the panel's left edge.
-  const monthLabels:string[]=[];
+  // Month legend under the grid: each label starts at the week column its month begins in.
+  const monthRow=14;
+  matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height+monthRow}`);
+  matrixSvg.setAttribute("height",String(height+monthRow));
   for(let month=from.value.slice(0,7);month<=to.value.slice(0,7);month=shiftMonth(month,1)){
-    monthLabels.push(new Date(month+"-01T00:00:00Z")
-      .toLocaleDateString(undefined,{month:"short",timeZone:"UTC"}));
+    const monthStart=Math.max(Date.parse(month+"-01T00:00:00Z"),first);
+    const column=Math.floor(Math.round((monthStart-start)/dayMs)/7);
+    const label=document.createElementNS(NS,"text");
+    label.setAttribute("class","matrix-month");
+    label.setAttribute("x",String(column*step+1));
+    label.setAttribute("y",String(height+11));
+    label.setAttribute("text-anchor","start");
+    label.textContent=new Date(month+"-01T00:00:00Z")
+      .toLocaleDateString(undefined,{month:"short",timeZone:"UTC"}).toUpperCase();
+    matrixSvg.append(label);
   }
-  matrixMonths.textContent=monthLabels.join("  ");
 }
 for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link")){
   link.addEventListener("click",()=>{

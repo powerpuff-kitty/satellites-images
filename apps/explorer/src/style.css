@@ -116,7 +116,7 @@ button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button 
 .matrix-svg { display:block; }
 .matrix-cell { cursor:pointer; }
 .matrix-cell:hover { stroke:#efbe62; stroke-width:1; }
-.matrix-months { align-self:flex-start; font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:#9aa39a; }
+.matrix-month { fill:#9aa39a; font-size:9px; letter-spacing:.04em; }
 
 /* Full-screen image preview. */
 .map-preview { position:absolute; z-index:4; top:14px; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:8px; pointer-events:none; }

@@ -157,7 +157,7 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   **together** and the same scene from both is merged on display into one row.
 - Explorer: removed the **Browse month** control and the UTC **day calendar** (day selection
   now happens on the day matrix, which marks the selected cell); the matrix gained a **month
-  legend** under the grid, and padding days outside the window no longer paint a dark block.
+  legend** under the grid, each label starting at the week column its month begins in, and padding days outside the window no longer paint a dark block.
 - Explorer: the source-code link sits at the **bottom** of the left panel and its divider is
   removed.
 - SDKs (TS/Python/Rust): **Landsat previews now resolve** — `previewUrl` prefers an http(s)
