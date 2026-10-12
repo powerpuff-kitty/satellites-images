@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use std::{collections::HashSet, time::Duration};
 
-const EARTH_SEARCH: &str = "https://earth-search.aws.element84.com/v1";
+const EARTH_SEARCH: &str = "https://earth-search.aws.element84.com/v1/";
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
