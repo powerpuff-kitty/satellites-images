@@ -28,6 +28,7 @@ const mapLabel = element<HTMLElement>("map-label");
 const drawAreaButton = element<HTMLButtonElement>("draw-area");
 const clearAreaButton = element<HTMLButtonElement>("clear-area");
 const sourceList = element<HTMLElement>("source-list");
+const coverage = element<HTMLElement>("coverage");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
@@ -930,6 +931,21 @@ function renderLoadedScenes():void {
   matrixItems=loadedScenes.filter(passesFilters);
   renderMatrix();
 }
+/** Coverage rollup from the availability summary (days/months/provider split). */
+function renderCoverage():void {
+  const summary=currentSummary;
+  if(!summary){ coverage.textContent=""; return; }
+  const shown=loadedScenes.filter(passesFilters).length;
+  const days=summary.days.length, months=summary.months.length;
+  const catalogues=summary.providers.map((provider)=>
+    provider.id+(provider.uniqueItems?" "+provider.uniqueItems:"")+(provider.hasMore?"+":""));
+  coverage.textContent=[
+    shown+" observation"+(shown===1?"":"s")+" shown",
+    days+" day"+(days===1?"":"s")+" with data",
+    months+" month"+(months===1?"":"s"),
+    catalogues.join(" \u00b7 "),
+  ].filter((part)=>part.length>0).join(" \u00b7 ");
+}
 function redrawAvailability():void {
   const full=currentSummary;
   if(!full) return;
@@ -938,6 +954,7 @@ function redrawAvailability():void {
   if(!full.complete)statusParts.push("Additional pages may exist. Counts are partial.");
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
   calendarStatus.textContent=statusParts.join(" ");
+  renderCoverage();
 }
 function monthChunks(fromMonth:string,toMonth:string,size:number):{from:string;to:string}[] {
   const chunks:{from:string;to:string}[]=[];

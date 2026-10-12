@@ -167,6 +167,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: a **coverage rollup** (from the availability summary) reports observations shown,
+  days with data, months, and a per-catalogue split, marking catalogues that still have more
+  pages.
 - Explorer: **draw an area on the map** — "Draw area", click three or more corners, "Finish
   area" searches that polygon through the SDK's `aoi` path (the SDK handles box splitting and
   the antimeridian); "Use a point + radius" clears it. The polygon is rendered on the map and

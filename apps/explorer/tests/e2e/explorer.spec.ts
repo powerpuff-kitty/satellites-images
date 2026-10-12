@@ -67,6 +67,10 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#counter")).toHaveText("2");
+  // The availability rollup summarises what was loaded, per catalogue.
+  await expect(page.locator("#coverage")).toContainText(/2 observations shown/);
+  await expect(page.locator("#coverage")).toContainText(/2 days with data/);
+  await expect(page.locator("#coverage")).toContainText(/earth-search/);
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(2);
 });
 

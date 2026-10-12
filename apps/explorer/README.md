@@ -88,6 +88,10 @@ The "select any location" prompt disappears once a location is chosen, and scene
 **resolution** and **AOI coverage**, while planned datatakes show their **status** and
 **datatake window**.
 
+A **coverage** line under the filters summarises the loaded result set from the availability
+summary: observations shown, days with data, months, and a per-catalogue split (a trailing `+`
+marks a catalogue that still advertises more pages).
+
 A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
 knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which
 SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex** radar, **NASA CMR-STAC (ASF)**,
