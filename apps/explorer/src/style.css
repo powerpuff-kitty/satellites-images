@@ -26,6 +26,13 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 .meta-line span:last-child {text-align:right; max-width:60%;}
 .results img {display:block; width:100%; height:140px; object-fit:cover; margin:12px 0; background:#273328;}
 .results a {font-size:12px;}
+".sources { margin-top:18px; font-size:11px; color:#a0a99f; }
+.sources summary { cursor:pointer; color:#c6cec2; font-size:11px; letter-spacing:.03em; }
+.sources .status { margin:8px 0; }
+.source-list { display:flex; flex-direction:column; gap:10px; margin-top:8px; }
+.source { border:1px solid #2c342c; padding:8px 10px; }
+.source-heading { display:flex; justify-content:space-between; gap:8px; font-size:11px; margin-bottom:6px; }
+.source a { font-size:11px; }
 .footnote {margin-top:auto; padding-top:15px; line-height:1.7;}
 .footnote a {display:block; margin-top:10px;}
 .map-container {position:relative; background:#24322a; min-width:0;}

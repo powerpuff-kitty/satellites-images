@@ -167,6 +167,12 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: new **Data sources** panel built from the registry (`listSources()`) — every
+  catalogue with its search/imagery access terms, SDK support and docs, plus opt-in extra
+  catalogues (**Copernicus Data Space**, **ASF Vertex** radar) queried alongside the defaults.
+- Explorer: the day matrix **follows the active tab** — the historical range on Historical,
+  the forecast window on Upcoming — and is cleared on a failed plan lookup, so it never shows
+  the other tab's data.
 - Explorer: day-matrix cells are **keyboard operable** — focus a day, arrow keys step between
   days with observations, Enter/Space selects — restoring the access the removed calendar had.
 - SDKs: the Planetary Computer provider now also queries **`sentinel-1-rtc`** (radar) and

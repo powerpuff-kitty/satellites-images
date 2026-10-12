@@ -171,6 +171,8 @@ test("left tabs switch between historical and upcoming views", async ({ page }) 
   await page.locator("#tab-upcoming").click();
   await expect(page.locator("#plans-results")).toBeVisible();
   await expect(page.locator("#results")).toBeHidden();
+  // The grid drops the historical data and follows the upcoming forecast window.
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(0);
   await expect(page.locator("#obs-title")).toHaveText(/Upcoming planned acquisitions/);
   await page.locator("#tab-historical").click();
   await expect(page.locator("#results")).toBeVisible();
@@ -463,6 +465,25 @@ test("scenes whose footprint misses the searched point are never shown", async (
   // so the second is dropped and the matrix/overlay always cover the location.
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(1);
+});
+
+test("the Data sources panel lists the registry and enables extra catalogues", async ({ page }) => {
+  const requests: string[] = [];
+  await page.route("**/search", (route) => {
+    requests.push(route.request().url());
+    return respond(route, { json: collection([stacScene("s1", "2025-03-10T02:00:00Z")], [], 1) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  // The panel lists registry sources with their access terms.
+  await page.locator("#sources summary").click();
+  await expect(page.locator("#source-list")).toContainText(/Earth Search/);
+  await expect(page.locator("#source-list")).toContainText(/Planetary Computer/);
+  await expect(page.locator("#source-list")).toContainText(/Copernicus Data Space/);
+  // Extra catalogues are opt-in: ticking one queries that catalogue too.
+  await page.locator('#source-list input[data-source="copernicus"]').check();
+  await expect.poll(() => requests.some((url) => url.includes("dataspace.copernicus.eu"))).toBe(true);
 });
 
 test("the More dropdown picks an extra metric", async ({ page }) => {

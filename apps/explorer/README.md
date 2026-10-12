@@ -64,7 +64,10 @@ Client-side filters over the **loaded** results (instant, no new queries): **sat
 unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result cards, the
 day matrix and the calendar counts; the counter shows `filtered / total`.
 
-The **day matrix** at the bottom of the map is a GitHub-style grid of **12×12 px** cells — one
+The **day matrix** at the bottom of the map follows the active tab: the historical search range
+on **Historical**, and the **forecast window** (today → today + days-ahead) on **Upcoming** —
+so it never shows the other tab's data (including when a plan lookup fails). It is a
+GitHub-style grid of **12×12 px** cells — one
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
 the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
@@ -77,6 +80,11 @@ the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission**
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide
 metadata, not per-AOI.
+
+A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
+knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which
+SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex**
+radar) are opt-in there and are queried in addition to Earth Search and Planetary Computer.
 
 ## Layout
 

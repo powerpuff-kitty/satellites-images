@@ -3,9 +3,9 @@ import type { FeatureCollection, Geometry } from "geojson";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./style.css";
-import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
-  AvailabilityAccumulator, type AvailabilitySummary,
-  type Scene, type SceneAsset, type AcquisitionOpportunity } from "@powerpuff-kitty/satellites-images";
+import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, asfSearch,
+  esaSentinelPlans, listSources, AvailabilityAccumulator, type AvailabilitySummary,
+  type Scene, type SceneAsset, type AcquisitionOpportunity, type SearchProvider } from "@powerpuff-kitty/satellites-images";
 import { renderDayCalendar, renderMonthStrip, shiftMonth, monthDates, asMonthLabel } from "./calendar.js";
 
 const element = <T extends Element>(id: string): T => {
@@ -23,6 +23,7 @@ const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
 const form = element<HTMLFormElement>("search-form");
 const calendarStatus = element<HTMLElement>("calendar-status");
+const sourceList = element<HTMLElement>("source-list");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
@@ -432,6 +433,10 @@ function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:str
   const index=Math.max(0,order.indexOf(top));
   return SPLIT_PALETTE[index%SPLIT_PALETTE.length];
 }
+let matrixWindow:{from:string;to:string}|null=null;
+function todayIso(offsetDays=0):string {
+  return new Date(Date.now()+offsetDays*86400000).toISOString().slice(0,10);
+}
 let matrixDays:string[]=[];
 let matrixHasData=new Set<string>();
 function focusMatrixCell(day:string):void {
@@ -459,8 +464,10 @@ function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
   matrixSvg.replaceChildren();
   const scenes=matrixItems, metric=matrixMetric;
-  const windowFrom=Date.parse(from.value+"T00:00:00Z");
-  const windowTo=Date.parse(to.value+"T00:00:00Z");
+  const windowStart=matrixWindow?matrixWindow.from:from.value;
+  const windowEnd=matrixWindow?matrixWindow.to:to.value;
+  const windowFrom=Date.parse(windowStart+"T00:00:00Z");
+  const windowTo=Date.parse(windowEnd+"T00:00:00Z");
   // Always draw the window's grid, even when nothing was returned, so the year never
   // disappears; only a missing/invalid date range hides the matrix.
   if(!Number.isFinite(windowFrom)||!Number.isFinite(windowTo)||windowTo<windowFrom){
@@ -547,7 +554,7 @@ function renderMatrix():void {
   const monthRow=14;
   matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height+monthRow}`);
   matrixSvg.setAttribute("height",String(height+monthRow));
-  for(let month=from.value.slice(0,7);month<=to.value.slice(0,7);month=shiftMonth(month,1)){
+  for(let month=windowStart.slice(0,7);month<=windowEnd.slice(0,7);month=shiftMonth(month,1)){
     const monthStart=Math.max(Date.parse(month+"-01T00:00:00Z"),first);
     const column=Math.floor(Math.round((monthStart-start)/dayMs)/7);
     const label=document.createElementNS(NS,"text");
@@ -894,7 +901,7 @@ for(const control of [missionFilter,collectionFilter,cloudMin,cloudMax,hourMin,h
 
 function currentSearchSignature():string {
   return JSON.stringify([
-    lat.value,lon.value,radius.value,from.value,to.value,
+    lat.value,lon.value,radius.value,from.value,to.value,[...enabledExtraSources].sort().join(","),
   ]);
 }
 async function scanNextBatch(session:HistoryScan):Promise<void> {
@@ -1016,7 +1023,11 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   }
   const accumulator=scanAccumulator??(scanAccumulator=new AvailabilityAccumulator());
   // Both public catalogues are queried together; duplicates are merged on display.
-  const catalog=new SatelliteCatalog([planetaryComputer(),earthSearch()]);
+  // Extra catalogues are opt-in from the Data sources panel.
+  const providers:SearchProvider[]=[planetaryComputer(),earthSearch()];
+  for(const source of EXTRA_SOURCES)
+    if(enabledExtraSources.has(source.id))providers.push(source.create());
+  const catalog=new SatelliteCatalog(providers);
   const base={
     latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
     maxPages:50,limit:75,signal:controller.signal,
@@ -1038,6 +1049,63 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
 }
 restoreSearchLink();
 
+
+// --- Data sources (registry) --------------------------------------------------
+type ExtraSource={id:string;label:string;create:()=>SearchProvider};
+const EXTRA_SOURCES:ExtraSource[]=[
+  {id:"copernicus",label:"Copernicus Data Space",create:()=>copernicusDataSpace()},
+  {id:"asf-vertex",label:"ASF Vertex (radar)",create:()=>asfSearch()},
+];
+const enabledExtraSources=new Set<string>();
+function renderSources():void {
+  const fragment=document.createDocumentFragment();
+  for(const source of listSources()){
+    const item=document.createElement("div");
+    item.className="source";
+    const heading=document.createElement("div");
+    heading.className="source-heading";
+    const name=document.createElement("strong");
+    name.textContent=source.name;
+    const type=document.createElement("span");
+    type.className="muted";
+    type.textContent=source.type;
+    heading.append(name,type);
+    item.append(heading);
+    item.append(line("Search",source.searchAccess));
+    item.append(line("Imagery",source.imageryAccess));
+    const implemented=[source.implemented.typescript?"TS":null,
+      source.implemented.python?"Python":null,source.implemented.rust?"Rust":null]
+      .filter(Boolean).join(" / ");
+    item.append(line("SDK",implemented||"planned"));
+    const extra=EXTRA_SOURCES.find((candidate)=>candidate.id===source.id);
+    if(extra){
+      const label=document.createElement("label");
+      label.className="check-label";
+      const input=document.createElement("input");
+      input.type="checkbox";
+      input.setAttribute("data-source",source.id);
+      input.checked=enabledExtraSources.has(source.id);
+      input.addEventListener("change",()=>{
+        if(input.checked)enabledExtraSources.add(source.id);
+        else enabledExtraSources.delete(source.id);
+        void runSearch();
+      });
+      label.append(input,document.createTextNode(" query this catalogue"));
+      item.append(label);
+    }
+    if(source.docs){
+      const link=document.createElement("a");
+      link.href=source.docs;
+      link.target="_blank";
+      link.rel="noopener noreferrer";
+      link.textContent="Documentation";
+      item.append(link);
+    }
+    fragment.append(item);
+  }
+  sourceList.replaceChildren(fragment);
+}
+renderSources();
 
 function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   const li = document.createElement("li");
@@ -1113,6 +1181,7 @@ async function runUpcoming():Promise<void>{
     const mission=upcomingMission.value;
     const filtered=mission?planned.filter(p=>p.mission.startsWith(mission)):planned;
     displaySwaths(filtered);
+    matrixWindow={from:todayIso(),to:todayIso(Number(daysAhead.value)||14)};
     matrixItems=plannedAsScenes(filtered);
     renderMatrix();
     const list=document.createDocumentFragment();
@@ -1123,9 +1192,14 @@ async function runUpcoming():Promise<void>{
       ? filtered.length+" officially planned datatake(s) intersect this area within "+daysAhead.value+" days. No image is guaranteed."
       : "No matching planned datatakes in the latest ESA plans for this location and window.";
   } catch(error) {
-    if(token===currentPlanSearch) upcomingStatus.textContent=
-      "ESA plan lookup failed. "+(error instanceof Error?error.message:String(error))+
-      (esaProxy?"":" Browser CORS may require the optional ESA proxy.");
+    if(token===currentPlanSearch){
+      matrixWindow={from:todayIso(),to:todayIso(Number(daysAhead.value)||14)};
+      matrixItems=[];
+      renderMatrix();   // never leave the previous tab's data on the grid
+      upcomingStatus.textContent=
+        "ESA plan lookup failed. "+(error instanceof Error?error.message:String(error))+
+        (esaProxy?"":" Browser CORS may require the optional ESA proxy.");
+    }
   }
 }
 function setTab(tab:"historical"|"upcoming"):void{
@@ -1138,8 +1212,17 @@ function setTab(tab:"historical"|"upcoming"):void{
   plansResults.hidden = tab!=="upcoming";
   if(tab!=="historical") showMoreButton.hidden=true;
   obsTitle.textContent = tab==="upcoming" ? "Upcoming planned acquisitions" : "Published observations";
-  if(tab==="upcoming") void runUpcoming();
-  else { matrixItems=loadedScenes.filter(passesFilters); renderMatrix(); }
+  if(tab==="upcoming"){
+    // The matrix follows the forecast window rather than the historical search range.
+    matrixWindow={from:todayIso(),to:todayIso(Number(daysAhead.value)||14)};
+    matrixItems=[];
+    renderMatrix();
+    void runUpcoming();
+  }else{
+    matrixWindow=null;
+    matrixItems=loadedScenes.filter(passesFilters);
+    renderMatrix();
+  }
 }
 tabHistorical.addEventListener("click",()=>setTab("historical"));
 tabUpcoming.addEventListener("click",()=>setTab("upcoming"));
