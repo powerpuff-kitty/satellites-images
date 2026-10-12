@@ -220,32 +220,81 @@ function previewUrlFor(scene:Scene):string|null {
   };
   return [...candidates].sort((a,b)=>rank(a)-rank(b))[0].href;
 }
-// Some sources serve browse images that a cross-origin WebGL overlay cannot load: Earth
-// Search returns Landsat browse as s3:// (requester-pays) or a redirect to a non-CORS S3
-// object. Planetary Computer mirrors the same item id and exposes CORS-enabled renders
-// (a tile set at native resolution, plus a whole-scene PNG), so prefer those where they exist.
+// A cross-origin WebGL overlay needs CORS and, to stay sharp, a tile set rendered at the
+// imagery's native ground sample distance. Some sources cannot supply that: Earth Search
+// serves Landsat browse as s3:// plus a non-CORS redirect. Planetary Computer exposes
+// CORS-enabled tiles for both Landsat (same item id) and Sentinel-2 (different ids, so it
+// is resolved by MGRS tile and acquisition day).
 const PLANETARY_COMPUTER_RENDER:Record<string,string>={
   "landsat-c2-l2":"assets=red&assets=green&assets=blue&color_formula=gamma%20RGB%202.7,%20saturation%201.5,%20sigmoidal%20RGB%2015%200.55",
+  "sentinel-2-l2a":"assets=visual&asset_bidx=visual%7C1,2,3&nodata=0",
 };
-/** A provider-rendered tile set: its own, or Planetary Computer's for a mirrored item. */
-function tileUrlFor(scene:Scene):string|null {
-  const own=scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href;
-  if(own)return own;
-  const render=PLANETARY_COMPUTER_RENDER[scene.collection];
-  if(render&&scene.id&&scene.providerId!=="planetary-computer"){
-    return "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?collection="+
-      encodeURIComponent(scene.collection)+"&item="+encodeURIComponent(scene.id)+"&"+render+"&format=png";
-  }
-  return null;
+function tileAssetFor(scene:Scene):string|null {
+  return scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href??null;
 }
-/** Whole-scene PNG used only when no tile set is available. */
-function overlayImageUrl(scene:Scene):string|null {
-  const render=PLANETARY_COMPUTER_RENDER[scene.collection];
-  if(render&&scene.id&&scene.providerId!=="planetary-computer"){
-    return "https://planetarycomputer.microsoft.com/api/data/v1/item/preview.png?collection="+
-      encodeURIComponent(scene.collection)+"&item="+encodeURIComponent(scene.id)+"&"+render+"&format=png";
+function rawProperties(scene:Scene):Record<string,unknown> {
+  const properties=(scene.raw as Record<string,unknown>)["properties"];
+  return properties&&typeof properties==="object"?properties as Record<string,unknown>:{};
+}
+function mgrsTile(scene:Scene):string|null {
+  const properties=rawProperties(scene);
+  const grid=properties["grid:code"];
+  if(typeof grid==="string"&&grid.startsWith("MGRS-"))return grid.slice(5);
+  const tile=properties["s2:mgrs_tile"];
+  return typeof tile==="string"?tile:null;
+}
+const pcIdCache=new Map<string,string|null>();
+/** The matching Planetary Computer item id (Landsat ids match; Sentinel-2 is looked up). */
+async function resolvePlanetaryComputerId(scene:Scene):Promise<string|null> {
+  if(scene.collection==="landsat-c2-l2")return scene.id;
+  const key=scene.collection+"/"+scene.id;
+  const cached=pcIdCache.get(key);
+  if(cached!==undefined)return cached;
+  const tile=mgrsTile(scene), day=scene.acquiredAt.slice(0,10);
+  let resolved:string|null=null;
+  if(tile){
+    try {
+      const response=await fetch("https://planetarycomputer.microsoft.com/api/stac/v1/search",{
+        method:"POST",headers:{"content-type":"application/json"},
+        body:JSON.stringify({collections:[scene.collection],
+          filter:{op:"=",args:[{property:"s2:mgrs_tile"},tile]},
+          datetime:day+"T00:00:00Z/"+day+"T23:59:59Z",limit:5}),
+      });
+      if(response.ok){
+        const payload=await response.json() as {features?:unknown[]};
+        const wanted=Date.parse(scene.acquiredAt);
+        const best=(Array.isArray(payload.features)?payload.features:[])
+          .map((feature)=>feature as {id?:unknown;properties?:Record<string,unknown>})
+          .filter((feature)=>typeof feature.id==="string")
+          .map((feature)=>({id:feature.id as string,at:Date.parse(String(feature.properties?.datetime??""))}))
+          .filter((candidate)=>Number.isFinite(candidate.at))
+          .sort((a,b)=>Math.abs(a.at-wanted)-Math.abs(b.at-wanted))[0];
+        if(best)resolved=best.id;
+      }
+    } catch { resolved=null; }
   }
-  return previewUrlFor(scene);
+  pcIdCache.set(key,resolved);
+  return resolved;
+}
+function planetaryComputerUrl(kind:"tilejson.json"|"preview.png",collection:string,id:string):string {
+  return "https://planetarycomputer.microsoft.com/api/data/v1/item/"+kind+
+    "?collection="+encodeURIComponent(collection)+"&item="+encodeURIComponent(id)+
+    "&"+PLANETARY_COMPUTER_RENDER[collection]+"&format=png";
+}
+interface PreviewOverlay { tiles:string|null; image:string|null }
+async function resolveOverlay(scene:Scene):Promise<PreviewOverlay> {
+  const own=tileAssetFor(scene);
+  if(own)return {tiles:own,image:null};
+  if(PLANETARY_COMPUTER_RENDER[scene.collection]){
+    const id=await resolvePlanetaryComputerId(scene);
+    if(id)return {tiles:planetaryComputerUrl("tilejson.json",scene.collection,id),
+      image:planetaryComputerUrl("preview.png",scene.collection,id)};
+  }
+  return {tiles:null,image:previewUrlFor(scene)};
+}
+/** Whether a scene has anything we can put on the map (checked synchronously). */
+function canOverlay(scene:Scene):boolean {
+  return Boolean(previewUrlFor(scene)??tileAssetFor(scene)??PLANETARY_COMPUTER_RENDER[scene.collection]);
 }
 function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCorner,PreviewCorner] {
   const box=Array.isArray(scene.bbox)&&scene.bbox.length===4?scene.bbox as number[]:null;
@@ -263,20 +312,23 @@ function removePreviewLayer():void {
   if(map.getLayer("scene-preview-layer"))map.removeLayer("scene-preview-layer");
   if(map.getSource("scene-preview"))map.removeSource("scene-preview");
 }
-function showMapPreview(index:number):void {
+let previewToken=0;
+async function showMapPreview(index:number):Promise<void> {
   const scene=previewScenes[index];
-  const image=scene?overlayImageUrl(scene):null;
-  const tiles=scene?tileUrlFor(scene):null;
-  if(!scene||(!image&&!tiles)){ closeMapPreview(); return; }
+  if(!scene){ closeMapPreview(); return; }
+  const token=++previewToken;
   previewIndex=index;
+  const overlay=await resolveOverlay(scene);
+  if(token!==previewToken)return;  // superseded by a newer selection
+  if(!overlay.tiles&&!overlay.image){ closeMapPreview(); return; }
   const coordinates=previewCoordinates(scene);
   const apply=()=>{
     removePreviewLayer();
-    // A provider tile set renders the true-colour image at full resolution; otherwise
+    // A provider tile set renders the true-colour image at native resolution; otherwise
     // overlay the best still preview, georeferenced to the scene footprint. The map
     // zoom is left untouched so the view does not jump when an image is opened.
-    if(tiles)map.addSource("scene-preview",{type:"raster",url:tiles,tileSize:256});
-    else map.addSource("scene-preview",{type:"image",url:image as string,coordinates});
+    if(overlay.tiles)map.addSource("scene-preview",{type:"raster",url:overlay.tiles,tileSize:256});
+    else map.addSource("scene-preview",{type:"image",url:overlay.image as string,coordinates});
     map.addLayer({id:"scene-preview-layer",type:"raster",source:"scene-preview",
       paint:{"raster-opacity":0.96}});
   };
@@ -286,20 +338,21 @@ function showMapPreview(index:number):void {
   mapPreview.hidden=false;
 }
 function closeMapPreview():void {
+  previewToken++;
   if(mapPreview.hidden)return;
   mapPreview.hidden=true;
   removePreviewLayer();
 }
 function stepPreview(delta:number):void {
   if(!previewScenes.length)return;
-  showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
+  void showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
 }
 function openScenePreview(scene:Scene):void {
-  const withPreviews=loadedScenes.filter((candidate)=>Boolean(overlayImageUrl(candidate)??tileUrlFor(candidate)));
+  const withPreviews=loadedScenes.filter(canOverlay);
   const index=withPreviews.indexOf(scene);
   if(index<0)return;
   previewScenes=withPreviews;
-  showMapPreview(index);
+  void showMapPreview(index);
 }
 previewPrev.addEventListener("click",()=>stepPreview(-1));
 previewNext.addEventListener("click",()=>stepPreview(1));

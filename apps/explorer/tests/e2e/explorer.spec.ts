@@ -437,6 +437,37 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
   await expect.poll(() => renderUrls.some((u) => u.includes("tilejson"))).toBe(true);
 });
 
+test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const requested: string[] = [];
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  const scene = stacScene("s2a", "2025-03-10T02:00:00Z");
+  (scene.properties as Record<string, unknown>)["grid:code"] = "MGRS-50MRV";
+  // Register the STAC search first: later routes win, so the Planetary Computer routes
+  // below take precedence for their own URLs (**/search would otherwise match them).
+  await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
+  await page.route("https://planetarycomputer.microsoft.com/api/stac/v1/search", (route) => {
+    requested.push("search");
+    return respond(route, { json: { features: [
+      { id: "S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000", properties: { datetime: "2025-03-10T02:00:00Z" } }] } });
+  });
+  await page.route("https://planetarycomputer.microsoft.com/api/data/v1/**", (route) => {
+    const url = route.request().url();
+    requested.push(url);
+    return url.includes("tilejson")
+      ? respond(route, { json: { tiles: ["https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/x/{z}/{x}/{y}@1x?item=a"], minzoom: 0, maxzoom: 22, tileSize: 256 } })
+      : route.fulfill({ contentType: "image/png", body: png });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await page.locator("#results img").click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  // The Sentinel-2 item id is resolved on Planetary Computer, then its tile set is used.
+  await expect.poll(() => requested.some((u) => u.includes("item=S2C_MSIL2A"))).toBe(true);
+  await expect.poll(() => requested.some((u) => u.includes("tilejson"))).toBe(true);
+});
+
 test("a provider tile set is used when the scene exposes one", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   let tilejsonRequests = 0;
