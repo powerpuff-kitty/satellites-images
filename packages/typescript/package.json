@@ -1,6 +1,6 @@
 {
   "name": "@powerpuff-kitty/satellites-images",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Browser and Node.js STAC satellite image discovery SDK",
   "license": "MIT",
   "type": "module",

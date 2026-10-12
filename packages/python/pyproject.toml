@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "satellites-images"
-version = "0.2.0"
+version = "0.3.0"
 description = "Satellite imagery catalogue discovery and availability client"
 readme = "README.md"
 requires-python = ">=3.10"

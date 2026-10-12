@@ -20,3 +20,16 @@ When running with `npm run dev -w @satellites-images/explorer`, Vite proxies off
 For a static production build, configure `VITE_ESA_PROXY_URL` to a deployment of `apps/plans-proxy` (a narrowly restricted public-source Cloudflare Worker); do not deploy a generic URL proxy. If no proxy is configured, the app attempts ESA direct requests but browser CORS may block them.
 
 The Worker is intentionally **not deployed by this repository**. Check ESA's site availability and terms before public deployment. This app does not guarantee future acquisitions or published images.
+
+## Historical availability calendar (V0.3)
+
+1. Choose a point on the map or enter latitude/longitude.
+2. Choose a STAC catalogue and date range, then **Find observations**.
+3. Browse the UTC month/date calendar (numbers show unique scenes **in the loaded results**).
+4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
+5. Choose the previous/next month to search that month, or press **Load next 5 catalogue pages** to continue the original search without restarting it.
+6. Copy the browser URL to share the selected coordinates, provider, period and selected calendar day.
+
+An initial search scans up to five pages of 75 items each, and can continue in further five-page batches until all provider pages are exhausted or a 50-page maximum is reached. If more pages are still advertised, the UI says **partial**, and zero-count dates are not proof that no imagery exists. Changing the location/dates requires a new search.
+
+The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.

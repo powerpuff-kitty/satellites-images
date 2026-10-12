@@ -1,6 +1,6 @@
 {
   "name": "@satellites-images/explorer",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@powerpuff-kitty/satellites-images": "0.2.0",
+    "@powerpuff-kitty/satellites-images": "0.3.0",
     "maplibre-gl": "^5.6.1"
   },
   "devDependencies": {
