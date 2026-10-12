@@ -51,7 +51,7 @@ async function setRange(page: Page, from: string, to: string) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.route("https://demotiles.maplibre.org/**", (route) => respond(route, { json: MAP_STYLE }));
+  await page.route("https://tiles.openfreemap.org/**", (route) => respond(route, { json: MAP_STYLE }));
 });
 
 test("coordinate search builds a calendar and result cards", async ({ page }) => {

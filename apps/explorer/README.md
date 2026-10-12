@@ -9,9 +9,9 @@ npm run build -w @powerpuff-kitty/satellites-images
 npm run dev -w @satellites-images/explorer
 ```
 
-Click the map or type decimal GPS coordinates; choose radius, dates and one supported STAC provider; then browse actual historical scene metadata and available previews. The **upcoming planned acquisitions** section queries ESA's latest Sentinel-1/2 KML plans and outlines matching swaths, without claiming image publication. All results are real remote catalogue responses, not mock satellite images. A search is limited to 2 pages × 30 items by default and does not claim an exhaustive historical archive. Actual raster images are **not** drawn on the map in this first release; comparison, future plans and automatic satellite scheduling remain roadmap items.
+Click the map or type decimal GPS coordinates; choose radius, dates and one supported STAC provider; then browse actual historical scene metadata and available previews. The **upcoming planned acquisitions** section queries ESA's latest Sentinel-1/2 KML plans and outlines matching swaths, without claiming image publication. All results are real remote catalogue responses, not mock satellite images. A search scans bounded catalogue pages (five at a time, up to a 50-page limit) and does not claim an exhaustive historical archive. Actual raster images are **not** drawn on the map; comparison and automatic satellite scheduling remain roadmap items.
 
-Uses MapLibre's public demonstration tile style, which is not a production map-tile SLA. If a catalogue denies browser CORS, use a permissioned backend/proxy rather than putting API secrets into web code.
+Uses **OpenFreeMap**'s keyless, open-source "Liberty" vector style by default (OpenStreetMap data); set `VITE_MAP_STYLE_URL` to use VersaTiles, a self-hosted Protomaps/PMTiles style, or another provider. No API key is bundled.
 
 ## Upcoming ESA plans and CORS
 

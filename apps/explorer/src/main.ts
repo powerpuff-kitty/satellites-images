@@ -44,6 +44,11 @@ const plansResults = element<HTMLOListElement>("plans-results");
 const esaProxy = import.meta.env.VITE_ESA_PROXY_URL ??
   (import.meta.env.DEV ? "/esa-proxy" : "");
 
+// Base map style. Defaults to OpenFreeMap's keyless, open-source "Liberty" vector
+// style (OpenStreetMap data). Override with VITE_MAP_STYLE_URL for another open
+// provider (e.g. VersaTiles) or a self-hosted PMTiles/MapTiler style.
+const mapStyle = import.meta.env.VITE_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty";
+
 function esaFetch(url: RequestInfo | URL, options?: RequestInit): Promise<Response> {
   const original = new URL(String(url));
   if (original.origin !== "https://sentinels.copernicus.eu") {
@@ -59,7 +64,7 @@ const plannedProvider=esaSentinelPlans({fetchImpl:esaFetch});
 
 const map = new maplibregl.Map({
   container: "map",
-  style: "https://demotiles.maplibre.org/style.json",
+  style: mapStyle,
   center: [116.1167, -8.5833],
   zoom: 8,
   attributionControl: { compact: true },
