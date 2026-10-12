@@ -866,6 +866,77 @@ impl JaxaProvider {
     }
 }
 
+/// A provider that can be registered with a [`SatelliteCatalog`].
+#[derive(Clone)]
+pub enum CatalogProvider {
+    Stac(StacProvider),
+    Asf(AsfProvider),
+    Jaxa(JaxaProvider),
+}
+impl CatalogProvider {
+    pub fn id(&self) -> &str {
+        match self {
+            CatalogProvider::Stac(p) => p.id(),
+            CatalogProvider::Asf(p) => p.id(),
+            CatalogProvider::Jaxa(p) => p.id(),
+        }
+    }
+    /// Returns pages collected before any error, alongside the error.
+    pub async fn pages_partial(&self, query: &SearchQuery) -> (Vec<SearchPage>, Option<Error>) {
+        match self {
+            CatalogProvider::Stac(p) => p.search_pages_partial(query).await,
+            CatalogProvider::Asf(p) => match p.search_pages(query).await {
+                Ok(pages) => (pages, None), Err(error) => (Vec::new(), Some(error)),
+            },
+            CatalogProvider::Jaxa(p) => match p.search_pages(query).await {
+                Ok(pages) => (pages, None), Err(error) => (Vec::new(), Some(error)),
+            },
+        }
+    }
+}
+
+/// Cross-provider aggregator: query several providers and preserve per-provider identity.
+pub struct SatelliteCatalog {
+    providers: Vec<CatalogProvider>,
+}
+impl SatelliteCatalog {
+    pub fn new(providers: Vec<CatalogProvider>) -> Result<Self, Error> {
+        if providers.is_empty() {
+            return Err(Error::InvalidProvider("Provide at least one provider".into()));
+        }
+        let mut seen = HashSet::new();
+        for provider in &providers {
+            if !seen.insert(provider.id().to_string()) {
+                return Err(Error::InvalidProvider(format!("Duplicate provider id: {}", provider.id())));
+            }
+        }
+        Ok(Self { providers })
+    }
+    pub fn provider_ids(&self) -> Vec<&str> { self.providers.iter().map(CatalogProvider::id).collect() }
+    pub async fn search_pages(&self, query: &SearchQuery) -> Result<Vec<SearchPage>, Error> {
+        let mut all = Vec::new();
+        for provider in &self.providers {
+            let (pages, error) = provider.pages_partial(query).await;
+            all.extend(pages);
+            if let Some(error) = error { return Err(error); }
+        }
+        Ok(all)
+    }
+    pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
+        Ok(self.search_pages(query).await?.into_iter().flat_map(|page| page.items).collect())
+    }
+    /// Availability across providers: a provider failure is recorded, not propagated.
+    pub async fn availability(&self, query: &SearchQuery) -> AvailabilitySummary {
+        let mut accumulator = AvailabilityAccumulator::new();
+        for provider in &self.providers {
+            let (pages, error) = provider.pages_partial(query).await;
+            for page in &pages { let _ = accumulator.add_page(page); }
+            if error.is_some() { accumulator.mark_error(provider.id()); }
+        }
+        accumulator.summary()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -954,6 +1025,24 @@ mod tests {
         assert_eq!(scene.preview_url.as_deref(), Some("https://gportal.jaxa.jp/gpr/img/x.jpg"));
         assert!(matches!(JaxaProvider::new("GCOM-C_SGLI_L2_SST_250m"), Err(Error::InvalidProvider(_))));
         assert!(JaxaProvider::new("10002002").is_ok());
+    }
+
+    #[tokio::test]
+    async fn catalog_aggregates_and_rejects_duplicates() {
+        let bodies = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let empty = json!({"type":"FeatureCollection","features":[],"links":[]}).to_string();
+        let base = spawn_mock(vec![(200, empty.clone()), (200, empty)], bodies.clone());
+        let catalog = SatelliteCatalog::new(vec![
+            CatalogProvider::Stac(StacProvider::new("earth-search", &base).unwrap()),
+            CatalogProvider::Stac(StacProvider::new("copernicus", &base).unwrap()),
+        ]).unwrap();
+        assert_eq!(catalog.provider_ids(), vec!["earth-search", "copernicus"]);
+        let query = SearchQuery::new(-8.5, 116.1, 5000.0, "2025-01-01", "2025-01-31").unwrap();
+        assert!(!catalog.search_pages(&query).await.unwrap().is_empty());
+        assert!(!SatelliteCatalog::new(vec![]).is_ok());
+        let a = StacProvider::new("dupe", &base).unwrap();
+        let b = StacProvider::new("dupe", &base).unwrap();
+        assert!(matches!(SatelliteCatalog::new(vec![CatalogProvider::Stac(a), CatalogProvider::Stac(b)]), Err(Error::InvalidProvider(_))));
     }
 
     fn spawn_mock(responses: Vec<(u16, String)>, bodies: std::sync::Arc<std::sync::Mutex<Vec<String>>>) -> String {

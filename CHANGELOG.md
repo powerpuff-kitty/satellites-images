@@ -82,6 +82,12 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   serializes as `type`, and the TypeScript suite validates output against the schemas.
 - ASF/JAXA providers honour the caller's `signal` (TypeScript); provider redirects are
   documented as fail-closed; the dev Vite proxy mirrors the production allowlist.
+- Rust gains a cross-provider `SatelliteCatalog` (`Stac`/`Asf`/`Jaxa`) with `search`,
+  `search_pages` and resilient `availability`; documented that Python/Rust still
+  serialize snake_case (see `specs/README.md`).
+- Added an opt-in live smoke script (`tools/smoke/live.mjs`) — verified reachable
+  against Earth Search, Copernicus, USGS LandsatLook, CMR-STAC, ASF, JAXA G-Portal and
+  ESA plans (no redirect failures).
 
 ## [0.2.0] - 2026-10-12
 
