@@ -122,17 +122,18 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   timeline date labels **below** the axis line.
 - Explorer: timeline bars are a fixed **4 px wide** inside a **horizontally scrollable**
   pane; dropped the calendar "N published items… / Empty cells…" status line.
-- Explorer: the search window is now **twelve months**, fetched as **four three-month
-  chunks**; the month arrows move within the loaded year and fetch the next quarter when
-  you step past its edge (results append instead of resetting).
+- Explorer: the search window is now the **full calendar year**, fetched in a **single
+  request**; the month arrows move within the loaded year and fetch the next year when you
+  step past its edge (results append instead of resetting).
 - Explorer: clicking a scene **preview overlays the image on the map** (georeferenced via
   its footprint) so it pans/zooms with the map; **‹ / ›** arrows step through the loaded
   images. Replaces the full-screen lightbox.
 - Explorer: the stacked **timelines are replaced** by a GitHub-style **day matrix** at the
-  bottom of the map — one **8×8 px** cell per day across the loaded year, with small links
-  to switch the metric (observations / cloud / mission / provider).
-- Explorer: a search now loads its **whole window up front** (all chunks and provider pages,
-  in five-page batches, up to the page safety cap) instead of stopping after one batch.
+  bottom of the map — one **12×12 px** cell per day across the loaded year (including future
+  days), each with a hover tooltip, with small links to switch the metric (observations /
+  cloud / mission / provider).
+- Explorer: a search now loads every provider page **up front** (in five-page batches, up to
+  the page safety cap) instead of stopping after one batch.
 - Explorer: day-matrix **empty days render a placeholder** cell (dimmer outside the loaded
   window) so the grid has no gaps, and the metric links sit on **one horizontal row**.
 - Explorer: day-matrix cells are **12×12 px**; the form now defaults to the **full current

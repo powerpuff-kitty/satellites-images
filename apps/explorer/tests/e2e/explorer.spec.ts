@@ -91,7 +91,7 @@ test("the form defaults to the full calendar year", async ({ page }) => {
   await expect(page.locator("#date-to")).toHaveValue(year + "-12-31");
 });
 
-test("a year is fetched as four three-month chunks", async ({ page }) => {
+test("a year is fetched in a single request", async ({ page }) => {
   const starts: string[] = [];
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
@@ -100,8 +100,8 @@ test("a year is fetched as four three-month chunks", async ({ page }) => {
   });
   await page.goto("/");
   await setRange(page, "2025-01-01", "2025-12-31");
-  await expect.poll(() => starts.length).toBe(4);
-  expect(starts).toEqual(["2025-01", "2025-04", "2025-07", "2025-10"]);
+  await expect.poll(() => starts.length).toBe(1);
+  expect(starts).toEqual(["2025-01"]);
 });
 
 test("selecting a calendar day filters the result cards", async ({ page }) => {
@@ -264,6 +264,11 @@ test("the day matrix plots one 12x12 px cell per day across the loaded year", as
   // A day with no observations still renders a placeholder cell, not a gap.
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]')).toHaveAttribute("fill", "#2f3830");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).not.toHaveAttribute("fill", "#2f3830");
+  // Every cell — with or without observations — carries a hover tooltip.
+  const allCells = await page.locator("#matrix-svg .matrix-cell").count();
+  const titledCells = await page.locator("#matrix-svg .matrix-cell:has(title)").count();
+  expect(titledCells).toBe(allCells);
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"] title')).toHaveText(/no observations/);
 });
 
 test("the matrix data links switch the metric it shows", async ({ page }) => {

@@ -40,15 +40,15 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 3. Browse the UTC month/date calendar (numbers show unique scenes **in the loaded results**).
 4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
 5. Use the previous/next month arrows to move the calendar; stepping past the loaded year
-   fetches the next three-month chunk. Searches load their whole window up front, so the
+   fetches the next year. Searches load their whole window up front, so the
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the selected coordinates, provider, period and selected calendar day.
 
 The explorer loads **one year at a time** (the current calendar year by default), fetched as
-**four three-month chunks**. A search loads its **whole window up front** — every provider
-page, in five-page batches, up to a 50-page safety cap — so the day matrix covers the full
-year without manual paging. If the cap is reached, the UI says **partial**, and zero-count
-dates are not proof that no imagery exists. Changing the location/dates starts a new search.
+a **single request** for the whole window. A search loads every provider page (in five-page
+batches, up to a 50-page safety cap) so the day matrix covers the full year without manual
+paging. If the cap is reached, the UI says **partial**, and zero-count dates are not proof
+that no imagery exists. Changing the location/dates starts a new search.
 
 The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
 
@@ -76,7 +76,7 @@ controls and the map stay accessible). Its header is **sticky** and holds the re
 counter and status; the loaded observations are summarised by the **day matrix** at the
 bottom of the map (see above). Clicking a scene **preview image overlays it on the map**
 so you can pan/zoom with the map; the **‹ / ›** arrows step through the loaded images and
-**Esc** closes the overlay. The explorer loads **one year at a time** (twelve months) in
-**three-month chunks**: use the **month navigation above the calendar** (← / → and the month
-field) to move the visible month; stepping past the edge of what's loaded fetches the next
-three-month chunk and appends it. Cloud cover is scene-wide metadata, not per-AOI.
+**Esc** closes the overlay. The explorer loads **one year at a time** in a **single
+request**: use the **month navigation above the calendar** (← / → and the month field) to
+move the visible month; stepping past the edge of what's loaded fetches the next year and
+appends it. Cloud cover is scene-wide metadata, not per-AOI.

@@ -327,7 +327,9 @@ function renderMatrix():void {
   if(Number.isFinite(dataLast))last=Math.max(last,dataLast);
   const startDow=(new Date(first).getUTCDay()+6)%7;
   const start=first-startDow*dayMs;
-  const nDays=Math.max(1,Math.round((last-start)/dayMs)+1);
+  const endDow=(new Date(last).getUTCDay()+6)%7;
+  const end=last+(6-endDow)*dayMs;
+  const nDays=Math.max(1,Math.round((end-start)/dayMs)+1);
   const weeks=Math.ceil(nDays/7);
   const width=weeks*step, height=7*step;
   matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height}`);
@@ -363,16 +365,17 @@ function renderMatrix():void {
     rect.setAttribute("width",String(cell));
     rect.setAttribute("height",String(cell));
     rect.setAttribute("rx","1");
+    const tip=document.createElementNS(NS,"title");
     if(list){
       rect.setAttribute("fill",matrixColourOf(list,metric,max,order));
-      const tip=document.createElementNS(NS,"title");
       tip.textContent=day+" - "+list.length+" observation"+(list.length===1?"":"s");
-      rect.append(tip);
       rect.addEventListener("click",()=>selectTimelineDay(day));
     }else{
       // Placeholder so every day of the year reads as a present, empty cell.
       rect.setAttribute("fill",inWindow?MATRIX_EMPTY:MATRIX_PAD);
+      tip.textContent=day+(inWindow?" - no observations":" - outside the loaded range");
     }
+    rect.append(tip);
     matrixSvg.append(rect);
   }
   matrixSvg.setAttribute("aria-label","Observations per day across the loaded year");
@@ -394,7 +397,7 @@ interface HistoryScan {
   ended:boolean;
   signature:string;
 }
-const CHUNK_MONTHS=3;
+const CHUNK_MONTHS=12;
 let scanAccumulator:AvailabilityAccumulator|null=null;
 let activeScan:HistoryScan|null=null;
 let initialPermalinkDay:string|null=null;
