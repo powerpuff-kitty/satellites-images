@@ -3,7 +3,9 @@ import type { FeatureCollection, Geometry } from "geojson";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
+  AvailabilityAccumulator, type AvailabilitySummary,
   type Scene, type AcquisitionOpportunity } from "@powerpuff-kitty/satellites-images";
+import { renderDayCalendar, renderMonthStrip, shiftMonth, monthDates, asMonthLabel } from "./calendar.js";
 
 const element = <T extends HTMLElement>(id: string): T => {
   const item = document.getElementById(id);
@@ -21,6 +23,14 @@ const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
 const button = element<HTMLButtonElement>("search-button");
 const form = element<HTMLFormElement>("search-form");
+const calendarMonth = element<HTMLInputElement>("calendar-month");
+const calendarGrid = element<HTMLElement>("day-calendar");
+const monthStrip = element<HTMLElement>("month-strip");
+const calendarStatus = element<HTMLElement>("calendar-status");
+const prevMonth = element<HTMLButtonElement>("previous-month");
+const nextMonth = element<HTMLButtonElement>("next-month");
+const allDaysButton = element<HTMLButtonElement>("show-all-days");
+const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 
 const plansButton = element<HTMLButtonElement>("plans-button");
 const plansStatus = element<HTMLElement>("plans-status");
@@ -90,6 +100,14 @@ function makeScene(scene: Scene): HTMLLIElement {
   item.append(line("Collection",scene.collection));
   item.append(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
   item.append(line("Image access",scene.access==="unknown"?"Not verified":scene.access));
+  if (scene.geometry?.type==="Polygon" || scene.geometry?.type==="MultiPolygon") {
+    const inspect = document.createElement("button");
+    inspect.type = "button";
+    inspect.className = "scene-inspect";
+    inspect.textContent = "Show scene footprint ↗";
+    inspect.addEventListener("click",()=>highlightScene(scene));
+    item.append(inspect);
+  }
   if (scene.previewUrl) {
     try {
       const url = new URL(scene.previewUrl);
@@ -119,42 +137,209 @@ function makeScene(scene: Scene): HTMLLIElement {
 }
 
 let currentSearch = 0;
-form.addEventListener("submit",async(event)=>{
-  event.preventDefault();
-  currentSearch += 1;
-  const token = currentSearch;
-  results.replaceChildren();
-  counter.textContent = "—";
-  button.disabled = true;
-  status.textContent = "Searching public satellite catalogues…";
-  try {
-    const selected = provider.value === "planetary-computer" ? planetaryComputer() : earthSearch();
-    const catalog = new SatelliteCatalog([selected]);
-    const query = {
-      latitude: Number(lat.value), longitude: Number(lon.value), radiusMeters: Number(radius.value),
-      from: from.value, to: to.value, maxPages: 2, limit: 30,
-    };
-    updateLocation(query.latitude,query.longitude,true);
-    let count = 0;
-    for await (const page of catalog.search(query)) {
-      if(token!==currentSearch) break;
-      const fragment = document.createDocumentFragment();
-      for (const scene of page.items) fragment.append(makeScene(scene));
-      results.append(fragment);
-      count += page.items.length;
-      counter.textContent = String(count);
-      status.textContent = page.hasNext && page.pageNumber >= query.maxPages
-        ? "Showing first "+count+" matching scenes (search limited to "+query.maxPages+" pages)."
-        : count+" published scene"+(count===1?"":"s")+" found in loaded pages.";
-    }
-    if (count === 0 && token === currentSearch) status.textContent = "No scenes returned for that area and period. Try a wider time range.";
-  } catch (error) {
-    if (token === currentSearch) status.textContent = "Catalogue search failed: " + (error instanceof Error ? error.message : String(error));
-  } finally {
-    if(token === currentSearch) button.disabled = false;
+let currentController:AbortController|null=null;
+let loadedScenes:Scene[]=[];
+let currentSummary:AvailabilitySummary|null=null;
+let selectedDay:string|null=null;
+let displayedLimit=40;
+let searchErrored=false;
+let activeMonth:string = to.value.slice(0,7);
+
+function validDate(input:string):boolean {
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(input))return false;
+  const time=Date.parse(input+"T00:00:00Z");
+  return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===input;
+}
+function restoreSearchLink():void {
+  const params=new URLSearchParams(window.location.search);
+  const latitude=Number(params.get("lat"));
+  const longitude=Number(params.get("lon"));
+  if(params.has("lat")&&params.has("lon")&&Number.isFinite(latitude)&&Number.isFinite(longitude)
+    &&latitude>=-90&&latitude<=90&&longitude>=-180&&longitude<=180) {
+    lat.value=String(latitude); lon.value=String(longitude);
   }
+  const wantedRadius=params.get("radius");
+  if(wantedRadius&&[...radius.options].some(o=>o.value===wantedRadius))radius.value=wantedRadius;
+  const wantedProvider=params.get("provider");
+  if(wantedProvider&&[...provider.options].some(o=>o.value===wantedProvider))provider.value=wantedProvider;
+  if(validDate(params.get("from")??"")&&validDate(params.get("to")??"")) {
+    from.value=params.get("from")!;
+    to.value=params.get("to")!;
+  } else {
+    const today=new Date().toISOString().slice(0,10);
+    const nowMonth=today.slice(0,7);
+    from.value=shiftMonth(nowMonth,-1)+"-01";
+    to.value=today;
+  }
+  activeMonth=to.value.slice(0,7);
+  calendarMonth.value=activeMonth;
+  const restoredDay=params.get("day");
+  if(restoredDay&&validDate(restoredDay)&&restoredDay>=from.value&&restoredDay<=to.value) {
+    selectedDay=restoredDay;
+    activeMonth=restoredDay.slice(0,7);
+    calendarMonth.value=activeMonth;
+  }
+  marker.setLngLat([Number(lon.value),Number(lat.value)]);
+  map.jumpTo({center:[Number(lon.value),Number(lat.value)]});
+}
+function storeSearchLink():void {
+  const url=new URL(window.location.href);
+  for(const name of ["lat","lon","radius","from","to","provider","day"])url.searchParams.delete(name);
+  url.searchParams.set("lat",lat.value);
+  url.searchParams.set("lon",lon.value);
+  url.searchParams.set("radius",radius.value);
+  url.searchParams.set("provider",provider.value);
+  url.searchParams.set("from",from.value);
+  url.searchParams.set("to",to.value);
+  if(selectedDay)url.searchParams.set("day",selectedDay);
+  window.history.replaceState(null,"",url);
+}
+function highlightScene(scene:Scene|undefined):void {
+  const featureCollection:FeatureCollection = {
+    type:"FeatureCollection",
+    features:scene && (scene.geometry?.type==="Polygon" || scene.geometry?.type==="MultiPolygon")
+      ? [{type:"Feature",properties:{id:scene.id,acquired:scene.acquiredAt},
+          geometry:scene.geometry as unknown as Geometry}]
+      : [],
+  };
+  const apply=()=>{
+    const source=map.getSource("observed-footprint") as maplibregl.GeoJSONSource|undefined;
+    if(source){source.setData(featureCollection);return;}
+    map.addSource("observed-footprint",{type:"geojson",data:featureCollection});
+    map.addLayer({id:"observed-footprint-line",type:"line",source:"observed-footprint",
+      paint:{"line-color":"#8dd7c1","line-width":2.5}});
+  };
+  if(map.isStyleLoaded())apply();else map.once("load",apply);
+}
+function renderLoadedScenes():void {
+  const visible=selectedDay
+    ? loadedScenes.filter(scene=>scene.acquiredAt.slice(0,10)===selectedDay)
+    : loadedScenes;
+  const selected=visible.slice(0,displayedLimit);
+  const fragment=document.createDocumentFragment();
+  for(const scene of selected)fragment.append(makeScene(scene));
+  results.replaceChildren(fragment);
+  counter.textContent=String(visible.length)+(selectedDay?" / "+loadedScenes.length:"");
+  showMoreButton.hidden=visible.length<=displayedLimit;
+  if(selectedDay)highlightScene(visible[0]);
+  else highlightScene(undefined);
+}
+function redrawAvailability():void {
+  const summary=currentSummary;
+  if(!summary) return;
+  renderMonthStrip(monthStrip,summary,from.value,to.value,activeMonth,(month)=>{
+    activeMonth=month;calendarMonth.value=month;
+    redrawAvailability();
+  });
+  renderDayCalendar(calendarGrid,summary,activeMonth,selectedDay,(day)=>{
+    selectedDay=day;
+    displayedLimit=40;
+    redrawAvailability();
+    renderLoadedScenes();
+    storeSearchLink();
+  });
+  allDaysButton.hidden=selectedDay===null;
+  const statusParts=[
+    summary.uniqueItems+" unique published items from "+summary.pagesScanned+" catalogue page(s)",
+  ];
+  if(!summary.complete)statusParts.push("Additional pages may exist. Counts are partial.");
+  if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
+  statusParts.push("Empty cells mean no observation in loaded results, not proof of missing imagery.");
+  calendarStatus.textContent=statusParts.join(" ");
+}
+function searchMonth(month:string):void {
+  const dates=monthDates(month);
+  calendarMonth.value=month;
+  activeMonth=month;
+  selectedDay=null;
+  from.value=dates.from;
+  to.value=dates.to;
+  form.requestSubmit();
+}
+prevMonth.addEventListener("click",()=>searchMonth(shiftMonth(calendarMonth.value,-1)));
+nextMonth.addEventListener("click",()=>searchMonth(shiftMonth(calendarMonth.value,1)));
+calendarMonth.addEventListener("change",()=>{
+  if(calendarMonth.value)searchMonth(calendarMonth.value);
+});
+allDaysButton.addEventListener("click",()=>{
+  selectedDay=null;
+  redrawAvailability();
+  renderLoadedScenes();
+  storeSearchLink();
+});
+showMoreButton.addEventListener("click",()=>{
+  displayedLimit+=40;
+  renderLoadedScenes();
 });
 
+form.addEventListener("submit",async(event)=>{
+  event.preventDefault();
+  currentController?.abort();
+  const controller=new AbortController();
+  currentController=controller;
+  const token=++currentSearch;
+  const accumulator=new AvailabilityAccumulator();
+  currentSummary=null;
+  loadedScenes=[];
+  searchErrored=false;
+  selectedDay=null;
+  displayedLimit=40;
+  activeMonth=to.value.slice(0,7);
+  calendarMonth.value=activeMonth;
+  results.replaceChildren();
+  calendarGrid.replaceChildren();
+  monthStrip.replaceChildren();
+  counter.textContent="—";
+  button.disabled=true;
+  status.textContent="Searching public satellite catalogues…";
+  calendarStatus.textContent="Loading satellite acquisition dates…";
+  // Planned footprints belong to a separate search; clear stale old-area results.
+  currentPlanSearch++;
+  plansButton.disabled=false;
+  plansResults.replaceChildren();
+  plansStatus.textContent="Check future acquisitions for this location.";
+  displaySwaths([]);
+  try {
+    const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();
+    const catalog=new SatelliteCatalog([selected]);
+    const query={
+      latitude:Number(lat.value), longitude:Number(lon.value), radiusMeters:Number(radius.value),
+      from:from.value, to:to.value,maxPages:10,limit:75,signal:controller.signal,
+    };
+    updateLocation(query.latitude,query.longitude,true);
+    storeSearchLink();
+    for await (const page of catalog.search(query)) {
+      if(token!==currentSearch || controller.signal.aborted)break;
+      const novel=accumulator.addPage(page);
+      loadedScenes.push(...novel);
+      loadedScenes.sort((a,b)=>b.acquiredAt.localeCompare(a.acquiredAt)||a.id.localeCompare(b.id));
+      currentSummary=accumulator.summary();
+      redrawAvailability();
+      renderLoadedScenes();
+      status.textContent="Scanned "+currentSummary.pagesScanned+" page(s), "+
+        currentSummary.uniqueItems+" unique observations loaded…";
+    }
+    if(token!==currentSearch||controller.signal.aborted)return;
+    const summary=accumulator.summary();
+    currentSummary=summary;
+    redrawAvailability();
+    status.textContent=summary.uniqueItems===0
+      ? "No matching scenes returned in this query window (not a claim about other archives)."
+      : summary.complete
+        ? summary.uniqueItems+" unique scenes returned; provider pagination exhausted for this search window."
+        : summary.uniqueItems+" unique scenes loaded. More provider pages exist; narrow to a month for more coverage.";
+  }catch(error){
+    if(token!==currentSearch||controller.signal.aborted)return;
+    searchErrored=true;
+    currentSummary=accumulator.summary();
+    redrawAvailability();
+    status.textContent="Catalogue search failed: "+(error instanceof Error?error.message:String(error))+
+      (loadedScenes.length?" Previously loaded scenes may be incomplete.":"");
+  }finally{
+    if(token===currentSearch)button.disabled=false;
+  }
+});
+restoreSearchLink();
 
 function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   const li = document.createElement("li");

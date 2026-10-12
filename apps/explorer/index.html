@@ -28,12 +28,30 @@
           </div>
           <button id="search-button" type="submit">Find observations <span aria-hidden="true">↗</span></button>
         </form>
+        <section class="history-calendar" aria-label="Historical observation availability">
+          <div class="heading">
+            <h2>Historical availability</h2>
+            <span class="muted">UTC / LOADED SCENES</span>
+          </div>
+          <div class="month-navigation">
+            <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month">←</button>
+            <label class="month-field">Browse month
+              <input id="calendar-month" type="month" value="2025-03" aria-label="Search a specific month">
+            </label>
+            <button class="month-arrow" id="next-month" type="button" aria-label="Search next month">→</button>
+          </div>
+          <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
+          <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
+          <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
+          <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
+        </section>
         <div class="heading">
           <h2>Published observations</h2>
           <span id="counter">—</span>
         </div>
         <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
+        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes ↓</button>
         <div class="planning-area">
           <div class="heading">
             <h2>Upcoming planned acquisitions</h2>

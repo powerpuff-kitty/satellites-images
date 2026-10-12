@@ -13,6 +13,7 @@ export interface SearchQuery {
   collections?: string[];
   limit?: number;
   maxPages?: number;
+  signal?: AbortSignal;
 }
 export interface SceneAsset {
   key: string;
@@ -214,7 +215,9 @@ export class StacProvider {
           method,
           headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
           body: method === "POST" ? JSON.stringify(body) : undefined,
-          signal: AbortSignal.timeout(20000),
+          signal: query.signal
+            ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)])
+            : AbortSignal.timeout(20000),
         });
       } catch (error) {
         throw new SatelliteError("NETWORK", "STAC request failed: " + String(error), this.id);
