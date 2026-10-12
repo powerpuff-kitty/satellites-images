@@ -40,6 +40,9 @@ const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
 const matrixQuick = element<HTMLElement>("matrix-quick");
+const matrixMoreToggle = element<HTMLButtonElement>("matrix-more");
+const matrixMoreLabel = element<HTMLElement>("matrix-more-label");
+const matrixMoreMenu = element<HTMLElement>("matrix-more-menu");
 const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
 const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
@@ -373,11 +376,42 @@ function selectTimelineDay(day:string):void {
   storeSearchLink();
 }
 // --- Year-at-a-glance day matrix (GitHub-style, 8x8 px cells) ------------------
-type MatrixMetric = "total" | "cloud" | "mission" | "provider";
+type MatrixMetric = "total" | "cloud" | "mission" | "provider" | "resolution" | "sensor" | "hour" | "orbit";
+const EXTRA_METRICS:{metric:MatrixMetric;label:string}[]=[
+  {metric:"resolution",label:"Resolution"},
+  {metric:"sensor",label:"Sensor"},
+  {metric:"hour",label:"Time of day"},
+  {metric:"orbit",label:"Orbit"},
+];
 let matrixMetric:MatrixMetric = "total";
 let matrixItems:Scene[] = [];
 const MATRIX_EMPTY = "#2f3830";   // a day inside the window with no observations
-function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:string[]):string {
+/** The bucket a scene falls into for a given metric. */
+function matrixKeyOf(scene:Scene, metric:MatrixMetric):string {
+  switch(metric){
+    case "mission": return scene.mission || "unknown";
+    case "provider": return scene.providerId;
+    case "sensor": return isRadarScene(scene) ? "radar" : "optical";
+    case "resolution": {
+      const gsd=scene.gsdMeters;
+      if(gsd===null)return "unknown";
+      if(gsd<=1)return "\u22641 m";
+      if(gsd<=10)return "\u226410 m";
+      if(gsd<=30)return "\u226430 m";
+      return ">30 m";
+    }
+    case "hour": {
+      const block=Math.floor(new Date(scene.acquiredAt).getUTCHours()/6)*6;
+      return String(block).padStart(2,"0")+"\u2013"+String(block+6).padStart(2,"0");
+    }
+    case "orbit": {
+      const state=rawProperties(scene)["sat:orbit_state"];
+      return typeof state==="string" ? state.toLowerCase() : "unknown";
+    }
+    default: return "unknown";
+  }
+}
+function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:string[], keyOf:(scene:Scene)=>string):string {
   if(metric==="total"){
     const alpha=0.22+0.78*Math.min(1,list.length/max);
     return `rgba(79,191,122,${alpha.toFixed(2)})`;
@@ -391,7 +425,7 @@ function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:str
   }
   const counts=new Map<string,number>();
   for(const scene of list){
-    const key=metric==="mission"?(scene.mission||"unknown"):scene.providerId;
+    const key=keyOf(scene);
     counts.set(key,(counts.get(key)??0)+1);
   }
   const top=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0][0];
@@ -436,11 +470,12 @@ function renderMatrix():void {
   }
   let max=1;
   for(const list of perDay.values())max=Math.max(max,list.length);
+  const keyOf=(scene:Scene)=>matrixKeyOf(scene,metric);
   const order:string[]=[];
-  if(metric==="mission"||metric==="provider"){
+  if(metric!=="total"&&metric!=="cloud"){
     const totals=new Map<string,number>();
     for(const scene of scenes){
-      const key=metric==="mission"?(scene.mission||"unknown"):scene.providerId;
+      const key=keyOf(scene);
       totals.set(key,(totals.get(key)??0)+1);
     }
     order.push(...[...totals.keys()].sort((a,b)=>totals.get(b)!-totals.get(a)!));
@@ -464,7 +499,7 @@ function renderMatrix():void {
     if(day===selectedDay)classes.push("selected");
     rect.setAttribute("class",classes.join(" "));
     if(list){
-      rect.setAttribute("fill",matrixColourOf(list,metric,max,order));
+      rect.setAttribute("fill",matrixColourOf(list,metric,max,order,keyOf));
       tip.textContent=day+" - "+list.length+" observation"+(list.length===1?"":"s");
       rect.addEventListener("click",()=>selectTimelineDay(day));
     }else{
@@ -494,14 +529,33 @@ function renderMatrix():void {
     matrixSvg.append(label);
   }
 }
-for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link")){
-  link.addEventListener("click",()=>{
-    matrixMetric=(link.dataset.metric as MatrixMetric) ?? "total";
-    for(const other of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
-      other.setAttribute("aria-pressed",String(other===link));
-    renderMatrix();
-  });
+function setMatrixMetric(metric:MatrixMetric):void {
+  matrixMetric=metric;
+  for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
+    link.setAttribute("aria-pressed",String(link.dataset.metric===metric));
+  for(const item of matrixMoreMenu.querySelectorAll<HTMLButtonElement>(".matrix-menu-item"))
+    item.setAttribute("aria-checked",String(item.dataset.metric===metric));
+  const extra=EXTRA_METRICS.find((entry)=>entry.metric===metric);
+  matrixMoreToggle.setAttribute("aria-pressed",String(Boolean(extra)));
+  matrixMoreLabel.textContent=extra?extra.label:"More";
+  matrixMoreMenu.hidden=true;
+  matrixMoreToggle.setAttribute("aria-expanded","false");
+  renderMatrix();
 }
+for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
+  link.addEventListener("click",()=>setMatrixMetric((link.dataset.metric as MatrixMetric) ?? "total"));
+for(const item of matrixMoreMenu.querySelectorAll<HTMLButtonElement>(".matrix-menu-item"))
+  item.addEventListener("click",()=>setMatrixMetric((item.dataset.metric as MatrixMetric) ?? "total"));
+matrixMoreToggle.addEventListener("click",(event)=>{
+  event.stopPropagation();
+  const opening=matrixMoreMenu.hidden;
+  matrixMoreMenu.hidden=!opening;
+  matrixMoreToggle.setAttribute("aria-expanded",String(opening));
+});
+document.addEventListener("click",()=>{
+  matrixMoreMenu.hidden=true;
+  matrixMoreToggle.setAttribute("aria-expanded","false");
+});
 // Year stepper: shift the whole loaded window a year back or forward and re-search.
 function shiftWindowYear(delta:number):void {
   const shift=(value:string):string=>{
@@ -627,9 +681,37 @@ function isRadarScene(scene:Scene):boolean {
   return RADAR_COLLECTION.test(scene.collection);
 }
 let sensorFilter:"all"|"optical"|"radar"="all";
+// Scenes whose footprint does not cover the searched point still intersect a radius query
+// (bbox vs polygon), so by default only covering scenes are shown.
+let coversSelected=true;
+function pointInRing(x:number,y:number,ring:number[][]):boolean {
+  let inside=false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const [xi,yi]=ring[i], [xj,yj]=ring[j];
+    if((yi>y)!==(yj>y)&&x<((xj-xi)*(y-yi))/(yj-yi)+xi)inside=!inside;
+  }
+  return inside;
+}
+function sceneCoversPoint(scene:Scene, lng:number, latitude:number):boolean {
+  const geometry=scene.geometry as {type?:string;coordinates?:unknown}|null;
+  if(geometry?.type==="Polygon"){
+    const rings=geometry.coordinates as number[][][];
+    return Boolean(rings.length)&&pointInRing(lng,latitude,rings[0]);
+  }
+  if(geometry?.type==="MultiPolygon"){
+    const polygons=geometry.coordinates as number[][][][];
+    return polygons.some((rings)=>Boolean(rings.length)&&pointInRing(lng,latitude,rings[0]));
+  }
+  const box=scene.bbox;
+  return Boolean(box&&box.length===4&&box[0]<=lng&&lng<=box[2]&&box[1]<=latitude&&latitude<=box[3]);
+}
 function passesFilters(scene:Scene):boolean {
   if(sensorFilter==="radar"&&!isRadarScene(scene))return false;
   if(sensorFilter==="optical"&&isRadarScene(scene))return false;
+  if(coversSelected){
+    const lng=Number(lon.value), latitude=Number(lat.value);
+    if(Number.isFinite(lng)&&Number.isFinite(latitude)&&!sceneCoversPoint(scene,lng,latitude))return false;
+  }
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
   if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
@@ -642,7 +724,7 @@ function passesFilters(scene:Scene):boolean {
   return true;
 }
 function hasActiveFilters():boolean {
-  return Boolean(sensorFilter!=="all" || missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
+  return Boolean(sensorFilter!=="all" || !coversSelected || missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
     resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
 }
@@ -745,17 +827,26 @@ fillSelect(hourMin,hourOptions); fillSelect(hourMax,[...hourOptions]);
 hourMin.value="0"; hourMax.value="23";
 function applySensorFilter(choice:string):void {
   sensorFilter=choice==="radar"||choice==="optical"?choice:"all";
-  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip"))
+  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
     button.setAttribute("aria-pressed",String(button.dataset.sensor===sensorFilter));
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();
 }
-for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip"))
+for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
   button.addEventListener("click",()=>applySensorFilter(button.dataset.sensor ?? "all"));
+const coversChip=matrixQuick.querySelector<HTMLButtonElement>(".matrix-chip-covers");
+coversChip?.addEventListener("click",()=>{
+  coversSelected=!coversSelected;
+  coversChip.setAttribute("aria-pressed",String(coversSelected));
+  displayedLimit=40;
+  redrawAvailability();
+  renderLoadedScenes();
+});
 clearFilters.addEventListener("click",()=>{
-  sensorFilter="all";
-  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip"))
+  sensorFilter="all"; coversSelected=true;
+  matrixQuick.querySelector<HTMLButtonElement>(".matrix-chip-covers")?.setAttribute("aria-pressed","true");
+  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
     button.setAttribute("aria-pressed",String(button.dataset.sensor==="all"));
   missionFilter.value=""; collectionFilter.value=""; cloudMin.value=""; cloudMax.value="";
   hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;

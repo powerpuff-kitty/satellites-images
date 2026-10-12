@@ -140,8 +140,11 @@ test("a mid-scan catalogue failure is reported and keeps partial results", async
 });
 
 test("deep link restores the location, range and selected day and replays the search", async ({ page }) => {
+  const scene = stacScene("d", "2025-03-10T02:00:00Z");
+  scene.geometry = { type: "Polygon", coordinates: [[[103.7, 1.2], [104.0, 1.2], [104.0, 1.5], [103.7, 1.5], [103.7, 1.2]]] };
+  scene.bbox = [103.7, 1.2, 104.0, 1.5];
   await page.route("**/search", (route) =>
-    respond(route, { json: collection([stacScene("d", "2025-03-10T02:00:00Z")], [], 1) }));
+    respond(route, { json: collection([scene], [], 1) }));
   await page.goto("/?lat=1.35210&lon=103.81980&radius=5000&provider=earth-search&from=2025-03-01&to=2025-03-31&day=2025-03-10&zoom=14");
   await expect(page.locator("#latitude")).toHaveValue("1.35210");
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
@@ -446,6 +449,36 @@ test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", a
   // The Sentinel-2 item id is resolved on Planetary Computer, then its tile set is used.
   await expect.poll(() => requested.some((u) => u.includes("item=S2C_MSIL2A"))).toBe(true);
   await expect.poll(() => requested.some((u) => u.includes("tilejson"))).toBe(true);
+});
+
+test("the Covers filter hides scenes that miss the searched point", async ({ page }) => {
+  const covering = stacScene("covering", "2025-03-10T02:00:00Z");
+  const missing = stacScene("missing", "2025-03-11T02:00:00Z");
+  missing.geometry = { type: "Polygon", coordinates: [[[10.0, -9.0], [10.3, -9.0], [10.3, -8.7], [10.0, -8.7], [10.0, -9.0]]] };
+  missing.bbox = [10.0, -9.0, 10.3, -8.7];
+  await page.route("**/search", (route) => respond(route, { json: collection([covering, missing], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  // The default point is inside only the first scene's footprint (bbox vs polygon gap).
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator(".matrix-chip-covers").click();
+  await expect(page.locator(".matrix-chip-covers")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#results li")).toHaveCount(2);
+});
+
+test("the More dropdown picks an extra metric", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator("#matrix-more").click();
+  await expect(page.locator("#matrix-more-menu")).toBeVisible();
+  await page.locator('.matrix-menu-item[data-metric="resolution"]').click();
+  await expect(page.locator("#matrix-more-menu")).toBeHidden();
+  await expect(page.locator("#matrix-more")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#matrix-more-label")).toHaveText("Resolution");
+  await expect(page.locator('.matrix-menu-item[data-metric="resolution"]')).toHaveAttribute("aria-checked", "true");
 });
 
 test("the Image/Radar quick filter narrows the view and sits right", async ({ page }) => {

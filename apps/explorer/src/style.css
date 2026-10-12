@@ -104,7 +104,17 @@ button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button 
 /* Year-at-a-glance day matrix (GitHub-style), pinned to the bottom of the map. */
 .map-matrix { position:absolute; z-index:3; left:0; right:0; bottom:14px; margin:0 auto; width:fit-content; max-width:calc(100% - 28px); background:#0e120fdd; border:1px solid #2c342c; padding:8px 10px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
 .matrix-head { display:flex; width:100%; align-items:center; justify-content:space-between; gap:12px; }
-.matrix-links { display:flex; flex-wrap:nowrap; justify-content:flex-start; gap:14px; overflow-x:auto; padding-bottom:2px; }
+.matrix-links { display:flex; flex-wrap:nowrap; justify-content:flex-start; align-items:center; gap:14px; padding-bottom:2px; }
+.matrix-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
+.matrix-more { position:relative; }
+.matrix-more-toggle { display:inline-flex; align-items:center; gap:4px; background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.matrix-more-toggle[aria-pressed="true"] { color:#e2ae54; font-weight:600; }
+.matrix-more-toggle .fa-solid { line-height:1; }
+.matrix-menu { position:absolute; top:calc(100% + 6px); left:0; z-index:6; display:flex; flex-direction:column; min-width:110px; background:#111512f2; border:1px solid #394037; padding:4px; }
+.matrix-menu[hidden] { display:none; }
+.matrix-menu-item { display:block; width:100%; margin:0; padding:6px 8px; background:none; border:0; color:#c6cec2; font-size:10px; letter-spacing:.03em; text-align:left; cursor:pointer; }
+.matrix-menu-item:hover { background:#1c231e; }
+.matrix-menu-item[aria-checked="true"] { color:#e2ae54; font-weight:600; }
 .matrix-quick { display:flex; flex-shrink:0; gap:6px; }
 .matrix-chip { background:#1a211b; border:1px solid #394037; color:#9aa39a; font-size:9px; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; border-radius:0; margin:0; width:auto; cursor:pointer; }
 .matrix-chip[aria-pressed="true"] { background:#2b2a20; border-color:#e0ae54; color:#e7bd6b; }
