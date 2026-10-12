@@ -155,10 +155,12 @@ test("a mid-scan catalogue failure is reported and keeps partial results", async
 test("deep link restores the location, range and selected day and replays the search", async ({ page }) => {
   await page.route("**/search", (route) =>
     respond(route, { json: collection([stacScene("d", "2025-03-10T02:00:00Z")], [], 1) }));
-  await page.goto("/?lat=1.35210&lon=103.81980&radius=5000&provider=earth-search&from=2025-03-01&to=2025-03-31&day=2025-03-10");
+  await page.goto("/?lat=1.35210&lon=103.81980&radius=5000&provider=earth-search&from=2025-03-01&to=2025-03-31&day=2025-03-10&zoom=14");
   await expect(page.locator("#latitude")).toHaveValue("1.35210");
   await expect(page.locator(".day-cell.selected")).toHaveCount(1);
   await expect(page.locator("#results li")).toHaveCount(1);
+  // The zoom parameter is restored and kept current in the URL.
+  await expect.poll(() => Number(new URL(page.url()).searchParams.get("zoom"))).toBeGreaterThan(13);
 });
 
 test("calendar days are keyboard operable", async ({ page }) => {
@@ -291,6 +293,10 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   const mapBox = (await page.locator(".map-container").boundingBox())!;
   expect(Math.min(...linkLefts) - matrixBox.x).toBeLessThan(20);
   expect(matrixBox.width).toBeLessThanOrEqual(mapBox.width - 20);
+  // The container is horizontally centred within the map.
+  const mapCentre = mapBox.x + mapBox.width / 2;
+  const matrixCentre = matrixBox.x + matrixBox.width / 2;
+  expect(Math.abs(mapCentre - matrixCentre)).toBeLessThan(4);
 });
 
 test("matrix cells are 12x12 px and the matrix scrolls horizontally", async ({ page }) => {
@@ -358,6 +364,19 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(1);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
+});
+
+test("clicking a matrix cell selects that day without changing the zoom", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, {
+    json: collection([stacScene("z1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  const before = Number(new URL(page.url()).searchParams.get("zoom"));
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
+  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
+  await page.waitForTimeout(300);
+  expect(Number(new URL(page.url()).searchParams.get("zoom"))).toBe(before);
 });
 
 test("clicking a matrix cell selects that day (does not deselect)", async ({ page }) => {

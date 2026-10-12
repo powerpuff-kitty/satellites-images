@@ -42,7 +42,9 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 5. Use the previous/next month arrows to move the calendar; stepping past the loaded year
    fetches the next year. Searches load their whole window up front, so the
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
-6. Copy the browser URL to share the selected coordinates, provider, period and selected calendar day.
+6. Copy the browser URL to share the state: `lat`/`lon` (search point), `radius`,
+   `provider`, `from`/`to` (period), `day` (selected day) and `zoom` (map zoom, kept current
+   as you pan and zoom — the URL updates on every map move).
 
 The explorer loads **one year at a time** (the current calendar year by default), fetched as
 a **single request** for the whole window. A search loads every provider page (in five-page

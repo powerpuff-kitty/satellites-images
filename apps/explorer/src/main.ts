@@ -264,21 +264,11 @@ function cloudClassOf(percent: number | null): CloudClass {
   return "cloudy";
 }
 const SPLIT_PALETTE = ["#e0ae54","#6fb3d2","#b98ad6","#4fbf7a","#d98a6a","#9aa0a2","#c0d76a","#7f8cff","#e58fb0","#7ad1c0"];
-function fitToDay(day:string):void {
-  const boxes = loadedScenes
-    .filter((scene) => scene.acquiredAt.slice(0, 10) === day && Array.isArray(scene.bbox) && scene.bbox.length === 4)
-    .map((scene) => scene.bbox as number[]);
-  if (!boxes.length) return;
-  let west = 180, south = 90, east = -180, north = -90;
-  for (const [w, s, e, n] of boxes) { west = Math.min(west, w); south = Math.min(south, s); east = Math.max(east, e); north = Math.max(north, n); }
-  try { map.fitBounds([[west, south], [east, north]], { padding: 60, maxZoom: 12 }); } catch { /* degenerate bounds */ }
-}
 function selectTimelineDay(day:string):void {
   selectedDay = day;
   displayedLimit = 40;
   redrawAvailability();
   renderLoadedScenes();
-  fitToDay(day);
   storeSearchLink();
 }
 // --- Year-at-a-glance day matrix (GitHub-style, 8x8 px cells) ------------------
@@ -449,15 +439,20 @@ function restoreSearchLink():void {
     activeMonth=restoredDay.slice(0,7);
     calendarMonth.value=activeMonth;
   }
-  marker.setLngLat([Number(lon.value),Number(lat.value)]);
-  map.jumpTo({center:[Number(lon.value),Number(lat.value)]});
+  const center:[number,number]=[Number(lon.value),Number(lat.value)];
+  marker.setLngLat(center);
+  const restoredZoom=Number(params.get("zoom"));
+  if(Number.isFinite(restoredZoom)&&restoredZoom>0&&restoredZoom<=20)
+    map.jumpTo({center,zoom:restoredZoom});
+  else
+    map.jumpTo({center});
   // A query permalink should reproduce its search, not just fill dormant inputs.
   if(validDate(params.get("from")??"") && validDate(params.get("to")??""))
     queueMicrotask(()=>void runSearch());
 }
 function storeSearchLink():void {
   const url=new URL(window.location.href);
-  for(const name of ["lat","lon","radius","from","to","provider","day"])url.searchParams.delete(name);
+  for(const name of ["lat","lon","radius","from","to","provider","day","zoom"])url.searchParams.delete(name);
   url.searchParams.set("lat",lat.value);
   url.searchParams.set("lon",lon.value);
   url.searchParams.set("radius",radius.value);
@@ -465,8 +460,10 @@ function storeSearchLink():void {
   url.searchParams.set("from",from.value);
   url.searchParams.set("to",to.value);
   if(selectedDay)url.searchParams.set("day",selectedDay);
+  url.searchParams.set("zoom",map.getZoom().toFixed(2));
   window.history.replaceState(null,"",url);
 }
+map.on("moveend",()=>storeSearchLink());
 function highlightScene(scene:Scene|undefined):void {
   const featureCollection:FeatureCollection = {
     type:"FeatureCollection",

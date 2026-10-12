@@ -139,7 +139,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: day-matrix cells are **12×12 px**; the form now defaults to the **full current
   calendar year** (Jan 1 – Dec 31) and the calendar opens on the current month.
 - Explorer: the day-matrix container now **fits the grid** (shrink-to-fit, capped to the map
-  width) and its metric links are **left-aligned**.
+  width), is **centred** in the map, and its metric links are **left-aligned**.
+- Explorer: clicking a day-matrix cell selects the day **without changing the map zoom**;
+  the zoom is stored in the URL (`zoom`) and restored from it, and the URL updates on every
+  map move.
 
 ## [0.2.0] - 2026-10-12
 
