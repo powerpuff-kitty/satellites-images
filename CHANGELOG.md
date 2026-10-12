@@ -115,6 +115,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the left column now has **Historical** and **Upcoming** tabs with distinct
   controls; the right panel switches with the tab, and Upcoming adds **by-mission** and
   **time-of-day** charts for planned datatakes.
+- Explorer: Upcoming charts extended with a **published-so-far vs planned overlay**,
+  **by acquisition mode**, **by relative orbit**, and a per-mission **datatake-window
+  (Gantt)** strip. Optional plan fields bucket to *unknown* instead of being dropped.
 
 ## [0.2.0] - 2026-10-12
 

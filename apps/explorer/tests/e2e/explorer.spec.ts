@@ -198,6 +198,34 @@ test("planned ESA acquisitions are shown separately from published scenes", asyn
   await expect(page.locator("#plans-results li")).toHaveCount(1);
   await expect(page.locator("#plans-results li")).toContainText(/planned/);
   await expect(page.locator("#upcoming-status")).toContainText(/planned datatake/);
+  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "Acquisition mode" })).toHaveCount(1);
+  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "NOBS" })).toHaveCount(1);
+  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "Relative orbit" })).toHaveCount(1);
+  await expect(page.locator("#upcoming-timeline .gantt-bar")).toHaveCount(1);
+});
+
+test("upcoming view overlays published-so-far against planned", async ({ page }) => {
+  const now = Date.now();
+  const stamp = (d: Date) => new Date(d).toISOString().replace(/[-:]/g, "").slice(0, 15);
+  const observation = new Date(now + 2 * 86400000).toISOString().slice(0, 19);
+  const slug = "s2b_mp_acq__kml_" + stamp(new Date(now - 86400000)) + "_" + stamp(new Date(now + 20 * 86400000));
+  const planUrl = "https://sentinels.copernicus.eu/documents/d/sentinel/" + slug;
+  const indexHtml = '<a href="' + planUrl + '">plan</a>';
+  const kml = '<kml xmlns="http://www.opengis.net/kml/2.2"><Document><Placemark><name>id</name>' +
+    '<styleUrl>S2B_NOBS_NOMINAL</styleUrl><ExtendedData>' +
+    '<Data name="ObservationTimeStart"><value>' + observation + '</value></Data>' +
+    '</ExtendedData><Polygon><outerBoundaryIs><LinearRing><coordinates>' +
+    '116.0,-8.7,0 116.3,-8.7,0 116.3,-8.4,0 116.0,-8.4,0 116.0,-8.7,0</coordinates></LinearRing>' +
+    '</outerBoundaryIs></Polygon></Placemark></Document></kml>';
+  await page.route("**/acquisition-plans", (route) => respond(route, { contentType: "text/html", body: indexHtml }));
+  await page.route("**/documents/**", (route) => respond(route, { contentType: "application/vnd.google-earth.kml+xml", body: kml }));
+  await page.route("**/search", (route) => respond(route, { json: collection([stacScene("h1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator("#tab-upcoming").click();
+  await expect(page.locator("#plans-results li")).toHaveCount(1);
+  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "Published so far vs planned" })).toHaveCount(1);
 });
 
 test("the results header timeline plots per-day observations", async ({ page }) => {

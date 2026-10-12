@@ -255,7 +255,7 @@ function renderTimeline(): void {
   renderTimelineBars(timeline, scenes, "provider", "Provider");
   renderTimelineHeat(timeline, scenes, "Time of day (UTC)");
 }
-function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string): void {
+function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string, opts:{keyOf?:(s:Scene)=>string; colourOf?:(k:string)=>string; interactive?:boolean} = {}): void {
   const NS = "http://www.w3.org/2000/svg";
   const width = Math.max(240, container.clientWidth || 320);
   const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
@@ -264,7 +264,7 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
   const totals = new Map<string, number>();
   for (const scene of scenes) {
     const day = scene.acquiredAt.slice(0, 10);
-    const key = mode === "mission" ? (scene.mission || "unknown") : mode === "provider" ? scene.providerId : cloudClassOf(scene.cloudCoverPercent);
+    const key = opts.keyOf ? opts.keyOf(scene) : mode === "mission" ? (scene.mission || "unknown") : mode === "provider" ? scene.providerId : cloudClassOf(scene.cloudCoverPercent);
     const m = byDay.get(day) ?? new Map<string, number>();
     m.set(key, (m.get(key) ?? 0) + 1);
     byDay.set(day, m);
@@ -277,7 +277,7 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
   const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
   const colW = W / nDays;
   const maxCount = Math.max(...[...byDay.values()].map((m) => [...m.values()].reduce((a, b) => a + b, 0)));
-  const colourOf = (key:string):string =>
+  const colourOf = (key:string):string => opts.colourOf ? opts.colourOf(key) :
     mode === "cloud" ? (CLOUD_FILL[key as CloudClass] ?? "#9aa0a2") : SPLIT_PALETTE[order.indexOf(key) % SPLIT_PALETTE.length];
   const caption = document.createElement("div");
   caption.className = "timeline-caption";
@@ -315,7 +315,7 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
     const tip = document.createElementNS(NS, "title");
     tip.textContent = `${day} · ${total} obs · ` + [...m.entries()].map(([k, v]) => `${k} ${v}`).join(", ");
     group.append(tip);
-    group.addEventListener("click", () => selectTimelineDay(day));
+    if (opts.interactive !== false) group.addEventListener("click", () => selectTimelineDay(day));
     svg.append(group);
   }
   drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
@@ -790,18 +790,99 @@ function displaySwaths(items:AcquisitionOpportunity[]):void {
 }
 
 let currentPlanSearch = 0;
-function plannedAsScenes(items:AcquisitionOpportunity[]):Scene[] {
+type PlannedScene = Scene & { mode?:string|null; orbitRelative?:number|null; endAt?:string|null; status?:string };
+function plannedAsScenes(items:AcquisitionOpportunity[]):PlannedScene[] {
   return items.map((item) => ({
     providerId:item.providerId, id:item.id ?? (item.mission + item.expectedAt), collection:"esa-sentinel-plans",
     acquiredAt:item.expectedAt, mission:item.mission, geometry:null, bbox:null, cloudCoverPercent:null,
     gsdMeters:null, coveragePercent:null, previewUrl:null, access:"unknown", assets:[], sourceUrl:item.sourceUrl, raw:{},
+    mode:item.mode ?? null, orbitRelative:item.orbitRelative ?? null, endAt:item.endAt ?? null, status:item.status,
   }));
+}
+function renderDatatakeGantt(container:HTMLElement, items:AcquisitionOpportunity[], title:string):void {
+  const NS="http://www.w3.org/2000/svg";
+  const caption=document.createElement("div");
+  caption.className="timeline-caption";
+  if(!items.length){ caption.textContent=title+" · no planned datatakes"; container.append(caption); return; }
+  const withEnd=items.filter(i=>i.endAt && Date.parse(i.endAt)>Date.parse(i.expectedAt)).length;
+  caption.textContent=title+(withEnd<items.length?" · "+(items.length-withEnd)+" without an end time shown as a tick":"");
+  container.append(caption);
+  const width=Math.max(240, container.clientWidth || 320);
+  const missions=[...new Set(items.map(i=>i.mission||"unknown"))].sort();
+  const rowH=18, padL=28, padR=8, padT=6, padB=16;
+  const height=padT+missions.length*rowH+padB, W=width-padL-padR;
+  const startOf=(i:AcquisitionOpportunity)=>Date.parse(i.expectedAt);
+  const endOf=(i:AcquisitionOpportunity)=>i.endAt?Math.max(Date.parse(i.endAt),startOf(i)):startOf(i)+1800000;
+  const first=Math.min(...items.map(startOf)), last=Math.max(...items.map(endOf));
+  const span=Math.max(1,last-first);
+  const xOf=(t:number)=>padL+((t-first)/span)*W;
+  const svg=document.createElementNS(NS,"svg");
+  svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  svg.setAttribute("role","img");
+  svg.setAttribute("aria-label",title);
+  missions.forEach((mission,row)=>{
+    const y=padT+row*rowH;
+    for(const item of items){
+      if((item.mission||"unknown")!==mission) continue;
+      const x1=xOf(startOf(item)), x2=xOf(endOf(item));
+      const rect=document.createElementNS(NS,"rect");
+      rect.setAttribute("class","gantt-bar");
+      rect.setAttribute("x",x1.toFixed(1));
+      rect.setAttribute("y",(y+3).toFixed(1));
+      rect.setAttribute("width",Math.max(2,x2-x1).toFixed(1));
+      rect.setAttribute("height",(rowH-6).toFixed(1));
+      rect.setAttribute("fill",SPLIT_PALETTE[missions.indexOf(mission)%SPLIT_PALETTE.length]);
+      const tip=document.createElementNS(NS,"title");
+      tip.textContent=mission+" · "+new Date(startOf(item)).toISOString().slice(0,16).replace("T"," ")+"Z"+(item.mode?" · "+item.mode:"")+(item.orbitRelative!=null?" · orbit "+item.orbitRelative:"");
+      rect.append(tip);
+      svg.append(rect);
+    }
+    const label=document.createElementNS(NS,"text");
+    label.setAttribute("x",String(padL-4));
+    label.setAttribute("y",(y+rowH/2+3).toFixed(1));
+    label.setAttribute("text-anchor","end");
+    label.setAttribute("class","tick");
+    label.textContent=mission;
+    svg.append(label);
+  });
+  const axis=document.createElementNS(NS,"line");
+  axis.setAttribute("x1",String(padL)); axis.setAttribute("x2",String(padL+W));
+  axis.setAttribute("y1",String(height-padB)); axis.setAttribute("y2",String(height-padB));
+  axis.setAttribute("class","axis");
+  svg.append(axis);
+  for(let k=0;k<=3;k++){
+    const t=first+(span*k)/3;
+    const label=document.createElementNS(NS,"text");
+    label.setAttribute("x",xOf(t).toFixed(1));
+    label.setAttribute("y",String(height-3));
+    label.setAttribute("text-anchor",k===0?"start":k===3?"end":"middle");
+    label.setAttribute("class","tick");
+    label.textContent=new Date(t).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",timeZone:"UTC"});
+    svg.append(label);
+  }
+  container.append(svg);
+}
+function renderPublishedVsPlanned(container:HTMLElement, published:Scene[], planned:PlannedScene[], title:string):void {
+  if(!published.length || !planned.length) return;
+  const combined:Scene[] = [
+    ...published.map((s)=>({ ...s, __kind:"published" } as Scene)),
+    ...planned.map((s)=>({ ...s, __kind:"planned" } as Scene)),
+  ];
+  renderTimelineBars(container, combined, "mission", title, {
+    keyOf:(s)=>String((s as Scene & { __kind?:string }).__kind ?? "other"),
+    colourOf:(k)=>k==="published" ? "#6fa8dc" : k==="planned" ? "#e2ae54" : "#9aa0a2",
+    interactive:false,
+  });
 }
 function renderUpcomingCharts(items:AcquisitionOpportunity[]):void {
   upcomingTimeline.replaceChildren();
   if(!items.length){ const empty=document.createElement("figcaption"); empty.textContent="No planned datatakes to plot."; upcomingTimeline.append(empty); return; }
   const scenes=plannedAsScenes(items);
+  renderPublishedVsPlanned(upcomingTimeline, loadedScenes, scenes, "Published so far vs planned");
   renderTimelineBars(upcomingTimeline, scenes, "mission", "Mission");
+  renderTimelineBars(upcomingTimeline, scenes, "mission", "Acquisition mode", { keyOf:(s)=>(s as PlannedScene).mode ?? "unknown" });
+  renderTimelineBars(upcomingTimeline, scenes, "mission", "Relative orbit", { keyOf:(s)=>(s as PlannedScene).orbitRelative!=null ? "orbit "+(s as PlannedScene).orbitRelative : "unknown" });
+  renderDatatakeGantt(upcomingTimeline, items, "Datatake windows (UTC)");
   renderTimelineHeat(upcomingTimeline, scenes, "Time of day (UTC)");
 }
 async function runUpcoming():Promise<void>{

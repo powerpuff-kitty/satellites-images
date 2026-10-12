@@ -19,8 +19,11 @@ The left column has two tabs: **Historical** (published STAC scenes — location
 calendar and filters) and **Upcoming** (planned ESA Sentinel-1/2 acquisitions — location,
 days-ahead and mission). Location and radius are shared. The **right panel switches with
 the tab**: Historical shows the published-scene cards and the stacked timelines;
-Upcoming shows the planned-datatake cards plus its own **by-mission** and **time-of-day**
-charts. Searching is automatic (no button) — it runs on location select or any query change.
+Upcoming shows the planned-datatake cards plus its own charts — a **published-so-far vs
+planned** overlay, per-day counts **by mission** and **by acquisition mode** and **by
+relative orbit**, a **datatake-window** strip (Gantt, per mission), and a **time-of-day**
+heatmap. Charts that key on optional plan fields (`mode`, `orbitRelative`, `endAt`) bucket
+missing values as *unknown* rather than dropping rows. Searching is automatic (no button) — it runs on location select or any query change.
 
 ## Upcoming ESA plans and CORS
 
