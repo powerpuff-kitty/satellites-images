@@ -32,6 +32,7 @@ const nextMonth = element<HTMLButtonElement>("next-month");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
+const missionFilter = element<HTMLSelectElement>("mission-filter");
 
 const plansButton = element<HTMLButtonElement>("plans-button");
 const plansStatus = element<HTMLElement>("plans-status");
@@ -226,22 +227,56 @@ function highlightScene(scene:Scene|undefined):void {
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
 }
+function filterByMission(scene:Scene):boolean {
+  return !missionFilter.value || (scene.mission || "unknown")===missionFilter.value;
+}
+function updateMissionChoices():void {
+  const wasSelected=missionFilter.value;
+  const values=[...new Set(loadedScenes.map(scene=>scene.mission || "unknown"))].sort();
+  const fragment=document.createDocumentFragment();
+  const all=document.createElement("option");
+  all.value="";
+  all.textContent="All satellites";
+  fragment.append(all);
+  for(const mission of values) {
+    const option=document.createElement("option");
+    option.value=mission;
+    option.textContent=mission;
+    fragment.append(option);
+  }
+  missionFilter.replaceChildren(fragment);
+  missionFilter.value=values.includes(wasSelected)?wasSelected:"";
+}
+function filteredCalendar(summary:AvailabilitySummary):AvailabilitySummary {
+  const mission=missionFilter.value;
+  if(!mission) return summary;
+  const days=summary.days
+    .map(d=>({...d,count:d.missions[mission]??0}))
+    .filter(d=>d.count>0);
+  const months=summary.months
+    .map(m=>({
+      ...m,count:m.missions[mission]??0,
+      daysWithObservations:days.filter(d=>d.date.startsWith(m.month+"-")).length,
+    })).filter(m=>m.count>0);
+  return {...summary,days,months,uniqueItems:days.reduce((acc,d)=>acc+d.count,0)};
+}
 function renderLoadedScenes():void {
-  const visible=selectedDay
-    ? loadedScenes.filter(scene=>scene.acquiredAt.slice(0,10)===selectedDay)
-    : loadedScenes;
+  const visible=loadedScenes.filter(scene=>
+    filterByMission(scene) && (!selectedDay || scene.acquiredAt.slice(0,10)===selectedDay));
   const selected=visible.slice(0,displayedLimit);
   const fragment=document.createDocumentFragment();
   for(const scene of selected)fragment.append(makeScene(scene));
   results.replaceChildren(fragment);
-  counter.textContent=String(visible.length)+(selectedDay?" / "+loadedScenes.length:"");
+  const counted=loadedScenes.filter(filterByMission).length;
+  counter.textContent=String(visible.length)+((selectedDay || missionFilter.value)?" / "+counted:"");
   showMoreButton.hidden=visible.length<=displayedLimit;
   if(selectedDay)highlightScene(visible[0]);
   else highlightScene(undefined);
 }
 function redrawAvailability():void {
-  const summary=currentSummary;
-  if(!summary) return;
+  const full=currentSummary;
+  if(!full) return;
+  const summary=filteredCalendar(full);
   renderMonthStrip(monthStrip,summary,from.value,to.value,activeMonth,(month)=>{
     activeMonth=month;calendarMonth.value=month;
     redrawAvailability();
@@ -255,7 +290,7 @@ function redrawAvailability():void {
   });
   allDaysButton.hidden=selectedDay===null;
   const statusParts=[
-    summary.uniqueItems+" unique published items from "+summary.pagesScanned+" catalogue page(s)",
+    summary.uniqueItems+" "+(missionFilter.value?"filtered ":"")+"published items from "+full.pagesScanned+" catalogue page(s)",
   ];
   if(!summary.complete)statusParts.push("Additional pages may exist. Counts are partial.");
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
@@ -286,6 +321,11 @@ showMoreButton.addEventListener("click",()=>{
   displayedLimit+=40;
   renderLoadedScenes();
 });
+missionFilter.addEventListener("change",()=>{
+  displayedLimit=40;
+  redrawAvailability();
+  renderLoadedScenes();
+});
 
 function currentSearchSignature():string {
   return JSON.stringify([
@@ -313,6 +353,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
       const added=session.accumulator.addPage(page);
       loadedScenes.push(...added);
       loadedScenes.sort((a,b)=>b.acquiredAt.localeCompare(a.acquiredAt)||a.id.localeCompare(b.id));
+      updateMissionChoices();
       currentSummary=session.accumulator.summary();
       redrawAvailability();
       renderLoadedScenes();
@@ -376,6 +417,8 @@ form.addEventListener("submit",async(event)=>{
   activeMonth=selectedDay?.slice(0,7)??to.value.slice(0,7);
   calendarMonth.value=activeMonth;
   results.replaceChildren();
+  missionFilter.value="";
+  updateMissionChoices();
   calendarGrid.replaceChildren();
   monthStrip.replaceChildren();
   counter.textContent="—";

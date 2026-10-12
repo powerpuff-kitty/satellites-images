@@ -69,3 +69,6 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 
 #load-next-pages {border-color:#466958;color:#c1e4d1;}
 #load-next-pages:not(:disabled):hover {background:#1c362d;}
+
+.mission-field {margin:10px 0 12px;max-width:100%;}
+.mission-field select {height:37px;}
