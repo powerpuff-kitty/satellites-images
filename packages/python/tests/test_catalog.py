@@ -55,6 +55,22 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(seen[1][2]["token"], "page2")
         self.assertIn("bbox", seen[1][2])
 
+    def test_next_post_without_merge_replaces_body(self):
+        calls = []
+        def mock(url, method, body):
+            calls.append(dict(body or {}))
+            if len(calls) == 1:
+                return {**SAMPLE, "links": [{
+                    "rel": "next",
+                    "href": "https://earth-search.aws.element84.com/v1/search",
+                    "method": "POST",
+                    "body": {"cursor": "opaque-token"},
+                }]}
+            return {**SAMPLE, "features": [], "links": []}
+        pages = list(EarthSearch(transport=mock).search(self.query))
+        self.assertEqual(len(pages), 2)
+        self.assertEqual(calls[1], {"cursor": "opaque-token"})
+
     def test_prevents_external_next_link(self):
         def mock(url, method, body):
             return {**SAMPLE, "links": [{"rel": "next", "href": "https://evil.invalid/search"}]}

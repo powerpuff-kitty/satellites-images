@@ -252,7 +252,7 @@ class StacProvider:
                 raise SatelliteError("INVALID_RESPONSE", "Unsupported next link method", self.id)
             if method == "POST":
                 next_body = _dictionary(next_link.get("body"))
-                body = next_body if next_link.get("merge") is False else {**body, **next_body}
+                body = {**body, **next_body} if next_link.get("merge") is True else next_body
             href = next_url
 
 

@@ -74,3 +74,19 @@ test("provider failures are not misreported as empty scenes",async()=>{
   const catalog=new SatelliteCatalog([earthSearch(mock)]);
   await assert.rejects(async()=>{for await(const _ of catalog.search(search)){}},e=>e.code==="HTTP_ERROR");
 });
+
+test("POST next link defaults to body replacement unless merge is explicitly true",async()=>{
+  const seen=[];
+  const mock=async(_href,init)=>{
+    seen.push(JSON.parse(init.body));
+    const next=seen.length===1
+      ? [{rel:"next",href:"https://earth-search.aws.element84.com/v1/search",
+           method:"POST",body:{cursor:"opaque-token"}}]
+      : [];
+    return new Response(JSON.stringify({type:"FeatureCollection",features:[],links:next}),{status:200});
+  };
+  const pages=[];
+  for await (const p of earthSearch(mock).search(search)) pages.push(p);
+  assert.equal(pages.length,2);
+  assert.deepEqual(seen[1],{cursor:"opaque-token"});
+});

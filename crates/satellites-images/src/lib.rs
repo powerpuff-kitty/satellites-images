@@ -271,12 +271,12 @@ impl EarthSearch {
             };
             if method == Method::POST {
                 let next_body = next.get("body").and_then(Value::as_object).cloned().unwrap_or_default();
-                if next.get("merge").and_then(Value::as_bool) == Some(false) {
-                    body = Value::Object(next_body);
-                } else {
+                if next.get("merge").and_then(Value::as_bool) == Some(true) {
                     let mut combined: Map<String, Value> = body.as_object().cloned().unwrap_or_default();
                     combined.extend(next_body);
                     body = Value::Object(combined);
+                } else {
+                    body = Value::Object(next_body);
                 }
             }
             href = new_url;
