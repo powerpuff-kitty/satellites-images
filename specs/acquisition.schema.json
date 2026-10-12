@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Upcoming acquisition opportunity, not a published scene",
+  "type": "object",
+  "required": [
+    "providerId",
+    "mission",
+    "expectedAt",
+    "status",
+    "sourceUrl"
+  ],
+  "properties": {
+    "providerId": {
+      "type": "string"
+    },
+    "mission": {
+      "type": "string"
+    },
+    "expectedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "status": {
+      "enum": [
+        "planned",
+        "predicted"
+      ]
+    },
+    "sourceUrl": {
+      "type": "string",
+      "format": "uri"
+    },
+    "footprint": {
+      "type": [
+        "object",
+        "null"
+      ]
+    }
+  }
+}

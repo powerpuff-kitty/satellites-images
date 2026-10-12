@@ -1,0 +1,31 @@
+# Architecture and guarantees
+
+## Design
+
+Three native language packages implement a small common scene-discovery contract; no custom satellite orbit calculations or raster processing is shipped yet. All packages are usable independently and search directly against an external public STAC API.
+
+- TypeScript: browser/Node/Worker fetch transport and ESM library. Earth Search and Planetary Computer providers.
+- Python: standard-library urllib transport; Earth Search first.
+- Rust: serde + reqwest async transport; Earth Search first.
+- Shared: a versioned registry, normalized response schemas and a recorded synthetic STAC fixture.
+
+The *registry* is the canonical source of provider metadata. Run `npm run generate:registry` to copy it into package-local resources. The generator is deterministic and CI checks the outputs are committed.
+
+## Semantics
+
+- A scene is a **published** STAC item. `acquiredAt` is sourced from `properties.datetime` (or fallback start datetime), never from indexing time.
+- Assets are references. The presence of `href` never guarantees download permission.
+- Future `planned` / `predicted` acquisition opportunities have separate contracts. V0.1 returns an explicit unsupported error instead of fabricated dates.
+- The same physical observation can appear through multiple providers. Do not de-duplicate by approximate timestamps; preserve provider-native item identity.
+- Cloud cover is scene metadata, not guaranteed AOI cloud coverage.
+- Search is bounded and returns provider pages. A provider outage raises a typed failure rather than an empty success.
+- AOI radius is approximated as a geographic bbox for the first release. Antimeridian-crossing and pole-containing searches are rejected rather than silently truncated. Full polygon support is planned.
+- STAC `next` links may specify HTTP GET or POST and JSON bodies; follow only same-origin HTTPS links for production endpoints to avoid SSRF and credential exfiltration.
+
+## Not included
+
+Pixel downloads/reprojection, NDVI analysis, paywall purchases, ESA KML plan ingestion, predicted passes, account management and a serverless tile backend are future work. A production use should add request throttling, durable caching and a provider-specific backoff policy.
+
+## Package compatibility
+
+Cross-language APIs follow their host-language conventions rather than trying to marshal Python/Rust through JavaScript. Shared JSON examples and schemas define the on-wire semantics. Tests are deterministic and never bill a commercial API.
