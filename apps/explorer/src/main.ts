@@ -166,69 +166,106 @@ lightboxClose.addEventListener("click", closeLightbox);
 lightbox.addEventListener("click", (event) => { if (event.target === lightbox) closeLightbox(); });
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !lightbox.hidden) closeLightbox(); });
 
-// --- Timeline scatter: x = date, y = time of day (UTC), colour = cloud, size = resolution ---
-function cloudColour(percent: number | null): string {
-  if (percent === null) return "#5b665b";
-  if (percent < 10) return "#4fbf7a";
-  if (percent < 60) return "#e0ae54";
-  return "#9aa0a2";
-}
-function resolutionRadius(gsd: number | null): number {
-  if (gsd === null) return 3.4;
-  return Math.max(2.4, Math.min(6.5, 2.4 + Math.log2(gsd / 10 + 1) * 2));
+// --- Timeline: observations per day, stacked by cloud cover (readable at a glance) ---
+type CloudClass = "clear" | "partial" | "cloudy" | "unknown";
+const CLOUD_FILL: Record<CloudClass, string> = { clear:"#4fbf7a", partial:"#e0ae54", cloudy:"#9aa0a2", unknown:"#5b665b" };
+function cloudClassOf(percent: number | null): CloudClass {
+  if (percent === null) return "unknown";
+  if (percent < 10) return "clear";
+  if (percent < 60) return "partial";
+  return "cloudy";
 }
 function renderTimeline(): void {
   const scenes = loadedScenes.filter(filterByMission);
   timeline.replaceChildren();
   if (!scenes.length) {
-    const caption = document.createElement("figcaption");
-    caption.textContent = "No loaded observations to plot yet.";
-    timeline.append(caption);
+    const empty = document.createElement("figcaption");
+    empty.textContent = "No loaded observations to plot yet.";
+    timeline.append(empty);
     return;
   }
   const NS = "http://www.w3.org/2000/svg";
+  const width = Math.max(240, timeline.clientWidth || 320);
+  const height = 104;
+  const padL = 28, padR = 8, padT = 8, padB = 18;
+  const W = width - padL - padR, H = height - padT - padB;
+  const dayMs = 86400000;
+  const buckets = new Map<string, { counts: Record<CloudClass, number>; count: number }>();
+  for (const scene of scenes) {
+    const day = scene.acquiredAt.slice(0, 10);
+    const bucket = buckets.get(day) ?? { counts: { clear:0, partial:0, cloudy:0, unknown:0 }, count: 0 };
+    bucket.counts[cloudClassOf(scene.cloudCoverPercent)] += 1;
+    bucket.count += 1;
+    buckets.set(day, bucket);
+  }
+  const days = [...buckets.keys()].sort();
+  const first = Date.parse(days[0] + "T00:00:00Z");
+  const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
+  const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
+  const colW = W / nDays;
+  const maxCount = Math.max(...[...buckets.values()].map((b) => b.count));
   const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", "0 0 360 130");
-  svg.setAttribute("preserveAspectRatio", "none");
-  const padL = 30, padR = 8, padT = 8, padB = 18;
-  const W = 360 - padL - padR, H = 130 - padT - padB;
-  const times = scenes.map((scene) => Date.parse(scene.acquiredAt));
-  const min = Math.min(...times), max = Math.max(...times);
-  const span = Math.max(1, max - min);
-  const xOf = (t: number): number => padL + ((t - min) / span) * W;
-  const yOfHour = (hour: number): number => padT + (1 - hour / 24) * H;
-  for (const hour of [0, 6, 12, 18, 24]) {
-    const y = yOfHour(hour);
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`); // 1:1 — no distortion
+  svg.setAttribute("role", "img");
+  for (const value of [0, maxCount]) {
+    const y = padT + (1 - value / maxCount) * H;
     const grid = document.createElementNS(NS, "line");
     grid.setAttribute("x1", String(padL)); grid.setAttribute("x2", String(padL + W));
-    grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y)); grid.setAttribute("class", "grid");
+    grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y));
+    grid.setAttribute("class", value === 0 ? "axis" : "grid");
     svg.append(grid);
-    const tick = document.createElementNS(NS, "text");
-    tick.setAttribute("x", "2"); tick.setAttribute("y", String(y + 3)); tick.setAttribute("class", "tick");
-    tick.textContent = String(hour).padStart(2, "0");
-    svg.append(tick);
+    if (value > 0) {
+      const tick = document.createElementNS(NS, "text");
+      tick.setAttribute("x", "2"); tick.setAttribute("y", String(y + 3)); tick.setAttribute("class", "tick");
+      tick.textContent = String(value);
+      svg.append(tick);
+    }
   }
-  for (const scene of scenes) {
-    const date = new Date(scene.acquiredAt);
-    const dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("class", "scene-dot");
-    dot.setAttribute("cx", xOf(Date.parse(scene.acquiredAt)).toFixed(1));
-    dot.setAttribute("cy", yOfHour(date.getUTCHours() + date.getUTCMinutes() / 60).toFixed(1));
-    dot.setAttribute("r", resolutionRadius(scene.gsdMeters).toFixed(1));
-    dot.setAttribute("fill", cloudColour(scene.cloudCoverPercent));
-    const day = scene.acquiredAt.slice(0, 10);
-    dot.setAttribute("data-day", day);
+  for (const day of days) {
+    const bucket = buckets.get(day)!;
+    const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
+    const x = padL + index * colW;
+    const group = document.createElementNS(NS, "g");
+    group.setAttribute("class", "bar-group");
+    group.setAttribute("data-day", day);
+    let baseline = padT + H;
+    for (const cls of ["unknown", "cloudy", "partial", "clear"] as CloudClass[]) {
+      const n = bucket.counts[cls];
+      if (!n) continue;
+      const h = (n / maxCount) * H;
+      const rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("x", (x + colW * 0.15).toFixed(1));
+      rect.setAttribute("width", Math.max(1, colW * 0.7).toFixed(1));
+      rect.setAttribute("y", (baseline - h).toFixed(1));
+      rect.setAttribute("height", h.toFixed(1));
+      rect.setAttribute("fill", CLOUD_FILL[cls]);
+      group.append(rect);
+      baseline -= h;
+    }
     const title = document.createElementNS(NS, "title");
-    title.textContent = `${day} ${date.toISOString().slice(11, 16)}Z · ${scene.cloudCoverPercent === null ? "cloud n/a" : scene.cloudCoverPercent.toFixed(0) + "% cloud"} · ${scene.gsdMeters === null ? "res n/a" : scene.gsdMeters + " m"} · ${scene.mission ?? scene.collection}`;
-    dot.append(title);
-    dot.addEventListener("click", () => {
+    title.textContent = `${day} · ${bucket.count} obs · clear ${bucket.counts.clear}, partial ${bucket.counts.partial}, cloudy ${bucket.counts.cloudy}, n/a ${bucket.counts.unknown}`;
+    group.append(title);
+    group.addEventListener("click", () => {
       selectedDay = selectedDay === day ? null : day;
       displayedLimit = 40;
       redrawAvailability();
       renderLoadedScenes();
       storeSearchLink();
     });
-    svg.append(dot);
+    svg.append(group);
+  }
+  // Sparse date labels: first, last and up to three in between.
+  const labelIndices = new Set<number>([0, nDays - 1]);
+  for (let k = 1; k <= 3; k++) labelIndices.add(Math.round((nDays - 1) * k / 4));
+  for (const index of [...labelIndices].sort((a, b) => a - b)) {
+    const date = new Date(first + index * dayMs);
+    const label = document.createElementNS(NS, "text");
+    label.setAttribute("x", (padL + index * colW + colW / 2).toFixed(1));
+    label.setAttribute("y", String(height - 5));
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("class", "tick");
+    label.textContent = date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+    svg.append(label);
   }
   timeline.append(svg);
 }

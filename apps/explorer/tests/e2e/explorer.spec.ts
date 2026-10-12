@@ -190,14 +190,14 @@ test("planned ESA acquisitions are shown separately from published scenes", asyn
   await expect(page.locator("#plans-status")).toContainText(/planned datatake/);
 });
 
-test("the results header timeline plots loaded observations by date and time", async ({ page }) => {
+test("the results header timeline plots per-day observations", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
-    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-11T14:00:00Z")], [], 2) }));
+    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await page.getByRole("button", { name: /Find observations/ }).click();
-  await expect(page.locator("#results li")).toHaveCount(2);
-  await expect(page.locator("#timeline svg circle.scene-dot")).toHaveCount(2);
+  await expect(page.locator("#results li")).toHaveCount(3);
+  await expect(page.locator("#timeline svg rect")).toHaveCount(2); // two days -> two bar segments
 });
 
 test("clicking a preview opens a full-screen lightbox and Escape closes it", async ({ page }) => {

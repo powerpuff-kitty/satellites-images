@@ -38,9 +38,7 @@ The calendar is a catalogue discovery view, not an imagery renderer or scientifi
 
 Published observations live in an independent, scrollable **right-hand panel** (the left
 controls and the map stay accessible). Its header is **sticky** and contains a **timeline
-scatter** of the loaded observations: horizontal position is the acquisition date, vertical
-position is the time of day (UTC), dot **colour** is scene-wide cloud cover
-(green <10%, amber <60%, grey ≥60%, hollow/unknown when absent) and dot **size** is
-resolution (`gsd` — finer is smaller). Click a dot to select that day. Clicking a scene
-**preview image opens a full-screen lightbox** (Esc closes it). Cloud cover is scene
-metadata, not per-AOI, and resolution is only shown when the provider exposes `gsd`.
+chart** of the loaded observations: one **bar per day** (height = number of observations),
+**stacked by scene-wide cloud cover** (green <10%, amber <60%, grey ≥60%, dark = unknown).
+Click a bar to select that day. Clicking a scene **preview image opens a full-screen
+lightbox** (Esc closes it). Cloud cover is scene metadata, not per-AOI.

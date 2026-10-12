@@ -91,9 +91,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - camelCase JSON contract now available in every SDK: Rust serializes its structs in
   camelCase (`serde(rename_all = "camelCase")`) and Python exposes `to_json`/`to_camel`.
 - Explorer: published observations moved to a scrollable right-hand panel with a sticky
-  header; added an observation **timeline** (date × time-of-day, cloud-cover colour,
-  resolution size), a **full-screen image preview** on click, image error handling, and
-  removed the eyebrow; scene `gsdMeters` exposed by the SDK powers the resolution encoding.
+  header; added an observation **timeline** (per-day bars stacked by cloud cover), a
+  **full-screen image preview** on click, image error handling, and removed the eyebrow;
+  scene `gsdMeters` is exposed by the SDK.
 
 ## [0.2.0] - 2026-10-12
 

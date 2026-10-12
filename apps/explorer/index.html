@@ -77,15 +77,15 @@
             <span id="counter">—</span>
           </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
-          <figure class="timeline" id="timeline" aria-label="Observation timeline: date (x), time of day (y), cloud cover (colour) and resolution (size)">
-            <figcaption>Run a search to plot observations by date and time of day.</figcaption>
+          <figure class="timeline" id="timeline" aria-label="Observations per day, stacked by cloud cover; click a bar to select that day">
+            <figcaption>Observations per day (bar height = count), stacked by cloud cover.</figcaption>
           </figure>
           <div class="timeline-legend" aria-hidden="true">
             <span class="lg"><i class="sw clear"></i>clear &lt;10%</span>
             <span class="lg"><i class="sw part"></i>partial &lt;60%</span>
             <span class="lg"><i class="sw cloud"></i>cloudy ≥60%</span>
             <span class="lg"><i class="sw unknown"></i>no cloud metadata</span>
-            <span class="lg">dot size = resolution (finer = smaller)</span>
+            <span class="lg">click a bar to select the day</span>
           </div>
         </header>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
