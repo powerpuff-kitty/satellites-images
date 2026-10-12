@@ -224,6 +224,22 @@ function previewUrlFor(scene:Scene):string|null {
 function tileUrlFor(scene:Scene):string|null {
   return scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href??null;
 }
+// Some sources serve browse images that a cross-origin WebGL overlay cannot load: Earth
+// Search returns Landsat browse as s3:// (requester-pays) or a redirect to a non-CORS S3
+// object. Planetary Computer mirrors the same item id and renders a CORS-enabled PNG, so
+// prefer that where it exists.
+const PLANETARY_COMPUTER_RENDER:Record<string,string>={
+  "landsat-c2-l2":"assets=red&assets=green&assets=blue&color_formula=gamma%20RGB%202.7,%20saturation%201.5,%20sigmoidal%20RGB%2015%200.55",
+};
+/** The image URL to use for the map overlay (falls back to the scene's own preview). */
+function overlayImageUrl(scene:Scene):string|null {
+  const render=PLANETARY_COMPUTER_RENDER[scene.collection];
+  if(render&&scene.id&&scene.providerId!=="planetary-computer"){
+    return "https://planetarycomputer.microsoft.com/api/data/v1/item/preview.png?collection="+
+      encodeURIComponent(scene.collection)+"&item="+encodeURIComponent(scene.id)+"&"+render+"&format=png";
+  }
+  return previewUrlFor(scene);
+}
 function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCorner,PreviewCorner] {
   const box=Array.isArray(scene.bbox)&&scene.bbox.length===4?scene.bbox as number[]:null;
   if(box&&box.every((value)=>Number.isFinite(value))){
@@ -242,7 +258,7 @@ function removePreviewLayer():void {
 }
 function showMapPreview(index:number):void {
   const scene=previewScenes[index];
-  const image=scene?previewUrlFor(scene):null;
+  const image=scene?overlayImageUrl(scene):null;
   const tiles=scene?tileUrlFor(scene):null;
   if(!scene||(!image&&!tiles)){ closeMapPreview(); return; }
   previewIndex=index;
@@ -272,7 +288,7 @@ function stepPreview(delta:number):void {
   showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
 }
 function openScenePreview(scene:Scene):void {
-  const withPreviews=loadedScenes.filter((candidate)=>Boolean(previewUrlFor(candidate)??tileUrlFor(candidate)));
+  const withPreviews=loadedScenes.filter((candidate)=>Boolean(overlayImageUrl(candidate)??tileUrlFor(candidate)));
   const index=withPreviews.indexOf(scene);
   if(index<0)return;
   previewScenes=withPreviews;

@@ -405,6 +405,8 @@ test("the card and map preview prefer a higher-resolution provider asset", async
 test("a Landsat-style scene uses the item thumbnail link for its image", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  let renderRequests = 0;
+  await page.route("https://planetarycomputer.microsoft.com/**", (route) => { renderRequests += 1; return route.fulfill({ contentType: "image/png", body: png }); });
   const item = {
     type: "Feature", id: "LC09_1", collection: "landsat-c2-l2",
     geometry: { type: "Polygon", coordinates: [[[116.0, -8.7], [116.3, -8.7], [116.3, -8.4], [116.0, -8.4], [116.0, -8.7]]] },
@@ -422,6 +424,10 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#results img")).toHaveCount(1);
   await expect(page.locator("#results img")).toHaveAttribute("src", /LC09_1\/thumbnail/);
+  // The map overlay uses the CORS-enabled Planetary Computer render of the same item id.
+  await page.locator("#results img").click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  await expect.poll(() => renderRequests).toBeGreaterThan(0);
 });
 
 test("a provider tile set is used when the scene exposes one", async ({ page }) => {
