@@ -220,18 +220,25 @@ function previewUrlFor(scene:Scene):string|null {
   };
   return [...candidates].sort((a,b)=>rank(a)-rank(b))[0].href;
 }
-/** A provider-rendered tile set (e.g. Planetary Computer) at full resolution. */
-function tileUrlFor(scene:Scene):string|null {
-  return scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href??null;
-}
 // Some sources serve browse images that a cross-origin WebGL overlay cannot load: Earth
 // Search returns Landsat browse as s3:// (requester-pays) or a redirect to a non-CORS S3
-// object. Planetary Computer mirrors the same item id and renders a CORS-enabled PNG, so
-// prefer that where it exists.
+// object. Planetary Computer mirrors the same item id and exposes CORS-enabled renders
+// (a tile set at native resolution, plus a whole-scene PNG), so prefer those where they exist.
 const PLANETARY_COMPUTER_RENDER:Record<string,string>={
   "landsat-c2-l2":"assets=red&assets=green&assets=blue&color_formula=gamma%20RGB%202.7,%20saturation%201.5,%20sigmoidal%20RGB%2015%200.55",
 };
-/** The image URL to use for the map overlay (falls back to the scene's own preview). */
+/** A provider-rendered tile set: its own, or Planetary Computer's for a mirrored item. */
+function tileUrlFor(scene:Scene):string|null {
+  const own=scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href;
+  if(own)return own;
+  const render=PLANETARY_COMPUTER_RENDER[scene.collection];
+  if(render&&scene.id&&scene.providerId!=="planetary-computer"){
+    return "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?collection="+
+      encodeURIComponent(scene.collection)+"&item="+encodeURIComponent(scene.id)+"&"+render+"&format=png";
+  }
+  return null;
+}
+/** Whole-scene PNG used only when no tile set is available. */
 function overlayImageUrl(scene:Scene):string|null {
   const render=PLANETARY_COMPUTER_RENDER[scene.collection];
   if(render&&scene.id&&scene.providerId!=="planetary-computer"){

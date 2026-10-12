@@ -159,7 +159,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   ignores non-http(s) assets, so Landsat-9 images appear.
 - Explorer: **Landsat now renders on the map** — Earth Search's Landsat browse cannot be
   loaded by a cross-origin WebGL overlay (`s3://` plus a non-CORS S3 redirect), so the map
-  overlay uses the CORS-enabled **Planetary Computer** render of the same item id.
+  overlay uses the CORS-enabled **Planetary Computer** render of the same item id, and
+  prefers its **tile set** (native resolution) over the whole-scene PNG.
 
 ## [0.2.0] - 2026-10-12
 

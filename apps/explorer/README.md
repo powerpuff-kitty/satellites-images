@@ -87,7 +87,11 @@ preview** asset, overlaid on the footprint. When a provider's asset hrefs are no
 For the **map overlay** the image must also be CORS-enabled, which Earth Search's Landsat
 browse is not — so the overlay falls back to the **Planetary Computer** render of the same
 item id (a CORS-enabled PNG). Earth Search's Sentinel-2 only publishes a fixed-size
-`preview.jpg`, so its quality is capped by the source. The explorer loads **one year at a time** in a **single
+`preview.jpg`, so its quality is capped by the source. Note the imagery's own resolution:
+**Landsat 9 is 30 m/pixel** and **Sentinel-2 is 10 m/pixel** (visible bands), so individual
+houses (~10 m across) are not resolvable — expect settlement, road and field patterns, not
+buildings. The overlay uses the provider's **tile set** where one is available, so zooming
+shows the imagery at its native resolution instead of an upscaled whole-scene preview. The explorer loads **one year at a time** in a **single
 request**: use the **month navigation above the calendar** (← / → and the month field) to
 move the visible month; stepping past the edge of what's loaded fetches the next year and
 appends it. Cloud cover is scene-wide metadata, not per-AOI.
