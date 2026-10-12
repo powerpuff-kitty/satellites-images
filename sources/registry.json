@@ -106,7 +106,7 @@
         "python": false,
         "rust": false
       },
-      "notes": "Product-specific access and reuse conditions; check terms for commercial usage."
+      "notes": "Product-specific access and reuse conditions; check terms for commercial usage. Public G-Portal OpenSearch/CSW 3.0.0 exposes dataset-level catalogue records (dataset last-modified date, global bbox), not per-acquisition granules; a granule adapter is pending. Some JAXA datasets are reachable via CMR-STAC provider JAXA."
     },
     {
       "id": "nasa-cmr",
