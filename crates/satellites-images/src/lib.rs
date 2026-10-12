@@ -1,3 +1,7 @@
+pub mod acquisitions;
+pub use acquisitions::{AcquisitionOpportunity, AcquisitionQuery, ESAPlansProvider, ESAPlan,
+    parse_esa_plan_index, parse_esa_plan_kml};
+
 //! Open, provider-aware satellite imagery catalogue discovery.
 //!
 //! Initial scope: bounded Earth Search STAC queries and metadata normalization.
