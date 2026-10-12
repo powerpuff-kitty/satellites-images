@@ -48,7 +48,7 @@ const map = new maplibregl.Map({
   style: "https://demotiles.maplibre.org/style.json",
   center: [116.1167, -8.5833],
   zoom: 8,
-  attributionControl: true,
+  attributionControl: { compact: true },
 });
 map.addControl(new maplibregl.NavigationControl(), "top-right");
 const marker = new maplibregl.Marker({color:"#e0a84b"})
