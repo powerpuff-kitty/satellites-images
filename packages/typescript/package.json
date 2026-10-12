@@ -1,0 +1,33 @@
+{
+  "name": "@powerpuff-kitty/satellites-images",
+  "version": "0.1.0",
+  "description": "Browser and Node.js STAC satellite image discovery SDK",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm run build && npm run test"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}
