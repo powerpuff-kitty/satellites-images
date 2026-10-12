@@ -75,11 +75,18 @@
             <button id="matrix-prev-year" class="matrix-year-button" type="button" aria-label="Previous year"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
             <button id="matrix-next-year" class="matrix-year-button" type="button" aria-label="Next year"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </div>
+          <div class="matrix-head">
           <div class="matrix-links" id="matrix-links" role="group" aria-label="Choose what the day matrix shows">
             <button class="matrix-link" type="button" data-metric="total" aria-pressed="true">Observations</button>
             <button class="matrix-link" type="button" data-metric="cloud" aria-pressed="false">Cloud</button>
             <button class="matrix-link" type="button" data-metric="mission" aria-pressed="false">Mission</button>
             <button class="matrix-link" type="button" data-metric="provider" aria-pressed="false">Provider</button>
+          </div>
+          <div class="matrix-quick" id="matrix-quick" role="group" aria-label="Quick filter">
+            <button class="matrix-chip" type="button" data-sensor="all" aria-pressed="true">All</button>
+            <button class="matrix-chip" type="button" data-sensor="optical" aria-pressed="false">Image</button>
+            <button class="matrix-chip" type="button" data-sensor="radar" aria-pressed="false">Radar</button>
+          </div>
           </div>
           <div class="matrix-scroll">
             <svg class="matrix-svg" id="matrix-svg" role="img" aria-label="Observations per day across the loaded year"></svg>

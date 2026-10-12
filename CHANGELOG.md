@@ -162,6 +162,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   removed.
 - Explorer: the active day-matrix cell is **outlined**, and clicking it again **deselects**
   (back to every loaded scene).
+- Explorer: the matrix header pairs the metric links with right-aligned **quick filters**
+  (**All / Image / Radar**) that narrow the whole view to optical or SAR scenes; the grid,
+  cards and counter all follow.
 - SDKs: the Planetary Computer provider now also queries **`sentinel-1-rtc`** (radar) and
   **`naip`** (0.6 m aerial, US) alongside Sentinel-2 and Landsat, so radar and house-scale
   imagery can be searched and rendered (Planetary Computer exposes CORS tile sets for both).

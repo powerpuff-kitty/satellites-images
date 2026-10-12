@@ -69,7 +69,8 @@ per day across the loaded year (columns = weeks, rows = weekdays). Days with no 
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
 the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
 previous/next **year**, and a **month legend** sits under the grid. Small links on one
-horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
+horizontal row above it choose the metric, and **right-aligned quick filters**
+(**All / Image / Radar**) narrow the whole view to optical or SAR scenes: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide

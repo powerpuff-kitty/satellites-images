@@ -39,6 +39,7 @@ const clearFilters = element<HTMLButtonElement>("clear-filters");
 const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
+const matrixQuick = element<HTMLElement>("matrix-quick");
 const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
 const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
@@ -620,7 +621,15 @@ function dedupeScenes(scenes:Scene[]):Scene[] {
     return true;
   });
 }
+// Radar (SAR) scenes come from Sentinel-1/PALSAR/NISAR-style collections; the rest is optical.
+const RADAR_COLLECTION=/(sentinel-1|palsar|nisar|\bgrd\b|\brtc\b)/i;
+function isRadarScene(scene:Scene):boolean {
+  return RADAR_COLLECTION.test(scene.collection);
+}
+let sensorFilter:"all"|"optical"|"radar"="all";
 function passesFilters(scene:Scene):boolean {
+  if(sensorFilter==="radar"&&!isRadarScene(scene))return false;
+  if(sensorFilter==="optical"&&isRadarScene(scene))return false;
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
   if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
@@ -633,7 +642,7 @@ function passesFilters(scene:Scene):boolean {
   return true;
 }
 function hasActiveFilters():boolean {
-  return Boolean(missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
+  return Boolean(sensorFilter!=="all" || missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
     resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
 }
@@ -734,7 +743,20 @@ fillSelect(cloudMax,[["","Any"],["10","10%"],["20","20%"],["30","30%"],["40","40
 const hourOptions:[string,string][]=[]; for(let h=0;h<24;h++) hourOptions.push([String(h),String(h).padStart(2,"0")]);
 fillSelect(hourMin,hourOptions); fillSelect(hourMax,[...hourOptions]);
 hourMin.value="0"; hourMax.value="23";
+function applySensorFilter(choice:string):void {
+  sensorFilter=choice==="radar"||choice==="optical"?choice:"all";
+  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip"))
+    button.setAttribute("aria-pressed",String(button.dataset.sensor===sensorFilter));
+  displayedLimit=40;
+  redrawAvailability();
+  renderLoadedScenes();
+}
+for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip"))
+  button.addEventListener("click",()=>applySensorFilter(button.dataset.sensor ?? "all"));
 clearFilters.addEventListener("click",()=>{
+  sensorFilter="all";
+  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip"))
+    button.setAttribute("aria-pressed",String(button.dataset.sensor==="all"));
   missionFilter.value=""; collectionFilter.value=""; cloudMin.value=""; cloudMax.value="";
   hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;
   displayedLimit=40; redrawAvailability(); renderLoadedScenes();

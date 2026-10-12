@@ -448,6 +448,30 @@ test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", a
   await expect.poll(() => requested.some((u) => u.includes("tilejson"))).toBe(true);
 });
 
+test("the Image/Radar quick filter narrows the view and sits right", async ({ page }) => {
+  const optical = stacScene("opt", "2025-03-10T02:00:00Z");
+  const radarBase = stacScene("rad", "2025-03-11T02:00:00Z");
+  const radar = { ...radarBase, collection: "sentinel-1-rtc",
+    properties: { ...radarBase.properties, platform: "sentinel-1c" } };
+  await page.route("**/search", (route) => respond(route, { json: collection([optical, radar], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  // The quick filters are right-aligned against the metric links.
+  const links = (await page.locator("#matrix-links").boundingBox())!;
+  const quick = (await page.locator("#matrix-quick").boundingBox())!;
+  expect(quick.x).toBeGreaterThan(links.x + 50);
+  await page.locator('.matrix-chip[data-sensor="radar"]').click();
+  await expect(page.locator('.matrix-chip[data-sensor="radar"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText(/sentinel-1-rtc/);
+  await page.locator('.matrix-chip[data-sensor="optical"]').click();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText(/sentinel-2-l2a/);
+  await page.locator('.matrix-chip[data-sensor="all"]').click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+});
+
 test("a radar scene renders its tile set and is listed in the collection filter", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => {

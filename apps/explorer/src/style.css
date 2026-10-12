@@ -103,7 +103,11 @@ button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button 
 
 /* Year-at-a-glance day matrix (GitHub-style), pinned to the bottom of the map. */
 .map-matrix { position:absolute; z-index:3; left:0; right:0; bottom:14px; margin:0 auto; width:fit-content; max-width:calc(100% - 28px); background:#0e120fdd; border:1px solid #2c342c; padding:8px 10px; display:flex; flex-direction:column; align-items:flex-start; gap:6px; }
-.matrix-links { display:flex; flex-wrap:nowrap; justify-content:flex-start; gap:14px; max-width:100%; overflow-x:auto; padding-bottom:2px; }
+.matrix-head { display:flex; width:100%; align-items:center; justify-content:space-between; gap:12px; }
+.matrix-links { display:flex; flex-wrap:nowrap; justify-content:flex-start; gap:14px; overflow-x:auto; padding-bottom:2px; }
+.matrix-quick { display:flex; flex-shrink:0; gap:6px; }
+.matrix-chip { background:#1a211b; border:1px solid #394037; color:#9aa39a; font-size:9px; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; border-radius:0; margin:0; width:auto; cursor:pointer; }
+.matrix-chip[aria-pressed="true"] { background:#2b2a20; border-color:#e0ae54; color:#e7bd6b; }
 .matrix-link { background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .matrix-link[aria-pressed="true"] { color:#e2ae54; font-weight:600; }
 .matrix-link:hover { color:#edece6; }
