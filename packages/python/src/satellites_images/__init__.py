@@ -13,6 +13,7 @@ from .catalog import (
     CmrStac,
     CopernicusDataSpace,
     EarthSearch,
+    JaxaGPortal,
     PlanetaryComputer,
     SatelliteCatalog,
     SatelliteError,
@@ -26,6 +27,7 @@ from .catalog import (
     coverage_percent,
     list_sources,
     normalize_asf_feature,
+    normalize_jaxa_feature,
     polygon_boxes,
     radius_boxes,
     resolve_areas,
@@ -33,7 +35,7 @@ from .catalog import (
 
 __all__ = [
     "EarthSearch", "CopernicusDataSpace", "UsgsLandsatLook", "CmrStac", "AsfSearch",
-    "normalize_asf_feature", "PlanetaryComputer",
+    "JaxaGPortal", "normalize_asf_feature", "normalize_jaxa_feature", "PlanetaryComputer",
     "SatelliteCatalog", "SatelliteError", "SearchPage",
     "SearchQuery", "Scene", "SceneAsset", "StacProvider", "bounds_around",
     "radius_boxes", "polygon_boxes", "resolve_areas", "coverage_percent",

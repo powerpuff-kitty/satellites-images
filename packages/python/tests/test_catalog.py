@@ -1,7 +1,7 @@
 import unittest
 
 from satellites_images import (
-    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, SatelliteCatalog, SatelliteError,
+    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, SatelliteCatalog, SatelliteError,
     SearchQuery, UsgsLandsatLook,
     bounds_around, coverage_percent, list_sources,
     polygon_boxes, radius_boxes, resolve_areas,
@@ -123,6 +123,35 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(pages[0].items[0].mission, "Sentinel-1")
         self.assertEqual(pages[0].items[0].acquired_at, "2025-01-10T02:00:00.000Z")
         self.assertEqual(pages[0].items[0].preview_url, "https://example.test/asf-browse.png")
+
+    def test_jaxa_granule_adapter(self):
+        requests = []
+        fixture = {"type": "FeatureCollection",
+                   "properties": {"numberOfRecordsMatched": 267, "numberOfRecordsReturned": 1},
+                   "features": [{"type": "Feature",
+                     "geometry": {"type": "Polygon", "coordinates": [[[140.88, 46.45], [141.0, 46.5], [140.9, 46.6], [140.88, 46.45]]]},
+                     "properties": {"identifier": "GC1SG1_202107070007J00424_L2SG_SSTNQ_3000",
+                                    "beginPosition": "2021-07-07T00:07:08.58Z", "endPosition": "2021-07-07T00:09:48.22Z",
+                                    "processingDate": "2022-03-02T16:33:32.00Z", "platformShortName": "GCOM-C",
+                                    "product": {"fileName": "https://gportal.jaxa.jp/download/standard/x.h5", "DataFormatType": "HDF5"},
+                                    "browse": [{"type": "QUICKLOOK", "fileName": "https://gportal.jaxa.jp/gpr/img/x.jpg"}],
+                                    "gpp": {"datasetId": "10002002", "Resolution": "250m", "cloudCoverPercentage": "6"}}}]}
+
+        def mock(url, method, body):
+            requests.append(url)
+            return fixture
+        query = SearchQuery(latitude=-8.5833, longitude=116.1167, radius_meters=5000,
+                            start="2021-07-07", end="2021-07-07")
+        pages = list(JaxaGPortal("10002002", transport=mock).search(query))
+        self.assertTrue(requests[0].startswith("https://gportal.jaxa.jp/csw/csw?"))
+        self.assertIn("outputFormat=", requests[0])
+        self.assertEqual(pages[0].items[0].provider_id, "jaxa-gportal")
+        self.assertEqual(pages[0].items[0].acquired_at, "2021-07-07T00:07:08.580Z")
+        self.assertEqual(pages[0].items[0].mission, "GCOM-C")
+        self.assertEqual(pages[0].items[0].cloud_cover_percent, 6.0)
+        self.assertEqual(pages[0].items[0].preview_url, "https://gportal.jaxa.jp/gpr/img/x.jpg")
+        with self.assertRaises(SatelliteError):
+            JaxaGPortal("GCOM-C_SGLI_L2_SST_250m")
 
     def test_pagination_and_metadata(self):
         seen = []

@@ -16,6 +16,7 @@
 - [x] ESA plan conditional requests (ETag/Last-Modified) and coverage/freshness diagnostics in all three SDKs
 - [x] Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC adapters in all three SDKs
 - [x] ASF SAR Search API adapter (keyword query, GeoJSON) in all three SDKs
+- [x] JAXA G-Portal granule adapter (CSW 3.0.0 GET, GeoJSON) in all three SDKs
 - [x] Map calendar with month navigation, per-day and per-satellite filtering, scene footprint overlay and shareable links
 - [x] Resumable bounded historical catalogue paging (5-page batches; 50-page safety limit), and cancellation of stale searches
 - [x] Correct STAC POST next-link merge defaults across all three SDKs

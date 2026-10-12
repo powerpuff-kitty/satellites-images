@@ -547,6 +547,118 @@ export function asfSearch(options: AsfProviderOptions = {}): AsfProvider {
   return new AsfProvider(options);
 }
 
+export const JAXA_CSW_ENDPOINT = "https://gportal.jaxa.jp/csw/csw";
+
+/** Map one JAXA G-Portal CSW granule (GeoJSON output) to a normalized scene. */
+export function normalizeJaxaFeature(item: unknown, providerId = "jaxa-gportal"): Scene {
+  const raw = object(item);
+  const properties = object(raw.properties);
+  const gpp = object(properties.gpp);
+  const id = stringOrNull(properties.identifier);
+  // beginPosition is the real observation start, distinct from processingDate (indexing date).
+  const date = stringOrNull(properties.beginPosition) ?? stringOrNull(properties.endPosition);
+  if (!id || !date || Number.isNaN(Date.parse(date))) {
+    throw new SatelliteError("INVALID_RESPONSE", "JAXA feature lacks an identifier or begin position", providerId);
+  }
+  const browse = Array.isArray(properties.browse)
+    ? properties.browse.map(object).filter((b) => typeof b.fileName === "string") : [];
+  const product = object(properties.product);
+  const download = stringOrNull(product.fileName);
+  const assets: SceneAsset[] = [];
+  if (download) assets.push({ key:"data", href:download, type:stringOrNull(product.DataFormatType), roles:["data"], access:"unknown" });
+  browse.forEach((b, index) => assets.push({ key:"browse_"+index, href:String(b.fileName), type:null, roles:["thumbnail"], access:"unknown" }));
+  const geometry = object(raw.geometry);
+  const cloudText = stringOrNull(gpp.cloudCoverPercentage);
+  const cloud = cloudText !== null && Number.isFinite(Number(cloudText)) ? Number(cloudText) : null;
+  return {
+    providerId, id,
+    collection: stringOrNull(properties.platformShortName) ?? "jaxa",
+    acquiredAt: new Date(date).toISOString(),
+    mission: stringOrNull(properties.platformShortName),
+    geometry: Object.keys(geometry).length ? geometry : null,
+    bbox: null,
+    cloudCoverPercent: cloud,
+    coveragePercent: null,
+    previewUrl: browse.length ? String(browse[0].fileName) : null,
+    access: "unknown",
+    assets,
+    sourceUrl: download,
+    raw,
+  };
+}
+
+export interface JaxaProviderOptions {
+  /** Numeric JAXA G-Portal dataset id (e.g. "10002002"); short names are rejected by the service. */
+  datasetId: string;
+  /** Optional resolution partition, e.g. "250m" or "1km". */
+  resolution?: string;
+  count?: number;
+  fetchImpl?: typeof fetch;
+}
+/**
+ * JAXA G-Portal granule adapter (CSW 3.0.0 GET returning GeoJSON).
+ *
+ * Metadata search is anonymous. Only GET is supported (POST is WAF-blocked).
+ * The `bbox` is sent as west,south,east,north per the reference; confirm axis
+ * order against the live service before relying on spatial filtering.
+ */
+export class JaxaProvider {
+  readonly id = "jaxa-gportal";
+  private readonly datasetId: string;
+  private readonly resolution?: string;
+  private readonly count: number;
+  private readonly fetchImpl: typeof fetch;
+  constructor(options: JaxaProviderOptions) {
+    if (!/^\d+$/.test(options.datasetId)) {
+      throw new SatelliteError("INVALID_PROVIDER", "A numeric JAXA datasetId is required", this.id);
+    }
+    this.datasetId = options.datasetId;
+    this.resolution = options.resolution;
+    this.count = options.count ?? 100;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
+  }
+  async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
+    checkDate(query.from, "from");
+    checkDate(query.to, "to");
+    if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
+    const { boxes } = resolveAreas(query);
+    const seen = new Set<string>();
+    let pageNumber = 0;
+    for (const box of boxes) {
+      const params = new URLSearchParams({
+        service: "CSW", version: "3.0.0", request: "GetRecords", outputFormat: "application/json",
+        datasetId: this.datasetId,
+        startTime: query.from + "T00:00:00Z", endTime: query.to + "T23:59:59Z",
+        bbox: box.join(","), count: String(this.count), startIndex: "1",
+      });
+      if (this.resolution) params.set("resolution", this.resolution);
+      let response: Response;
+      try {
+        response = await this.fetchImpl(JAXA_CSW_ENDPOINT + "?" + params.toString(), {
+          headers: { "Accept": "application/json" },
+          signal: AbortSignal.timeout(25000),
+        });
+      } catch (error) {
+        throw new SatelliteError("NETWORK", "JAXA request failed: " + String(error), this.id);
+      }
+      if (!response.ok) throw new SatelliteError("HTTP_ERROR", "JAXA returned HTTP " + response.status, this.id);
+      let data: unknown;
+      try { data = await response.json(); }
+      catch { throw new SatelliteError("INVALID_RESPONSE", "JAXA response was not valid JSON", this.id); }
+      const page = object(data);
+      if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "JAXA response lacks a features array", this.id);
+      const scenes = page.features.map((feature) => normalizeJaxaFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
+      scenes.forEach((scene) => seen.add(scene.id));
+      pageNumber += 1;
+      const matched = object(page.properties).numberOfRecordsMatched;
+      yield { providerId:this.id, items:scenes, pageNumber, hasNext:false, matched: typeof matched === "number" ? matched : null };
+    }
+  }
+}
+export function jaxaGPortal(options: JaxaProviderOptions): JaxaProvider {
+  return new JaxaProvider(options);
+}
+
 export interface AcquisitionProvider {
   readonly id: string;
   upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;

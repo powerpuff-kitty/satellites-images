@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -112,6 +112,31 @@ test("ASF Search API adapter requests GeoJSON and normalizes SAR granules",async
   assert.equal(pages[0].items[0].acquiredAt,"2025-01-10T02:00:00.000Z");
   assert.equal(pages[0].items[0].previewUrl,"https://example.test/asf-browse.png");
   assert.equal(pages[0].items[0].access,"unknown");
+});
+test("JAXA G-Portal granule adapter maps acquisition time and browse",async()=>{
+  const calls=[];
+  const fixture={ type:"FeatureCollection", properties:{numberOfRecordsMatched:267,numberOfRecordsReturned:1}, features:[{
+    type:"Feature",
+    geometry:{type:"Polygon",coordinates:[[[140.88,46.45],[141.0,46.5],[140.9,46.6],[140.88,46.45]]]},
+    properties:{ identifier:"GC1SG1_202107070007J00424_L2SG_SSTNQ_3000",
+      beginPosition:"2021-07-07T00:07:08.58Z", endPosition:"2021-07-07T00:09:48.22Z",
+      processingDate:"2022-03-02T16:33:32.00Z", platformShortName:"GCOM-C",
+      product:{fileName:"https://gportal.jaxa.jp/download/standard/x.h5", DataFormatType:"HDF5"},
+      browse:[{type:"QUICKLOOK",fileName:"https://gportal.jaxa.jp/gpr/img/x.jpg"}],
+      gpp:{datasetId:"10002002",Resolution:"250m",cloudCoverPercentage:"6"} },
+  }]};
+  const mock=async(url)=>{ calls.push(String(url)); return new Response(JSON.stringify(fixture),{status:200}); };
+  const pages=[];
+  for await(const page of jaxaGPortal({datasetId:"10002002",fetchImpl:mock}).search(
+    {latitude:-8.5833,longitude:116.1167,radiusMeters:5000,from:"2021-07-07",to:"2021-07-07"})) pages.push(page);
+  assert.ok(calls[0].startsWith("https://gportal.jaxa.jp/csw/csw?"));
+  assert.ok(calls[0].includes("outputFormat="));
+  assert.equal(pages[0].items[0].providerId,"jaxa-gportal");
+  assert.equal(pages[0].items[0].acquiredAt,"2021-07-07T00:07:08.580Z");
+  assert.equal(pages[0].items[0].mission,"GCOM-C");
+  assert.equal(pages[0].items[0].cloudCoverPercent,6);
+  assert.equal(pages[0].items[0].previewUrl,"https://gportal.jaxa.jp/gpr/img/x.jpg");
+  assert.throws(()=>jaxaGPortal({datasetId:"GCOM-C_SGLI_L2_SST_250m"}),e=>e.code==="INVALID_PROVIDER");
 });
 test("STAC pagination, normalization, and precise acquisition times",async()=>{
   const calls=[];

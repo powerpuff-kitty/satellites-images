@@ -669,6 +669,114 @@ impl AsfProvider {
     }
 }
 
+const JAXA_CSW_ENDPOINT: &str = "https://gportal.jaxa.jp/csw/csw";
+
+/// Map one JAXA G-Portal CSW granule (GeoJSON output) to a normalized scene.
+pub fn normalize_jaxa_feature(item: &Value, provider_id: &str) -> Result<Scene, Error> {
+    let props = item.get("properties").cloned().unwrap_or(Value::Null);
+    let gpp = props.get("gpp").cloned().unwrap_or(Value::Null);
+    let id = props.get("identifier").and_then(Value::as_str)
+        .ok_or_else(|| Error::InvalidResponse("JAXA feature lacks an identifier".into()))?;
+    // beginPosition is the real observation start, distinct from processingDate.
+    let raw_date = props.get("beginPosition").and_then(Value::as_str)
+        .or_else(|| props.get("endPosition").and_then(Value::as_str))
+        .ok_or_else(|| Error::InvalidResponse("JAXA feature lacks a begin position".into()))?;
+    let acquired = DateTime::parse_from_rfc3339(raw_date)
+        .map_err(|_| Error::InvalidResponse("Invalid JAXA begin position".into()))?
+        .with_timezone(&Utc).to_rfc3339_opts(SecondsFormat::Millis, true);
+    let product = props.get("product").cloned().unwrap_or(Value::Null);
+    let download = product.get("fileName").and_then(Value::as_str);
+    let mut assets: Vec<SceneAsset> = Vec::new();
+    if let Some(href) = download {
+        assets.push(SceneAsset { key: "data".into(), href: href.into(),
+            media_type: product.get("DataFormatType").and_then(Value::as_str).map(str::to_owned),
+            roles: vec!["data".into()], access: "unknown".into() });
+    }
+    let mut preview = None;
+    if let Some(browse) = props.get("browse").and_then(Value::as_array) {
+        for (index, entry) in browse.iter().enumerate() {
+            if let Some(href) = entry.get("fileName").and_then(Value::as_str) {
+                if preview.is_none() { preview = Some(href.to_owned()); }
+                assets.push(SceneAsset { key: format!("browse_{index}"), href: href.into(), media_type: None,
+                    roles: vec!["thumbnail".into()], access: "unknown".into() });
+            }
+        }
+    }
+    let cloud = gpp.get("cloudCoverPercentage").and_then(Value::as_str)
+        .and_then(|text| text.trim().parse::<f64>().ok())
+        .filter(|n| n.is_finite() && (0.0..=100.0).contains(n));
+    Ok(Scene {
+        provider_id: provider_id.into(), id: id.into(),
+        collection: props.get("platformShortName").and_then(Value::as_str).unwrap_or("jaxa").into(),
+        acquired_at: acquired,
+        mission: props.get("platformShortName").and_then(Value::as_str).map(str::to_owned),
+        geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
+        bbox: None, cloud_cover_percent: cloud, coverage_percent: None,
+        preview_url: preview,
+        access: "unknown".into(), assets,
+        source_url: download.map(str::to_owned),
+        raw: item.clone(),
+    })
+}
+
+/// JAXA G-Portal granule adapter (CSW 3.0.0 GET returning GeoJSON).
+///
+/// Metadata search is anonymous; only GET is supported (POST is WAF-blocked).
+#[derive(Clone)]
+pub struct JaxaProvider {
+    id: String,
+    client: Client,
+    dataset_id: String,
+    resolution: Option<String>,
+    count: u32,
+}
+impl JaxaProvider {
+    pub fn new(dataset_id: &str) -> Result<Self, Error> {
+        if dataset_id.is_empty() || !dataset_id.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(Error::InvalidProvider("A numeric JAXA datasetId is required".into()));
+        }
+        Ok(Self { id: "jaxa-gportal".into(),
+            client: Client::builder().timeout(Duration::from_secs(25)).build()?,
+            dataset_id: dataset_id.into(), resolution: None, count: 100 })
+    }
+    pub fn with_resolution(mut self, resolution: &str) -> Self { self.resolution = Some(resolution.into()); self }
+    pub fn id(&self) -> &str { &self.id }
+    pub async fn search_pages(&self, query: &SearchQuery) -> Result<Vec<SearchPage>, Error> {
+        let (boxes, _) = resolve_areas(query)?;
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut pages = Vec::new();
+        for (index, box_) in boxes.iter().enumerate() {
+            let bbox = box_.iter().map(|value| format!("{value:.6}")).collect::<Vec<_>>().join(",");
+            let mut params: Vec<(&str, String)> = vec![
+                ("service", "CSW".to_string()), ("version", "3.0.0".to_string()),
+                ("request", "GetRecords".to_string()), ("outputFormat", "application/json".to_string()),
+                ("datasetId", self.dataset_id.clone()),
+                ("startTime", format!("{}T00:00:00Z", query.start)),
+                ("endTime", format!("{}T23:59:59Z", query.end)),
+                ("bbox", bbox), ("count", self.count.to_string()), ("startIndex", "1".to_string()),
+            ];
+            if let Some(resolution) = &self.resolution { params.push(("resolution", resolution.clone())); }
+            let response = self.client.get(JAXA_CSW_ENDPOINT).query(&params)
+                .header("Accept", "application/json").send().await?;
+            if !response.status().is_success() { return Err(Error::Http(response.status().as_u16())); }
+            let data: Value = response.json().await?;
+            let features = data.get("features").and_then(Value::as_array)
+                .ok_or_else(|| Error::InvalidResponse("JAXA response lacks a features array".into()))?;
+            let mut items = Vec::new();
+            for feature in features {
+                let scene = normalize_jaxa_feature(feature, &self.id)?;
+                if seen.insert(scene.id.clone()) { items.push(scene); }
+            }
+            let matched = data.get("properties").and_then(|p| p.get("numberOfRecordsMatched")).and_then(Value::as_u64);
+            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched });
+        }
+        Ok(pages)
+    }
+    pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
+        Ok(self.search_pages(query).await?.into_iter().flat_map(|page| page.items).collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -732,6 +840,25 @@ mod tests {
         assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/b.png"));
         assert_eq!(scene.access, "unknown");
         assert_eq!(AsfProvider::sentinel1().unwrap().id(), "asf-vertex");
+    }
+    #[test]
+    fn jaxa_feature_normalizes() {
+        let feature = json!({"type":"Feature",
+            "geometry":{"type":"Polygon","coordinates":[[[140.88,46.45],[141.0,46.5],[140.9,46.6],[140.88,46.45]]]},
+            "properties":{"identifier":"GC1SG1_202107070007J00424_L2SG_SSTNQ_3000",
+                "beginPosition":"2021-07-07T00:07:08.58Z","endPosition":"2021-07-07T00:09:48.22Z",
+                "processingDate":"2022-03-02T16:33:32.00Z","platformShortName":"GCOM-C",
+                "product":{"fileName":"https://gportal.jaxa.jp/download/standard/x.h5","DataFormatType":"HDF5"},
+                "browse":[{"type":"QUICKLOOK","fileName":"https://gportal.jaxa.jp/gpr/img/x.jpg"}],
+                "gpp":{"datasetId":"10002002","Resolution":"250m","cloudCoverPercentage":"6"}}});
+        let scene = normalize_jaxa_feature(&feature, "jaxa-gportal").unwrap();
+        assert_eq!(scene.provider_id, "jaxa-gportal");
+        assert_eq!(scene.acquired_at, "2021-07-07T00:07:08.580Z");
+        assert_eq!(scene.mission.as_deref(), Some("GCOM-C"));
+        assert_eq!(scene.cloud_cover_percent, Some(6.0));
+        assert_eq!(scene.preview_url.as_deref(), Some("https://gportal.jaxa.jp/gpr/img/x.jpg"));
+        assert!(matches!(JaxaProvider::new("GCOM-C_SGLI_L2_SST_250m"), Err(Error::InvalidProvider(_))));
+        assert!(JaxaProvider::new("10002002").is_ok());
     }
     #[test]
     fn rejects_malformed_multipolygon() {

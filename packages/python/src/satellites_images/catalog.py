@@ -513,6 +513,116 @@ class AsfSearch:
             yield SearchPage(self.id, tuple(items), page, False, len(items))
 
 
+JAXA_CSW_ENDPOINT = "https://gportal.jaxa.jp/csw/csw"
+
+
+def normalize_jaxa_feature(raw: Any, provider_id: str = "jaxa-gportal") -> Scene:
+    """Map one JAXA G-Portal CSW granule (GeoJSON output) to a normalized scene."""
+    obj = _dictionary(raw)
+    props = _dictionary(obj.get("properties"))
+    gpp = _dictionary(props.get("gpp"))
+    identifier = props.get("identifier")
+    # beginPosition is the real observation start, distinct from processingDate.
+    date = props.get("beginPosition") or props.get("endPosition")
+    if not isinstance(identifier, str) or not isinstance(date, str):
+        raise SatelliteError("INVALID_RESPONSE", "JAXA feature lacks an identifier or begin position", provider_id)
+    try:
+        when = datetime.fromisoformat(date.replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            raise ValueError("Missing timezone")
+        acquired = when.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    except ValueError:
+        raise SatelliteError("INVALID_RESPONSE", "Invalid JAXA begin position", provider_id) from None
+    browse = ([b for b in props.get("browse", []) if isinstance(b, dict) and isinstance(b.get("fileName"), str)]
+              if isinstance(props.get("browse"), list) else [])
+    product = _dictionary(props.get("product"))
+    download = product.get("fileName") if isinstance(product.get("fileName"), str) else None
+    assets: list[SceneAsset] = []
+    if download:
+        media_type = product.get("DataFormatType") if isinstance(product.get("DataFormatType"), str) else None
+        assets.append(SceneAsset("data", download, media_type, ("data",)))
+    for index, entry in enumerate(browse):
+        assets.append(SceneAsset("browse_" + str(index), entry["fileName"], None, ("thumbnail",)))
+    cloud_text = gpp.get("cloudCoverPercentage") if isinstance(gpp.get("cloudCoverPercentage"), str) else None
+    try:
+        cloud = float(cloud_text) if cloud_text is not None else None
+    except ValueError:
+        cloud = None
+    return Scene(
+        provider_id=provider_id,
+        id=identifier,
+        collection=props.get("platformShortName") if isinstance(props.get("platformShortName"), str) else "jaxa",
+        acquired_at=acquired,
+        mission=props.get("platformShortName") if isinstance(props.get("platformShortName"), str) else None,
+        geometry=obj.get("geometry") if isinstance(obj.get("geometry"), dict) else None,
+        bbox=None,
+        cloud_cover_percent=cloud,
+        preview_url=browse[0]["fileName"] if browse else None,
+        access="unknown",
+        assets=tuple(assets),
+        source_url=download,
+        raw=obj,
+    )
+
+
+class JaxaGPortal:
+    """JAXA G-Portal granule adapter (CSW 3.0.0 GET returning GeoJSON).
+
+    Metadata search is anonymous; only GET is supported (POST is WAF-blocked).
+    """
+
+    id = "jaxa-gportal"
+
+    def __init__(self, dataset_id: str, resolution: str | None = None, count: int = 100,
+                 transport: Transport | None = None):
+        if not re.fullmatch(r"\d+", dataset_id):
+            raise SatelliteError("INVALID_PROVIDER", "A numeric JAXA datasetId is required", self.id)
+        self.dataset_id = dataset_id
+        self.resolution = resolution
+        self.count = count
+        self._transport = transport or _http_json
+
+    def search(self, query: SearchQuery) -> Iterator[SearchPage]:
+        boxes, _ = resolve_areas(query)
+        seen: set[str] = set()
+        page = 0
+        for box in boxes:
+            params: dict[str, Any] = {
+                "service": "CSW", "version": "3.0.0", "request": "GetRecords",
+                "outputFormat": "application/json", "datasetId": self.dataset_id,
+                "startTime": query.start + "T00:00:00Z", "endTime": query.end + "T23:59:59Z",
+                "bbox": ",".join(f"{value:.6f}" for value in box),
+                "count": self.count, "startIndex": 1,
+            }
+            if self.resolution:
+                params["resolution"] = self.resolution
+            url = JAXA_CSW_ENDPOINT + "?" + urlencode(params)
+            try:
+                result = self._transport(url, "GET", None)
+            except SatelliteError as exc:
+                if exc.provider_id is None:
+                    exc.provider_id = self.id
+                raise
+            except Exception as exc:
+                raise SatelliteError("NETWORK", "JAXA request failed: " + str(exc), self.id) from exc
+            if not isinstance(result, dict):
+                raise SatelliteError("INVALID_RESPONSE", "JAXA response must be a GeoJSON object", self.id)
+            features = result.get("features")
+            if not isinstance(features, list):
+                raise SatelliteError("INVALID_RESPONSE", "JAXA response lacks a features array", self.id)
+            items: list[Scene] = []
+            for feature in features:
+                scene = normalize_jaxa_feature(feature, self.id)
+                if scene.id in seen:
+                    continue
+                seen.add(scene.id)
+                items.append(scene)
+            page += 1
+            matched = _dictionary(result.get("properties")).get("numberOfRecordsMatched")
+            yield SearchPage(self.id, tuple(items), page, False,
+                             matched if isinstance(matched, int) and not isinstance(matched, bool) else None)
+
+
 class EarthSearch(StacProvider):
     def __init__(self, transport: Transport | None = None):
         super().__init__(

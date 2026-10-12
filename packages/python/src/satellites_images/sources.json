@@ -102,11 +102,11 @@
       "scheduled": "no",
       "collections": [],
       "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
+        "typescript": true,
+        "python": true,
+        "rust": true
       },
-      "notes": "Product-specific access and reuse conditions; check terms for commercial usage. Public G-Portal OpenSearch/CSW 3.0.0 exposes dataset-level catalogue records (dataset last-modified date, global bbox), not per-acquisition granules; a granule adapter is pending. Some JAXA datasets are reachable via CMR-STAC provider JAXA."
+      "notes": "G-Portal granule adapter in all three SDKs (anonymous CSW 3.0.0 GET returning GeoJSON; numeric datasetId required, GET-only). Recorded-shape contract tests; the bbox axis order and live smoke are operator-triggered verifications."
     },
     {
       "id": "nasa-cmr",
