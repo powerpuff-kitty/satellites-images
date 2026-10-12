@@ -99,8 +99,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: added client-side **filters** for collection, cloud-cover range, hour range,
   resolution and has-preview (plus an include-unknown-cloud toggle and reset), applied to
   results, timeline and calendar counts without new queries.
-- Explorer: the timeline gained **View** (Daily bars | Time-of-day heatmap) and **Split by**
-  (cloud cover | mission | provider) selectors.
+- Explorer: the timelines are now **all shown stacked** on one shared date axis — daily
+  bars by **cloud cover**, **mission** and **provider**, plus a **time-of-day** heatmap —
+  replacing the earlier View/Split selectors.
 
 ## [0.2.0] - 2026-10-12
 

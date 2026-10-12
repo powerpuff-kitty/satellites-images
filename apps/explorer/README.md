@@ -42,10 +42,10 @@ Client-side filters over the **loaded** results (instant, no new queries): **sat
 unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result cards, the
 timeline and the calendar counts; the counter shows `filtered / total`.
 
-The sticky-header timeline has a **View** selector — **Daily bars** (height = observations
-per day) or a **Time-of-day** heatmap (day × 6-hour bucket density) — and a **Split by**
-selector that stacks the daily bars by **cloud cover**, **mission** or **provider**. Click
-a bar or cell to select that day. Cloud cover is scene-wide metadata, not per-AOI.
+The sticky header shows **all timelines stacked** on one shared date axis: daily bars
+split **by cloud cover**, **by mission** and **by provider**, plus a **time-of-day**
+heatmap (00–06 / 06–12 / 12–18 / 18–24). Click a bar or cell to select that day. Cloud
+cover is scene-wide metadata, not per-AOI.
 
 ## Layout
 

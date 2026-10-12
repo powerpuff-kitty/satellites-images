@@ -87,6 +87,7 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .timeline-legend .sw.m1 { background:#e0ae54; } .timeline-legend .sw.m2 { background:#6fb3d2; }
 .timeline-legend .sw.m3 { background:#b98ad6; } .timeline-legend .sw.m4 { background:#4fbf7a; }
 .timeline .heat-cell { stroke:#111512; stroke-width:0.5; }
+.timeline-caption { font-size:9px; letter-spacing:.07em; text-transform:uppercase; color:#9aa39a; margin:8px 0 1px; }
 
 /* Published observations: independent, scrollable right-hand panel with a sticky header. */
 .observations { display:flex; flex-direction:column; overflow-y:auto; min-width:0; height:100vh; border-left:1px solid #353c35; padding:0 20px 24px; }

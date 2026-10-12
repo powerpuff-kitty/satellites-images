@@ -95,24 +95,16 @@
             <span id="window-label" class="muted">—</span>
             <button id="window-forward" type="button" aria-label="Search a later period">later ▶</button>
           </div>
-          <div class="timeline-controls">
-            <label>View<select id="timeline-view" aria-label="Timeline view">
-              <option value="bars">Daily bars</option><option value="heat">Time-of-day</option>
-            </select></label>
-            <label>Split by<select id="timeline-split" aria-label="Split daily bars by">
-              <option value="cloud">Cloud cover</option><option value="mission">Mission</option><option value="provider">Provider</option>
-            </select></label>
-          </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
-          <figure class="timeline" id="timeline" aria-label="Observations per day, stacked by cloud cover; click a bar to select that day">
-            <figcaption>Observations per day (bar height = count), stacked by cloud cover.</figcaption>
+          <figure class="timeline" id="timeline" aria-label="Stacked timelines: cloud cover, mission, provider and time of day, by day">
+            <figcaption>Loaded observations by day — cloud cover, mission, provider and time of day on a shared date axis.</figcaption>
           </figure>
           <div class="timeline-legend" aria-hidden="true">
             <span class="lg"><i class="sw clear"></i>clear &lt;10%</span>
             <span class="lg"><i class="sw part"></i>partial &lt;60%</span>
             <span class="lg"><i class="sw cloud"></i>cloudy ≥60%</span>
             <span class="lg"><i class="sw unknown"></i>no cloud metadata</span>
-            <span class="lg">click a bar to select the day</span>
+            <span class="lg">mission/provider panels use distinct colours · click to select a day</span>
           </div>
         </header>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>

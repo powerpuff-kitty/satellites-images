@@ -197,7 +197,8 @@ test("the results header timeline plots per-day observations", async ({ page }) 
   await setRange(page, "2025-03-01", "2025-03-31");
   await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(3);
-  await expect(page.locator("#timeline svg rect")).toHaveCount(2); // two days -> two bar segments
+  await expect(page.locator("#timeline .timeline-caption")).toHaveCount(4); // cloud, mission, provider, time-of-day
+  await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
 });
 
 test("clicking a preview opens a full-screen lightbox and Escape closes it", async ({ page }) => {
@@ -263,8 +264,6 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(1);
   await page.locator("#clear-filters").click();
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#timeline-split", "mission");
-  await expect(page.locator("#timeline svg rect")).not.toHaveCount(0);
-  await page.selectOption("#timeline-view", "heat");
-  await expect(page.locator("#timeline svg .heat-cell")).not.toHaveCount(0);
+  await expect(page.locator("#timeline .timeline-caption")).toHaveCount(4);
+  await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
 });

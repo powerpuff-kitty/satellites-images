@@ -42,8 +42,6 @@ const resolutionFilter = element<HTMLSelectElement>("resolution-filter");
 const hasPreview = element<HTMLInputElement>("has-preview");
 const includeUnknown = element<HTMLInputElement>("include-unknown");
 const clearFilters = element<HTMLButtonElement>("clear-filters");
-const timelineView = element<HTMLSelectElement>("timeline-view");
-const timelineSplit = element<HTMLSelectElement>("timeline-split");
 const timeline = element<HTMLElement>("timeline");
 const lightbox = element<HTMLElement>("lightbox");
 const lightboxImage = element<HTMLImageElement>("lightbox-image");
@@ -190,16 +188,6 @@ function cloudClassOf(percent: number | null): CloudClass {
   return "cloudy";
 }
 const SPLIT_PALETTE = ["#e0ae54","#6fb3d2","#b98ad6","#4fbf7a","#d98a6a","#9aa0a2","#c0d76a","#7f8cff","#e58fb0","#7ad1c0"];
-function segmentKey(scene:Scene):string {
-  const split = timelineSplit.value;
-  if (split === "mission") return scene.mission || "unknown";
-  if (split === "provider") return scene.providerId;
-  return cloudClassOf(scene.cloudCoverPercent);
-}
-function segmentColour(key:string, index:number):string {
-  if (timelineSplit.value === "cloud") return CLOUD_FILL[key as CloudClass] ?? "#9aa0a2";
-  return SPLIT_PALETTE[index % SPLIT_PALETTE.length];
-}
 function selectTimelineDay(day:string):void {
   selectedDay = selectedDay === day ? null : day;
   displayedLimit = 40;
@@ -207,14 +195,14 @@ function selectTimelineDay(day:string):void {
   renderLoadedScenes();
   storeSearchLink();
 }
-function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, dayMs:number, colW:number, padL:number, height:number):void {
+function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, dayMs:number, colW:number, padL:number, height:number, padB:number):void {
   const labelIndices = new Set<number>([0, nDays - 1]);
   for (let k = 1; k <= 3; k++) labelIndices.add(Math.round((nDays - 1) * k / 4));
   for (const index of [...labelIndices].sort((a, b) => a - b)) {
     const date = new Date(first + index * dayMs);
     const label = document.createElementNS(NS, "text");
     label.setAttribute("x", (padL + index * colW + colW / 2).toFixed(1));
-    label.setAttribute("y", String(height - 5));
+    label.setAttribute("y", String(height - padB - 2));
     label.setAttribute("text-anchor", "middle");
     label.setAttribute("class", "tick");
     label.textContent = date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
@@ -230,19 +218,21 @@ function renderTimeline(): void {
     timeline.append(empty);
     return;
   }
-  if (timelineView.value === "heat") renderTimelineHeat(scenes);
-  else renderTimelineBars(scenes);
+  renderTimelineBars(scenes, "cloud", "Cloud cover");
+  renderTimelineBars(scenes, "mission", "Mission");
+  renderTimelineBars(scenes, "provider", "Provider");
+  renderTimelineHeat(scenes, "Time of day (UTC)");
 }
-function renderTimelineBars(scenes:Scene[]): void {
+function renderTimelineBars(scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string): void {
   const NS = "http://www.w3.org/2000/svg";
   const width = Math.max(240, timeline.clientWidth || 320);
-  const height = 104, padL = 28, padR = 8, padT = 8, padB = 18;
+  const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
   const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000;
   const byDay = new Map<string, Map<string, number>>();
   const totals = new Map<string, number>();
   for (const scene of scenes) {
     const day = scene.acquiredAt.slice(0, 10);
-    const key = segmentKey(scene);
+    const key = mode === "mission" ? (scene.mission || "unknown") : mode === "provider" ? scene.providerId : cloudClassOf(scene.cloudCoverPercent);
     const m = byDay.get(day) ?? new Map<string, number>();
     m.set(key, (m.get(key) ?? 0) + 1);
     byDay.set(day, m);
@@ -255,30 +245,26 @@ function renderTimelineBars(scenes:Scene[]): void {
   const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
   const colW = W / nDays;
   const maxCount = Math.max(...[...byDay.values()].map((m) => [...m.values()].reduce((a, b) => a + b, 0)));
+  const colourOf = (key:string):string =>
+    mode === "cloud" ? (CLOUD_FILL[key as CloudClass] ?? "#9aa0a2") : SPLIT_PALETTE[order.indexOf(key) % SPLIT_PALETTE.length];
+  const caption = document.createElement("div");
+  caption.className = "timeline-caption";
+  caption.textContent = title + " · " + order.slice(0, 5).join(", ") + (order.length > 5 ? "…" : "");
+  timeline.append(caption);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
-  for (const value of [0, maxCount]) {
-    const y = padT + (1 - value / maxCount) * H;
-    const grid = document.createElementNS(NS, "line");
-    grid.setAttribute("x1", String(padL)); grid.setAttribute("x2", String(padL + W));
-    grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y));
-    grid.setAttribute("class", value === 0 ? "axis" : "grid");
-    svg.append(grid);
-    if (value > 0) {
-      const tick = document.createElementNS(NS, "text");
-      tick.setAttribute("x", "2"); tick.setAttribute("y", String(y + 3)); tick.setAttribute("class", "tick");
-      tick.textContent = String(value);
-      svg.append(tick);
-    }
-  }
+  svg.setAttribute("aria-label", title + " by day");
+  const axis = document.createElementNS(NS, "line");
+  axis.setAttribute("x1", String(padL)); axis.setAttribute("x2", String(padL + W));
+  axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H)); axis.setAttribute("class", "axis");
+  svg.append(axis);
   for (const day of days) {
     const m = byDay.get(day)!;
     const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
     const x = padL + index * colW;
     const group = document.createElementNS(NS, "g");
-    group.setAttribute("class", "bar-group");
-    group.setAttribute("data-day", day);
+    group.setAttribute("class", "bar-group"); group.setAttribute("data-day", day);
     let baseline = padT + H;
     for (const key of order) {
       const n = m.get(key) ?? 0;
@@ -289,24 +275,24 @@ function renderTimelineBars(scenes:Scene[]): void {
       rect.setAttribute("width", Math.max(1, colW * 0.7).toFixed(1));
       rect.setAttribute("y", (baseline - h).toFixed(1));
       rect.setAttribute("height", h.toFixed(1));
-      rect.setAttribute("fill", segmentColour(key, order.indexOf(key)));
+      rect.setAttribute("fill", colourOf(key));
       group.append(rect);
       baseline -= h;
     }
     const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const title = document.createElementNS(NS, "title");
-    title.textContent = `${day} · ${total} obs` + (timelineSplit.value === "cloud" ? "" : " · " + [...m.entries()].map(([k, v]) => `${k} ${v}`).join(", "));
-    group.append(title);
+    const tip = document.createElementNS(NS, "title");
+    tip.textContent = `${day} · ${total} obs · ` + [...m.entries()].map(([k, v]) => `${k} ${v}`).join(", ");
+    group.append(tip);
     group.addEventListener("click", () => selectTimelineDay(day));
     svg.append(group);
   }
-  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height);
+  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
   timeline.append(svg);
 }
-function renderTimelineHeat(scenes:Scene[]): void {
+function renderTimelineHeat(scenes:Scene[], title:string): void {
   const NS = "http://www.w3.org/2000/svg";
   const width = Math.max(240, timeline.clientWidth || 320);
-  const height = 104, padL = 28, padR = 8, padT = 8, padB = 18;
+  const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
   const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000, rows = 4;
   const cells = new Map<string, number>();
   const daySet = new Set<string>();
@@ -323,16 +309,14 @@ function renderTimelineHeat(scenes:Scene[]): void {
   const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
   const colW = W / nDays, rowH = H / rows;
   const maxCell = Math.max(...[...cells.values()]);
+  const caption = document.createElement("div");
+  caption.className = "timeline-caption";
+  caption.textContent = title + " · 00–06 / 06–12 / 12–18 / 18–24 (bottom → top)";
+  timeline.append(caption);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
-  for (let row = 0; row < rows; row++) {
-    const y = padT + (rows - 1 - row) * rowH;
-    const label = document.createElementNS(NS, "text");
-    label.setAttribute("x", "2"); label.setAttribute("y", String(y + rowH - 3)); label.setAttribute("class", "tick");
-    label.textContent = String(row * 6).padStart(2, "0");
-    svg.append(label);
-  }
+  svg.setAttribute("aria-label", title + " heatmap by day");
   for (const day of days) {
     const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
     const x = padL + index * colW;
@@ -348,26 +332,21 @@ function renderTimelineHeat(scenes:Scene[]): void {
       svg.append(rect);
     }
     const hit = document.createElementNS(NS, "rect");
-    hit.setAttribute("class", "bar-group");
-    hit.setAttribute("data-day", day);
+    hit.setAttribute("class", "bar-group"); hit.setAttribute("data-day", day);
     hit.setAttribute("x", x.toFixed(1)); hit.setAttribute("y", String(padT));
     hit.setAttribute("width", Math.max(1, colW).toFixed(1)); hit.setAttribute("height", H.toFixed(1));
     hit.setAttribute("fill", "transparent");
-    const title = document.createElementNS(NS, "title");
-    title.textContent = day;
-    hit.append(title);
+    const tip = document.createElementNS(NS, "title"); tip.textContent = day; hit.append(tip);
     hit.addEventListener("click", () => selectTimelineDay(day));
     svg.append(hit);
   }
   const axis = document.createElementNS(NS, "line");
   axis.setAttribute("x1", String(padL)); axis.setAttribute("x2", String(padL + W));
-  axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H));
-  axis.setAttribute("class", "axis");
+  axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H)); axis.setAttribute("class", "axis");
   svg.append(axis);
-  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height);
+  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
   timeline.append(svg);
 }
-
 interface HistoryScan {
   controller:AbortController;
   accumulator:AvailabilityAccumulator;
@@ -611,8 +590,6 @@ clearFilters.addEventListener("click",()=>{
   hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;
   displayedLimit=40; redrawAvailability(); renderLoadedScenes();
 });
-timelineView.addEventListener("change",renderTimeline);
-timelineSplit.addEventListener("change",renderTimeline);
 allDaysButton.addEventListener("click",()=>{
   selectedDay=null;
   redrawAvailability();
