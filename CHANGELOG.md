@@ -167,6 +167,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: on the **Upcoming** tab the scene-oriented controls (metric links, ··· menu, quick
+  filters) are hidden, and empty results now explain themselves — an empty state in the plans
+  list, and a note when scenes were dropped because their footprint does not cover the
+  location.
 - Explorer: a **coverage rollup** (from the availability summary) reports observations shown,
   days with data, months, and a per-catalogue split, marking catalogues that still have more
   pages.

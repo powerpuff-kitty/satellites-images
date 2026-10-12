@@ -222,8 +222,9 @@ test("left tabs switch between historical and upcoming views", async ({ page }) 
   await page.locator("#tab-upcoming").click();
   await expect(page.locator("#plans-results")).toBeVisible();
   await expect(page.locator("#results")).toBeHidden();
-  // The grid drops the historical data and follows the upcoming forecast window.
+  // The grid drops the historical data, and the scene-oriented controls are hidden.
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(0);
+  await expect(page.locator("#matrix-head")).toBeHidden();
   await expect(page.locator("#obs-title")).toHaveText(/Upcoming planned acquisitions/);
   await page.locator("#tab-historical").click();
   await expect(page.locator("#results")).toBeVisible();

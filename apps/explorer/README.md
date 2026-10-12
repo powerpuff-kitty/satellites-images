@@ -69,8 +69,10 @@ day matrix and the calendar counts; the counter shows `filtered / total`.
 
 The **day matrix** at the bottom of the map always spans the loaded range, so **its size never
 changes**, while the data behind it follows the active tab — published scenes on
-**Historical**, planned datatakes on **Upcoming** — and it never shows the other tab's data
-(including when a plan lookup fails). It is a GitHub-style grid of **12×12 px** cells — one
+**Historical**, planned datatakes on **Upcoming** — and it never shows the other tab's data.
+The metric links and quick filters describe published scenes, so they are hidden on Upcoming.
+If a search returns nothing, the panel says why: an explicit empty state for the plans list,
+and a note when scenes were hidden because their footprint does not cover the location. It is a GitHub-style grid of **12×12 px** cells — one
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
 the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the

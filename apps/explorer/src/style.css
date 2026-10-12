@@ -20,6 +20,7 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 .status { margin:12px 0; }
 .results { padding:0; margin:0; list-style:none; }
 .results li {padding:14px 0; border-bottom:1px solid #343c34;}
+.results li.empty {color:#9aa39a; font-size:12px; border-bottom:0;}
 .scene-heading {display:flex; justify-content:space-between; gap:8px; font-size:13px; margin-bottom:8px;}
 .scene-heading time {color:#c3c8c0; font-size:11px; text-align:right;}
 .meta-line {display:flex; justify-content:space-between; gap:8px; margin-bottom:4px; font-size:11px; color:#afb7aa;}

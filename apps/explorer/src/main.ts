@@ -25,6 +25,7 @@ const counter = element<HTMLElement>("counter");
 const form = element<HTMLFormElement>("search-form");
 const calendarStatus = element<HTMLElement>("calendar-status");
 const mapLabel = element<HTMLElement>("map-label");
+const matrixHead = element<HTMLElement>("matrix-head");
 const drawAreaButton = element<HTMLButtonElement>("draw-area");
 const clearAreaButton = element<HTMLButtonElement>("clear-area");
 const sourceList = element<HTMLElement>("source-list");
@@ -951,6 +952,12 @@ function redrawAvailability():void {
   if(!full) return;
   allDaysButton.hidden=selectedDay===null;
   const statusParts:string[]=[];
+  const pointLng=Number(lon.value), pointLat=Number(lat.value);
+  if(Number.isFinite(pointLng)&&Number.isFinite(pointLat)){
+    const hidden=loadedScenes.filter((scene)=>!sceneCoversPoint(scene,pointLng,pointLat)).length;
+    if(hidden)statusParts.push(hidden+" scene"+(hidden===1?"":"s")+
+      " hidden: the footprint does not cover this location.");
+  }
   if(!full.complete)statusParts.push("Additional pages may exist. Counts are partial.");
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
   calendarStatus.textContent=statusParts.join(" ");
@@ -1331,6 +1338,13 @@ async function runUpcoming():Promise<void>{
     renderMatrix();
     const list=document.createDocumentFragment();
     for(const item of filtered) list.append(makePlanned(item));
+    if(!filtered.length){
+      const empty=document.createElement("li");
+      empty.className="empty";
+      empty.textContent="No planned datatakes for this area in the next "+
+        daysAhead.value+" days. Try a larger radius or a longer window.";
+      list.append(empty);
+    }
     plansResults.append(list);
     counter.textContent=String(filtered.length);
     upcomingStatus.textContent=filtered.length
@@ -1338,6 +1352,10 @@ async function runUpcoming():Promise<void>{
       : "No matching planned datatakes in the latest ESA plans for this location and window.";
   } catch(error) {
     if(token===currentPlanSearch){
+      const failed=document.createElement("li");
+      failed.className="empty";
+      failed.textContent="Could not load the ESA acquisition plan for this location.";
+      plansResults.replaceChildren(failed);
       matrixItems=[];
       renderMatrix();   // never leave the previous tab's data on the grid
       upcomingStatus.textContent=
@@ -1357,7 +1375,9 @@ function setTab(tab:"historical"|"upcoming"):void{
   if(tab!=="historical") showMoreButton.hidden=true;
   obsTitle.textContent = tab==="upcoming" ? "Upcoming planned acquisitions" : "Published observations";
   // The window (and therefore the grid's size) is the same on both tabs; only the data
-  // behind it changes.
+  // behind it changes. The metric links and quick filters describe published scenes, so
+  // they are hidden on the upcoming tab.
+  matrixHead.hidden = tab==="upcoming";
   matrixItems=tab==="upcoming"?[]:loadedScenes.filter(passesFilters);
   renderMatrix();
   if(tab==="upcoming")void runUpcoming();
