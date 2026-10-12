@@ -150,6 +150,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the day matrix gained a vertical **‹ / › year stepper** to its left (outside the
   panel) that shifts the whole window one year; icon-only buttons **centre their glyph** and
   are **square** (no pill corners).
+- Explorer: the day matrix no longer disappears when a year returns no observations — it
+  always draws the window's grid (placeholder cells), and switches to the new year's grid
+  immediately when the window moves.
 
 ## [0.2.0] - 2026-10-12
 

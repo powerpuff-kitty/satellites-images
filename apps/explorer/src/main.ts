@@ -329,17 +329,20 @@ function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
   matrixSvg.replaceChildren();
   const scenes=matrixItems, metric=matrixMetric;
-  if(!scenes.length){ matrixPanel.hidden=true; return; }
+  const windowFrom=Date.parse(from.value+"T00:00:00Z");
+  const windowTo=Date.parse(to.value+"T00:00:00Z");
+  // Always draw the window's grid, even when nothing was returned, so the year never
+  // disappears; only a missing/invalid date range hides the matrix.
+  if(!Number.isFinite(windowFrom)||!Number.isFinite(windowTo)||windowTo<windowFrom){
+    matrixPanel.hidden=true; return;
+  }
   matrixPanel.hidden=false;
   const dayMs=86400000, cell=12, step=cell+1;
   const dates=scenes.map((scene)=>scene.acquiredAt.slice(0,10))
     .filter((date)=>/^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
-  const windowFrom=Date.parse(from.value+"T00:00:00Z");
-  const windowTo=Date.parse(to.value+"T00:00:00Z");
   const dataFirst=dates.length?Date.parse(dates[0]+"T00:00:00Z"):NaN;
   const dataLast=dates.length?Date.parse(dates[dates.length-1]+"T00:00:00Z"):NaN;
-  let first=Number.isFinite(windowFrom)?windowFrom:dataFirst;
-  let last=Number.isFinite(windowTo)?windowTo:dataLast;
+  let first=windowFrom, last=windowTo;
   if(Number.isFinite(dataFirst))first=Math.min(first,dataFirst);
   if(Number.isFinite(dataLast))last=Math.max(last,dataLast);
   const startDow=(new Date(first).getUTCDay()+6)%7;
@@ -799,6 +802,8 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     updateFilterChoices();
     calendarGrid.replaceChildren();
     monthStrip.replaceChildren();
+    matrixItems=[];
+    renderMatrix();
     counter.textContent="—";
     loadNextPagesButton.hidden=true;
     status.textContent="Searching public satellite catalogues…";

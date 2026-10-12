@@ -327,6 +327,26 @@ test("the matrix year arrows load the previous/next year", async ({ page }) => {
   await expect(page.locator("#date-to")).toHaveValue("2025-12-31");
 });
 
+test("the matrix stays visible for a year with no observations", async ({ page }) => {
+  await page.route("**/search", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    const features = String(body.datetime ?? "").startsWith("2025") ? [stacScene("y1", "2025-03-10T02:00:00Z")] : [];
+    await respond(route, { json: collection(features, [], features.length) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-01-01", "2025-12-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await page.locator("#matrix-next-year").click();
+  await expect(page.locator("#date-from")).toHaveValue("2026-01-01");
+  await expect(page.locator("#results li")).toHaveCount(0);
+  // The 2026 grid is still drawn, entirely as placeholder cells.
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  const cells = await page.locator("#matrix-svg .matrix-cell").count();
+  expect(cells).toBeGreaterThan(360);
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2026-06-15"]')).toHaveAttribute("fill", "#2f3830");
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(0);
+});
+
 test("icon-only buttons centre their glyph", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("i1", "2025-03-10T02:00:00Z")], [], 1) }));
