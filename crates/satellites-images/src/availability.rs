@@ -1,6 +1,6 @@
 //! Actual UTC acquisition-date counts from bounded STAC search result pages.
 //! Complete means all *requested-provider* next links were exhausted, not a full global census.
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use serde::{Deserialize, Serialize};
 use crate::{Error, Scene, SearchPage};
 
@@ -37,6 +37,7 @@ pub struct AvailabilitySummary {
     pub unique_items:usize,
     pub complete:bool,
     pub truncated_providers:Vec<String>,
+    pub errored_providers:Vec<String>,
 }
 #[derive(Default)]
 struct MonthlyCounts {
@@ -50,6 +51,7 @@ pub struct AvailabilityAccumulator {
     days:BTreeMap<String,AvailabilityDay>,
     months:BTreeMap<String,MonthlyCounts>,
     providers:BTreeMap<String,ProviderAvailability>,
+    errors:BTreeSet<String>,
     pages_scanned:usize,
     raw_items:usize,
 }
@@ -58,6 +60,11 @@ fn increment(map:&mut BTreeMap<String,usize>,key:&str) {
 }
 impl AvailabilityAccumulator {
     pub fn new()->Self {Self::default()}
+
+    /// Record that a provider's scan failed part-way; partial counts are retained.
+    pub fn mark_error(&mut self,provider_id:&str) {
+        if !provider_id.is_empty() {self.errors.insert(provider_id.to_string());}
+    }
 
     pub fn add_page(&mut self,page:&SearchPage)->Result<Vec<Scene>,Error> {
         if page.provider_id.is_empty()||page.page_number==0 {
@@ -116,6 +123,7 @@ impl AvailabilityAccumulator {
             providers, pages_scanned:self.pages_scanned, raw_items:self.raw_items,
             unique_items:self.seen.len(),complete:!self.providers.is_empty()&&truncated_providers.is_empty(),
             truncated_providers,
+            errored_providers:self.errors.iter().cloned().collect(),
         }
     }
 }

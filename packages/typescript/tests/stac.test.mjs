@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -79,7 +79,7 @@ test("registry reports implemented and planned sources accurately",() => {
 test("STAC-reuse adapters target verified endpoints and normalize provider items",async()=>{
   assert.equal(copernicusDataSpace().id,"copernicus");
   assert.equal(usgsLandsatLook().id,"usgs-landsatlook");
-  assert.equal(cmrStac("ASF",["sentinel-1-rtc"]).id,"nasa-cmr");
+  assert.equal(cmrStac("ASF",["sentinel-1-rtc"]).id,"nasa-cmr:ASF");
   assert.throws(()=>cmrStac("bad id",["x"]),e=>e.code==="INVALID_PROVIDER");
   const mock=async()=>new Response(JSON.stringify({...sample,features:[{...sample.features[0],
     id:"S2C_MSIL2A_example",collection:"sentinel-2-l2a",
@@ -227,4 +227,22 @@ test("STAC POST next body replaces the query when merge is absent",async()=>{
   };
   for await(const _ of earthSearch(mock).search(search)){ /* drain */ }
   assert.deepEqual(calls[1],{token:"t2"},"merge defaults to false so the next body replaces the bbox");
+});
+test("retry options are validated and bounded",()=>{
+  const base={id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"]};
+  assert.throws(()=>new StacProvider({...base,retries:11}),e=>e.code==="INVALID_PROVIDER");
+  assert.throws(()=>new StacProvider({...base,retryBaseDelayMs:-1}),e=>e.code==="INVALID_PROVIDER");
+  assert.doesNotThrow(()=>new StacProvider({...base,retries:3,retryBaseDelayMs:100}));
+});
+test("a truncated antimeridian box marks the split search incomplete",async()=>{
+  const aoi={type:"Polygon",coordinates:[[[179.9,-1],[-179.9,-1],[-179.9,1],[179.9,1],[179.9,-1]]]};
+  const next={rel:"next",href:"https://earth-search.aws.element84.com/v1/search",method:"POST",body:{token:"t"}};
+  const mock=async()=>new Response(JSON.stringify({type:"FeatureCollection",features:[],links:[next],context:{matched:0}}),{status:200});
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock});
+  const pages=[];
+  for await(const page of provider.search({aoi,maxPages:1,from:"2025-01-01",to:"2025-01-02"})) pages.push(page);
+  assert.ok(pages.length>=2,"both antimeridian boxes are queried");
+  const summary=summarizeAvailability(pages);
+  assert.equal(summary.complete,false,"a split query that truncates must not report complete");
+  assert.deepEqual(summary.truncatedProviders,["earth-search"]);
 });

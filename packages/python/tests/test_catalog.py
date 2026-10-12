@@ -94,7 +94,7 @@ class CatalogTests(unittest.TestCase):
     def test_stac_reuse_adapters(self):
         self.assertEqual(CopernicusDataSpace().id, "copernicus")
         self.assertEqual(UsgsLandsatLook().id, "usgs-landsatlook")
-        self.assertEqual(CmrStac("ASF", ("sentinel-1-rtc",)).id, "nasa-cmr")
+        self.assertEqual(CmrStac("ASF", ("sentinel-1-rtc",)).id, "nasa-cmr:ASF")
         with self.assertRaises(SatelliteError):
             CmrStac("bad id", ("x",))
 

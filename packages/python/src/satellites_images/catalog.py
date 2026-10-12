@@ -23,6 +23,10 @@ class SatelliteError(Exception):
         self.provider_id = provider_id
 
 
+#: Upper bound on a provider response body, to bound memory under a hostile/oversized response.
+MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+
+
 @dataclass(frozen=True)
 class SearchQuery:
     #: Centre latitude. Required unless ``aoi`` is supplied.
@@ -308,18 +312,20 @@ def _http_json(url: str, method: str, body: dict[str, Any] | None) -> dict[str, 
     req = Request(url, data=encoded, headers=headers, method=method)
     try:
         with urlopen(req, timeout=20) as response:
-            if urlsplit(response.geturl()).netloc != urlsplit(url).netloc:
-                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing a cross-origin redirect")
-            content = response.read()
+            if _port_or_default(urlsplit(response.geturl())) != _port_or_default(urlsplit(url)):
+                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing a cross-origin or downgraded redirect")
+            content = response.read(MAX_RESPONSE_BYTES + 1)
     except HTTPError as exc:
         retry_after = exc.headers.get("Retry-After") if exc.headers else None
         detail = "HTTP " + str(exc.code) + ((" retry-after=" + retry_after) if retry_after else "")
         raise SatelliteError("HTTP_ERROR", "STAC API returned " + detail) from exc
     except (URLError, TimeoutError, OSError) as exc:
         raise SatelliteError("NETWORK", "STAC request failed: " + str(exc)) from exc
+    if len(content) > MAX_RESPONSE_BYTES:
+        raise SatelliteError("INVALID_RESPONSE", "Provider response exceeds size limit")
     try:
         parsed = json.loads(content)
-    except (ValueError, UnicodeDecodeError) as exc:
+    except (ValueError, UnicodeDecodeError, RecursionError) as exc:
         raise SatelliteError("INVALID_RESPONSE", "Invalid JSON response") from exc
     if not isinstance(parsed, dict):
         raise SatelliteError("INVALID_RESPONSE", "STAC response must be an object")
@@ -335,6 +341,10 @@ class StacProvider:
         self.base_url = base_url.rstrip("/")
         self.collections = collections
         self._transport = transport or _http_json
+        if type(retries) is not int or not 0 <= retries <= 10:
+            raise SatelliteError("INVALID_PROVIDER", "retries must be an integer between 0 and 10")
+        if type(retry_base_delay_ms) is not int or not 0 <= retry_base_delay_ms <= 10000:
+            raise SatelliteError("INVALID_PROVIDER", "retry_base_delay_ms must be between 0 and 10000")
         self.retries = retries
         self.retry_base_delay_ms = retry_base_delay_ms
         url = urlsplit(self.base_url)
@@ -352,8 +362,8 @@ class StacProvider:
                 if not transient or attempt >= self.retries:
                     raise
                 match = re.search(r"retry-after=(\d+)", message)
-                delay = int(match.group(1)) * 1000 if match else self.retry_base_delay_ms * (2 ** attempt)
-                time.sleep(max(0, delay) / 1000)
+                requested = int(match.group(1)) * 1000 if match else self.retry_base_delay_ms * (2 ** attempt)
+                time.sleep(min(max(0, requested), 60000) / 1000)
         raise SatelliteError("HTTP_ERROR", "STAC request failed after retries", self.id)
 
     def search(self, query: SearchQuery) -> Iterator[SearchPage]:
@@ -363,7 +373,9 @@ class StacProvider:
         boxes, polygon = resolve_areas(query)
         seen: set[str] = set()
         page_number = 0
-        for box in boxes:
+        truncated_earlier = False
+        for box_index, box in enumerate(boxes):
+            last_box = box_index == len(boxes) - 1
             body: dict[str, Any] = {
                 "bbox": list(box),
                 "datetime": query.start + "T00:00:00Z/" + query.end + "T23:59:59Z",
@@ -376,6 +388,7 @@ class StacProvider:
             method = "POST"
             visited: set[str] = set()
             box_pages = 0
+            last_had_next = False
             while box_pages < query.max_pages:
                 cursor = json.dumps([href, method, body], sort_keys=True)
                 if cursor in visited:
@@ -406,11 +419,12 @@ class StacProvider:
                     items.append(scene)
                 box_pages += 1
                 page_number += 1
+                last_had_next = next_link is not None
                 yield SearchPage(
                     self.id,
                     tuple(items),
                     page_number,
-                    next_link is not None,
+                    next_link is not None or (last_box and truncated_earlier),
                     matched if isinstance(matched, int) and not isinstance(matched, bool) else None,
                 )
                 if next_link is None:
@@ -430,6 +444,8 @@ class StacProvider:
                     # STAC pagination: merge defaults to false, so the next body replaces the query.
                     body = {**body, **next_body} if next_link.get("merge") is True else next_body
                 href = next_url
+            if box_pages >= query.max_pages and last_had_next:
+                truncated_earlier = True
 
 
 ASF_ENDPOINT = "https://api.daac.asf.alaska.edu/services/search/param"
@@ -531,7 +547,10 @@ class AsfSearch:
             if not isinstance(result, (dict, list)):
                 raise SatelliteError("INVALID_RESPONSE", "ASF response must be JSON", self.id)
             items: list[Scene] = []
-            for feature in _asf_features(result):
+            features = _asf_features(result)
+            if len(features) > 10000:
+                raise SatelliteError("INVALID_RESPONSE", "Provider page exceeds the 10000-feature limit", self.id)
+            for feature in features:
                 scene = normalize_asf_feature(feature, self.id)
                 if scene.id in seen:
                     continue
@@ -605,6 +624,8 @@ class JaxaGPortal:
                  transport: Transport | None = None):
         if not re.fullmatch(r"\d+", dataset_id):
             raise SatelliteError("INVALID_PROVIDER", "A numeric JAXA datasetId is required", self.id)
+        if type(count) is not int or not 1 <= count <= 3000:
+            raise SatelliteError("INVALID_PROVIDER", "count must be an integer between 1 and 3000", self.id)
         self.dataset_id = dataset_id
         self.resolution = resolution
         self.count = count
@@ -638,6 +659,8 @@ class JaxaGPortal:
             features = result.get("features")
             if not isinstance(features, list):
                 raise SatelliteError("INVALID_RESPONSE", "JAXA response lacks a features array", self.id)
+            if len(features) > 10000:
+                raise SatelliteError("INVALID_RESPONSE", "Provider page exceeds the 10000-feature limit", self.id)
             items: list[Scene] = []
             for feature in features:
                 scene = normalize_jaxa_feature(feature, self.id)
@@ -705,7 +728,7 @@ class CmrStac(StacProvider):
         if not re.fullmatch(r"[A-Za-z0-9_-]+", provider_id):
             raise SatelliteError("INVALID_PROVIDER", "CMR provider id must be alphanumeric")
         super().__init__(
-            id="nasa-cmr",
+            id="nasa-cmr:" + provider_id,
             base_url="https://cmr.earthdata.nasa.gov/stac/" + provider_id,
             collections=collections,
             transport=transport,
@@ -731,8 +754,15 @@ class SatelliteCatalog:
                 yield from provider.search(query)
 
     def availability(self, query: SearchQuery, provider_ids: list[str] | None = None):
-        from .availability import summarize_availability
-        return summarize_availability(self.search(query, provider_ids))
+        from .availability import AvailabilityAccumulator
+        accumulator = AvailabilityAccumulator()
+        try:
+            for page in self.search(query, provider_ids):
+                accumulator.add_page(page)
+        except SatelliteError as exc:
+            # Keep partial counts and attribute the failure rather than discarding the scan.
+            accumulator.mark_error(exc.provider_id or "unknown")
+        return accumulator.summary()
 
     def upcoming(self, query=None) -> list:
         if not self.acquisition_providers:

@@ -61,6 +61,17 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   parsing; the explorer validates planned-acquisition links before rendering them.
 - Bumped the declared `fast-xml-parser` range to `^5.11.2`, switched CI installs to
   `npm ci`, and stopped packaging the crate with `--allow-dirty`.
+- Bounded retries: `retries`/`retryBaseDelayMs` are validated, `Retry-After` is capped
+  at 60 s, and TypeScript backoff is abortable (new `ABORTED` error code).
+- Added response size ceilings and per-adapter feature caps (STAC/ASF/JAXA) in all three
+  SDKs; malformed JSON now raises a typed error (Rust was mapping it to `Network`).
+- Cross-box truncation is now reported correctly for split antimeridian/pole searches.
+- Strengthened the TypeScript ESA KML check to require the KML 2.2 namespace on the root
+  element; Python redirect checks are now scheme-aware; Rust ESA diagnostics are ordered
+  deterministically; CMR providers are namespaced (`nasa-cmr:<provider>`) so multiple
+  scopes can coexist; JAXA `count` is validated; `Invalid baseUrl` is a typed error.
+- Pinned all GitHub Actions to commit SHAs, added Dependabot, and moved the npm publish
+  workflow to OIDC trusted publishing (no long-lived token).
 
 ## [0.2.0] - 2026-10-12
 

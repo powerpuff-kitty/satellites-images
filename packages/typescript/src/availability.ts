@@ -33,6 +33,7 @@ export interface AvailabilitySummary {
   uniqueItems: number;
   complete: boolean;                    // all next links exhausted in scanned providers
   truncatedProviders: string[];
+  erroredProviders: string[];           // providers whose scan failed mid-stream
 }
 
 function increment(map: Record<string,number>,key: string): void {
@@ -50,8 +51,12 @@ export class AvailabilityAccumulator {
   private readonly days=new Map<string,MutableDay>();
   private readonly months=new Map<string,MutableMonth>();
   private readonly providerStates=new Map<string,ProviderAvailability>();
+  private readonly errors=new Set<string>();
   private pagesScanned=0;
   private rawItems=0;
+
+  /** Record that a provider's scan failed part-way; partial counts are retained. */
+  markError(providerId:string):void { if(providerId) this.errors.add(providerId); }
 
   addPage(page:SearchPage): Scene[] {
     if (!page.providerId || !Number.isInteger(page.pageNumber) || page.pageNumber < 1 ||
@@ -124,6 +129,7 @@ export class AvailabilityAccumulator {
       uniqueItems:this.ids.size,
       complete:providers.length>0 && truncatedProviders.length===0,
       truncatedProviders,
+      erroredProviders:[...this.errors].sort(),
     };
   }
 }

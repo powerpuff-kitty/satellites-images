@@ -276,6 +276,41 @@ function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length ? value : null;
 }
 const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
+/** Read a JSON body with a byte ceiling, so a hostile/oversized response cannot exhaust memory. */
+async function readJsonBounded(response: Response, providerId: string): Promise<unknown> {
+  if (!response.body) {
+    try { return await response.json(); }
+    catch { throw new SatelliteError("INVALID_RESPONSE", "Provider response was not valid JSON", providerId); }
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_RESPONSE_BYTES) {
+      await reader.cancel();
+      throw new SatelliteError("INVALID_RESPONSE", "Provider response exceeds size limit", providerId);
+    }
+    text += decoder.decode(value, { stream: true });
+  }
+  text += decoder.decode();
+  try { return JSON.parse(text); }
+  catch { throw new SatelliteError("INVALID_RESPONSE", "Provider response was not valid JSON", providerId); }
+}
+const MAX_RETRY_DELAY_MS = 60000;
+/** Abortable sleep: rejects with ABORTED if the caller's signal fires during backoff. */
+function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new SatelliteError("ABORTED", "Request aborted")); return; }
+    const onAbort = (): void => { clearTimeout(timer); reject(new SatelliteError("ABORTED", "Request aborted")); };
+    const timer = setTimeout(() => { signal?.removeEventListener("abort", onAbort); resolve(); }, ms);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
 function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Scene {
   const raw = object(item);
   const properties = object(raw.properties);
@@ -339,9 +374,19 @@ export class StacProvider {
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.collections = [...options.collections];
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
-    this.retries = options.retries ?? 0;
-    this.retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
-    const url = new URL(this.baseUrl);
+    const retries = options.retries ?? 0;
+    if (!Number.isInteger(retries) || retries < 0 || retries > 10) {
+      throw new SatelliteError("INVALID_PROVIDER", "retries must be an integer between 0 and 10", this.id);
+    }
+    this.retries = retries;
+    const retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
+    if (!Number.isFinite(retryBaseDelayMs) || retryBaseDelayMs < 0 || retryBaseDelayMs > 10000) {
+      throw new SatelliteError("INVALID_PROVIDER", "retryBaseDelayMs must be between 0 and 10000", this.id);
+    }
+    this.retryBaseDelayMs = retryBaseDelayMs;
+    let url: URL;
+    try { url = new URL(this.baseUrl); }
+    catch { throw new SatelliteError("INVALID_PROVIDER", "Provider baseUrl is not a valid URL", this.id); }
     if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
       throw new SatelliteError("INVALID_PROVIDER", "Provider must use HTTPS except localhost", this.id);
     }
@@ -357,12 +402,16 @@ export class StacProvider {
     const { boxes, polygon } = resolveAreas(query);
     const seen = new Set<string>();
     let pageNumber = 0;
-    for (const box of boxes) {
+    let truncatedEarlier = false;
+    for (let boxIndex = 0; boxIndex < boxes.length; boxIndex++) {
+      const box = boxes[boxIndex];
+      const lastBox = boxIndex === boxes.length - 1;
       let body = makeBody(query, this.collections, box, polygon);
       let href = this.baseUrl + "/search";
       let method = "POST";
       const visited = new Set<string>();
       let boxPages = 0;
+      let lastHadNext = false;
       while (boxPages < maxPages) {
         const requestId = JSON.stringify([href,method,body]);
         if (visited.has(requestId)) throw new SatelliteError("PAGINATION_LOOP", "Repeating STAC next link", this.id);
@@ -380,10 +429,11 @@ export class StacProvider {
           });
           for (let attempt = 0; (response.status === 429 || response.status === 503) && attempt < this.retries; attempt++) {
             const retryAfter = Number(response.headers.get("retry-after"));
-            const delay = Number.isFinite(retryAfter) && retryAfter > 0
+            const requested = Number.isFinite(retryAfter) && retryAfter > 0
               ? retryAfter * 1000
               : this.retryBaseDelayMs * Math.pow(2, attempt);
-            await sleep(delay);
+            const delay = Math.min(requested, MAX_RETRY_DELAY_MS);
+            await sleepWithSignal(delay, query.signal);
             response = await this.fetchImpl(href, {
               method,
               headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
@@ -395,12 +445,16 @@ export class StacProvider {
             });
           }
         } catch (error) {
+          if (error instanceof SatelliteError) throw error;
+          if ((error as { name?: string })?.name === "AbortError") {
+            throw new SatelliteError("ABORTED", "STAC request aborted", this.id);
+          }
           throw new SatelliteError("NETWORK", "STAC request failed: " + String(error), this.id);
         }
         if (!response.ok) throw new SatelliteError("HTTP_ERROR", "STAC API returned HTTP " + response.status, this.id);
         let data: unknown;
-        try { data = await response.json(); }
-        catch { throw new SatelliteError("INVALID_RESPONSE", "STAC response was not valid JSON", this.id); }
+        try { data = await readJsonBounded(response, this.id); }
+        catch (error) { if (error instanceof SatelliteError) throw error; throw new SatelliteError("INVALID_RESPONSE", "STAC response was not valid JSON", this.id); }
         const page = object(data);
         if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "STAC response lacks a features array", this.id);
         if (page.features.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "STAC page exceeds the 10000-feature limit", this.id);
@@ -413,7 +467,8 @@ export class StacProvider {
         scenes.forEach((scene) => seen.add(scene.id));
         boxPages += 1;
         pageNumber += 1;
-        yield { providerId:this.id, items:scenes, pageNumber, hasNext:Boolean(next), matched: typeof matched === "number" ? matched : (typeof page.numberMatched === "number" ? page.numberMatched : null) };
+        lastHadNext = Boolean(next);
+        yield { providerId:this.id, items:scenes, pageNumber, hasNext:Boolean(next) || (lastBox && truncatedEarlier), matched: typeof matched === "number" ? matched : (typeof page.numberMatched === "number" ? page.numberMatched : null) };
         if (!next) break;
         if (typeof next.href !== "string") throw new SatelliteError("INVALID_RESPONSE", "STAC next link has no URL", this.id);
         const resolved = new URL(next.href, href);
@@ -431,6 +486,7 @@ export class StacProvider {
           body = next.merge === true ? { ...body, ...nextBody } : nextBody;
         }
       }
+      if (boxPages >= maxPages && lastHadNext) truncatedEarlier = true;
     }
   }
 }
@@ -467,7 +523,7 @@ export function cmrStac(providerId: string, collections: string[], fetchImpl?: t
     throw new SatelliteError("INVALID_PROVIDER", "CMR provider id must be alphanumeric");
   }
   return new StacProvider({
-    id:"nasa-cmr", baseUrl:`https://cmr.earthdata.nasa.gov/stac/${providerId}`,
+    id:"nasa-cmr:"+providerId, baseUrl:`https://cmr.earthdata.nasa.gov/stac/${providerId}`,
     collections, fetchImpl,
   });
 }
@@ -561,10 +617,10 @@ export class AsfProvider {
         throw new SatelliteError("NETWORK", "ASF request failed: " + String(error), this.id);
       }
       if (!response.ok) throw new SatelliteError("HTTP_ERROR", "ASF returned HTTP " + response.status, this.id);
-      let data: unknown;
-      try { data = await response.json(); }
-      catch { throw new SatelliteError("INVALID_RESPONSE", "ASF response was not valid JSON", this.id); }
-      const scenes = asfFeatures(data).map((feature) => normalizeAsfFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
+      const data = await readJsonBounded(response, this.id);
+      const features = asfFeatures(data);
+      if (features.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "ASF page exceeds the 10000-feature limit", this.id);
+      const scenes = features.map((feature) => normalizeAsfFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
       scenes.forEach((scene) => seen.add(scene.id));
       pageNumber += 1;
       yield { providerId:this.id, items:scenes, pageNumber, hasNext:false, matched:scenes.length };
@@ -642,7 +698,11 @@ export class JaxaProvider {
     }
     this.datasetId = options.datasetId;
     this.resolution = options.resolution;
-    this.count = options.count ?? 100;
+    const count = options.count ?? 100;
+    if (!Number.isInteger(count) || count < 1 || count > 3000) {
+      throw new SatelliteError("INVALID_PROVIDER", "count must be an integer between 1 and 3000", this.id);
+    }
+    this.count = count;
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
   async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
@@ -671,11 +731,10 @@ export class JaxaProvider {
         throw new SatelliteError("NETWORK", "JAXA request failed: " + String(error), this.id);
       }
       if (!response.ok) throw new SatelliteError("HTTP_ERROR", "JAXA returned HTTP " + response.status, this.id);
-      let data: unknown;
-      try { data = await response.json(); }
-      catch { throw new SatelliteError("INVALID_RESPONSE", "JAXA response was not valid JSON", this.id); }
+      const data = await readJsonBounded(response, this.id);
       const page = object(data);
       if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "JAXA response lacks a features array", this.id);
+      if (page.features.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "JAXA page exceeds the 10000-feature limit", this.id);
       const scenes = page.features.map((feature) => normalizeJaxaFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
       scenes.forEach((scene) => seen.add(scene.id));
       pageNumber += 1;
@@ -722,7 +781,13 @@ export class SatelliteCatalog {
   async availability(query: SearchQuery, providerIds?: string[]): Promise<import("./availability.js").AvailabilitySummary> {
     const { AvailabilityAccumulator } = await import("./availability.js");
     const accumulator=new AvailabilityAccumulator();
-    for await (const page of this.search(query,providerIds)) accumulator.addPage(page);
+    try {
+      for await (const page of this.search(query,providerIds)) accumulator.addPage(page);
+    } catch (error) {
+      // Keep partial counts and attribute the failure rather than discarding the whole scan.
+      const providerId = error instanceof SatelliteError ? error.providerId : undefined;
+      accumulator.markError(providerId ?? "unknown");
+    }
     return accumulator.summary();
   }
   async upcoming(query: import("./acquisitions.js").AcquisitionQuery,

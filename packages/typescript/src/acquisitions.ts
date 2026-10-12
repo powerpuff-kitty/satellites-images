@@ -212,8 +212,8 @@ export function parseESAPlanKml(kml:string, plan:ESAPlan, bbox:BoundingBox,
   fromMs:number, toMs:number):AcquisitionOpportunity[] {
   if(kml.length>DEFAULT_MAX_KML_BYTES || /<!DOCTYPE/i.test(kml))
     throw new SatelliteError("INVALID_RESPONSE","KML exceeds size limit or contains a DOCTYPE");
-  if(!/xmlns[^>]*opengis\.net\/kml\/2\.2/i.test(kml))
-    throw new SatelliteError("INVALID_RESPONSE","ESA KML lacks the KML 2.2 namespace");
+  if(!/<\s*kml\b[^>]*xmlns\s*=\s*["'][^"']*opengis\.net\/kml\/2\.2/i.test(kml))
+    throw new SatelliteError("INVALID_RESPONSE","ESA KML lacks the KML 2.2 namespace on its root element");
   let root:unknown;
   try {
     root=new XMLParser({ignoreAttributes:false,parseTagValue:false,

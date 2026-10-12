@@ -6,7 +6,7 @@ use reqwest::{Client, Url};
 use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::{HashMap, HashSet}, sync::Mutex, time::{Duration as StdDuration, Instant}};
+use std::{collections::{BTreeMap, HashMap, HashSet}, sync::Mutex, time::{Duration as StdDuration, Instant}};
 
 use crate::{bounds_around, Error};
 
@@ -351,7 +351,7 @@ impl ESAPlansProvider {
         for page in pages {
             plans.extend(parse_esa_plan_index(&self.fetch_text(page,2_000_000).await?.0)?);
         }
-        let mut newest:HashMap<String,ESAPlan>=HashMap::new();
+        let mut newest:BTreeMap<String,ESAPlan>=BTreeMap::new();
         for plan in plans {
             if !missions.contains(plan.mission.as_str()) ||
                 utc(&plan.ends_at).is_none_or(|d|d<start) ||

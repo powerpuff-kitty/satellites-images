@@ -47,6 +47,7 @@ class AvailabilitySummary:
     unique_items: int
     complete: bool
     truncated_providers: tuple[str, ...]
+    errored_providers: tuple[str, ...]
 
 
 class AvailabilityAccumulator:
@@ -56,8 +57,14 @@ class AvailabilityAccumulator:
         self._days: dict[str, dict] = {}
         self._months: dict[str, dict] = {}
         self._providers: dict[str, dict] = {}
+        self._errors: set[str] = set()
         self._page_count = 0
         self._raw = 0
+
+    def mark_error(self, provider_id: str) -> None:
+        """Record that a provider's scan failed part-way; partial counts are retained."""
+        if provider_id:
+            self._errors.add(provider_id)
 
     def add_page(self, page: SearchPage) -> list[Scene]:
         if not page.provider_id or page.page_number < 1:
@@ -129,6 +136,7 @@ class AvailabilityAccumulator:
             unique_items=len(self._seen),
             complete=bool(providers) and not truncated,
             truncated_providers=truncated,
+            errored_providers=tuple(sorted(self._errors)),
         )
 
 

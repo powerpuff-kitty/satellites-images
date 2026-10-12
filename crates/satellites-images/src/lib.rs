@@ -406,12 +406,29 @@ pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -
     })
 }
 
-/// Backoff delay for a retry attempt, honouring a Retry-After value when present.
+/// Backoff delay for a retry attempt, honouring a Retry-After value when present (capped at 60 s).
 pub fn retry_delay_ms(attempt: u32, retry_after_secs: Option<u64>, base_ms: u64) -> u64 {
-    match retry_after_secs {
+    let requested = match retry_after_secs {
         Some(secs) => secs.saturating_mul(1000),
         None => base_ms.saturating_mul(1u64 << attempt.min(10)),
+    };
+    requested.min(60_000)
+}
+
+/// Upper bound on a provider JSON response body, to bound memory under a hostile response.
+const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+
+/// Read a JSON body with a byte ceiling; malformed JSON is `InvalidResponse`, I/O is `Network`.
+async fn read_json_bounded(response: reqwest::Response, max_bytes: usize) -> Result<Value, Error> {
+    let mut response = response;
+    let mut bytes: Vec<u8> = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if bytes.len() + chunk.len() > max_bytes {
+            return Err(Error::InvalidResponse("Provider response exceeds size limit".into()));
+        }
+        bytes.extend_from_slice(&chunk);
     }
+    serde_json::from_slice(&bytes).map_err(|error| Error::InvalidResponse(format!("Invalid JSON response: {error}")))
 }
 
 #[derive(Clone)]
@@ -442,8 +459,8 @@ impl StacProvider {
     }
     /// Retry transient HTTP 429/503 responses up to `retries` times, honouring Retry-After.
     pub fn with_retries(mut self, retries: u32, retry_base_delay_ms: u64) -> Self {
-        self.retries = retries;
-        self.retry_base_delay_ms = retry_base_delay_ms;
+        self.retries = retries.min(10);
+        self.retry_base_delay_ms = retry_base_delay_ms.min(10000);
         self
     }
     /// Element 84 Earth Search (Sentinel-2 L2A, Landsat C2 L2).
@@ -469,12 +486,22 @@ impl StacProvider {
         {
             return Err(Error::InvalidProvider("CMR provider id must be alphanumeric".into()));
         }
-        Self::new("nasa-cmr", &format!("https://cmr.earthdata.nasa.gov/stac/{provider}"))
+        Self::new(&format!("nasa-cmr:{provider}"), &format!("https://cmr.earthdata.nasa.gov/stac/{provider}"))
     }
     pub fn id(&self) -> &str { &self.id }
     pub async fn availability(&self, query: &SearchQuery) -> Result<AvailabilitySummary, Error> {
-        let pages=self.search_pages(query).await?;
-        summarize_availability(&pages)
+        let mut accumulator = AvailabilityAccumulator::new();
+        let (pages, error) = self.search_pages_partial(query).await;
+        for page in &pages {
+            if let Err(page_error) = accumulator.add_page(page) {
+                accumulator.mark_error(&self.id);
+                return Err(page_error);
+            }
+        }
+        if let Some(_search_error) = error {
+            accumulator.mark_error(&self.id);
+        }
+        Ok(accumulator.summary())
     }
     async fn send_with_retries(&self, method: &Method, href: &Url, body: &Value) -> Result<reqwest::Response, Error> {
         let mut attempt = 0u32;
@@ -502,11 +529,23 @@ impl StacProvider {
         Ok(self.search_pages(query).await?.into_iter().flat_map(|p| p.items).collect())
     }
     pub async fn search_pages(&self, query: &SearchQuery) -> Result<Vec<SearchPage>, Error> {
-        let (boxes, polygon) = resolve_areas(query)?;
         let mut pages = Vec::new();
+        self.collect_pages(query, &mut pages).await?;
+        Ok(pages)
+    }
+    /// Like `search_pages`, but returns any pages collected before a failure alongside the error.
+    pub async fn search_pages_partial(&self, query: &SearchQuery) -> (Vec<SearchPage>, Option<Error>) {
+        let mut pages = Vec::new();
+        let error = self.collect_pages(query, &mut pages).await.err();
+        (pages, error)
+    }
+    async fn collect_pages(&self, query: &SearchQuery, pages: &mut Vec<SearchPage>) -> Result<(), Error> {
+        let (boxes, polygon) = resolve_areas(query)?;
         let mut seen_items: HashSet<String> = HashSet::new();
         let mut page_number = 0usize;
-        for box_ in &boxes {
+        let mut truncated_earlier = false;
+        for (box_index, box_) in boxes.iter().enumerate() {
+            let last_box = box_index + 1 == boxes.len();
             let mut body = json!({
                 "bbox": box_,
                 "datetime": format!("{}T00:00:00Z/{}T23:59:59Z", query.start, query.end),
@@ -521,6 +560,7 @@ impl StacProvider {
             let mut method = Method::POST;
             let mut seen_requests: HashSet<String> = HashSet::new();
             let mut box_pages = 0usize;
+            let mut last_had_next = false;
             while box_pages < query.max_pages {
                 let key = format!("{method} {href} {body}");
                 if !seen_requests.insert(key) { return Err(Error::PaginationLoop); }
@@ -528,9 +568,10 @@ impl StacProvider {
                 if !response.status().is_success() {
                     return Err(Error::Http(response.status().as_u16()));
                 }
-                let data: Value = response.json().await?;
+                let data = read_json_bounded(response, MAX_RESPONSE_BYTES).await?;
                 let features = data.get("features").and_then(Value::as_array)
                     .ok_or_else(|| Error::InvalidResponse("STAC response has no features".into()))?;
+                if features.len() > 10000 { return Err(Error::InvalidResponse("Provider page exceeds the 10000-feature limit".into())); }
                 let mut items: Vec<Scene> = Vec::new();
                 for item in features.iter().cloned() {
                     let scene = normalize_stac_item(item, &self.id, &boxes)?;
@@ -544,10 +585,11 @@ impl StacProvider {
                     .or_else(|| data.get("numberMatched").and_then(Value::as_u64));
                 box_pages += 1;
                 page_number += 1;
+                last_had_next = next_link.is_some();
                 pages.push(SearchPage {
                     provider_id: self.id.clone(),
                     items, page_number,
-                    has_next: next_link.is_some(),
+                    has_next: next_link.is_some() || (last_box && truncated_earlier),
                     matched,
                 });
                 let Some(next) = next_link else { break; };
@@ -580,8 +622,9 @@ impl StacProvider {
                 }
                 href = new_url;
             }
+            if box_pages >= query.max_pages && last_had_next { truncated_earlier = true; }
         }
-        Ok(pages)
+        Ok(())
     }
     pub async fn upcoming(&self) -> Result<Vec<Value>, Error> {
         Err(Error::Unsupported("Future acquisition plans are not yet implemented"))
@@ -690,9 +733,11 @@ impl AsfProvider {
             if !response.status().is_success() {
                 return Err(Error::Http(response.status().as_u16()));
             }
-            let data: Value = response.json().await?;
+            let data = read_json_bounded(response, MAX_RESPONSE_BYTES).await?;
+            let features = asf_features(&data);
+            if features.len() > 10000 { return Err(Error::InvalidResponse("Provider page exceeds the 10000-feature limit".into())); }
             let mut items = Vec::new();
-            for feature in asf_features(&data) {
+            for feature in &features {
                 let scene = normalize_asf_feature(&feature, &self.id)?;
                 if seen.insert(scene.id.clone()) { items.push(scene); }
             }
@@ -796,9 +841,10 @@ impl JaxaProvider {
             let response = self.client.get(JAXA_CSW_ENDPOINT).query(&params)
                 .header("Accept", "application/json").send().await?;
             if !response.status().is_success() { return Err(Error::Http(response.status().as_u16())); }
-            let data: Value = response.json().await?;
+            let data = read_json_bounded(response, MAX_RESPONSE_BYTES).await?;
             let features = data.get("features").and_then(Value::as_array)
                 .ok_or_else(|| Error::InvalidResponse("JAXA response lacks a features array".into()))?;
+            if features.len() > 10000 { return Err(Error::InvalidResponse("Provider page exceeds the 10000-feature limit".into())); }
             let mut items = Vec::new();
             for feature in features {
                 let scene = normalize_jaxa_feature(feature, &self.id)?;
@@ -861,7 +907,7 @@ mod tests {
         assert_eq!(StacProvider::copernicus_data_space().unwrap().id(), "copernicus");
         assert_eq!(StacProvider::usgs_landsat_look().unwrap().id(), "usgs-landsatlook");
         assert_eq!(StacProvider::planetary_computer().unwrap().id(), "planetary-computer");
-        assert_eq!(StacProvider::cmr_stac("ASF").unwrap().id(), "nasa-cmr");
+        assert_eq!(StacProvider::cmr_stac("ASF").unwrap().id(), "nasa-cmr:ASF");
         assert!(matches!(StacProvider::cmr_stac("bad id"), Err(Error::InvalidProvider(_))));
     }
     #[test]
