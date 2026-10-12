@@ -44,7 +44,7 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the selected coordinates, provider, period and selected calendar day.
 
-The explorer loads **one year at a time** (the last twelve months by default), fetched as
+The explorer loads **one year at a time** (the current calendar year by default), fetched as
 **four three-month chunks**. A search loads its **whole window up front** — every provider
 page, in five-page batches, up to a 50-page safety cap — so the day matrix covers the full
 year without manual paging. If the cap is reached, the UI says **partial**, and zero-count
@@ -60,7 +60,7 @@ Client-side filters over the **loaded** results (instant, no new queries): **sat
 unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result cards, the
 day matrix and the calendar counts; the counter shows `filtered / total`.
 
-The **day matrix** at the bottom of the map is a GitHub-style grid of **8×8 px** cells — one
+The **day matrix** at the bottom of the map is a GitHub-style grid of **12×12 px** cells — one
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
 the grid has no gaps. Small links on one horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of

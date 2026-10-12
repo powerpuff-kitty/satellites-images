@@ -84,12 +84,11 @@ test("month navigation issues a narrowed month search", async ({ page }) => {
   await expect.poll(() => months.at(-1)).toBe("2025-04");
 });
 
-test("the default window spans twelve months", async ({ page }) => {
+test("the form defaults to the full calendar year", async ({ page }) => {
   await page.goto("/");
-  const from = await page.locator("#date-from").inputValue();
-  const to = await page.locator("#date-to").inputValue();
-  const months = (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + (Number(to.slice(5, 7)) - Number(from.slice(5, 7))) + 1;
-  expect(months).toBe(12);
+  const year = new Date().toISOString().slice(0, 4);
+  await expect(page.locator("#date-from")).toHaveValue(year + "-01-01");
+  await expect(page.locator("#date-to")).toHaveValue(year + "-12-31");
 });
 
 test("a year is fetched as four three-month chunks", async ({ page }) => {
@@ -249,7 +248,7 @@ test("upcoming view overlays published-so-far against planned", async ({ page })
   await expect(page.locator("#matrix-svg .matrix-cell").first()).toBeVisible();
 });
 
-test("the day matrix plots one 8x8 px cell per day across the loaded year", async ({ page }) => {
+test("the day matrix plots one 12x12 px cell per day across the loaded year", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
@@ -261,7 +260,7 @@ test("the day matrix plots one 8x8 px cell per day across the loaded year", asyn
   const sizes = await page.locator("#matrix-svg .matrix-cell")
     .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
   expect(sizes.length).toBeGreaterThanOrEqual(31); // ≥ one cell per day of the loaded month
-  expect([...new Set(sizes)]).toEqual(["8x8"]);
+  expect([...new Set(sizes)]).toEqual(["12x12"]);
   // A day with no observations still renders a placeholder cell, not a gap.
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]')).toHaveAttribute("fill", "#2f3830");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).not.toHaveAttribute("fill", "#2f3830");
@@ -283,7 +282,7 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   expect(new Set(tops).size).toBe(1);
 });
 
-test("matrix cells are 8x8 px and the matrix scrolls horizontally", async ({ page }) => {
+test("matrix cells are 12x12 px and the matrix scrolls horizontally", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
@@ -293,7 +292,7 @@ test("matrix cells are 8x8 px and the matrix scrolls horizontally", async ({ pag
   const sizes = await page.locator("#matrix-svg .matrix-cell")
     .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
   expect(sizes.length).toBeGreaterThan(300);
-  expect([...new Set(sizes)]).toEqual(["8x8"]);
+  expect([...new Set(sizes)]).toEqual(["12x12"]);
 });
 
 test("clicking a preview overlays the image on the map with prev/next navigation", async ({ page }) => {

@@ -135,6 +135,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   in five-page batches, up to the page safety cap) instead of stopping after one batch.
 - Explorer: day-matrix **empty days render a placeholder** cell (dimmer outside the loaded
   window) so the grid has no gaps, and the metric links sit on **one horizontal row**.
+- Explorer: day-matrix cells are **12×12 px**; the form now defaults to the **full current
+  calendar year** (Jan 1 – Dec 31) and the calendar opens on the current month.
 
 ## [0.2.0] - 2026-10-12
 

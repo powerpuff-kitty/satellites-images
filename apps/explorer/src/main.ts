@@ -314,7 +314,7 @@ function renderMatrix():void {
   const scenes=matrixItems, metric=matrixMetric;
   if(!scenes.length){ matrixPanel.hidden=true; return; }
   matrixPanel.hidden=false;
-  const dayMs=86400000, cell=8, step=cell+1;
+  const dayMs=86400000, cell=12, step=cell+1;
   const dates=scenes.map((scene)=>scene.acquiredAt.slice(0,10))
     .filter((date)=>/^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
   const windowFrom=Date.parse(from.value+"T00:00:00Z");
@@ -394,7 +394,7 @@ interface HistoryScan {
   ended:boolean;
   signature:string;
 }
-const WINDOW_MONTHS=12, CHUNK_MONTHS=3;
+const CHUNK_MONTHS=3;
 let scanAccumulator:AvailabilityAccumulator|null=null;
 let activeScan:HistoryScan|null=null;
 let initialPermalinkDay:string|null=null;
@@ -403,12 +403,19 @@ let currentSummary:AvailabilitySummary|null=null;
 let selectedDay:string|null=null;
 let displayedLimit=40;
 let searchErrored=false;
-let activeMonth:string = to.value.slice(0,7);
+let activeMonth:string = windowMonth();
 
 function validDate(input:string):boolean {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(input))return false;
   const time=Date.parse(input+"T00:00:00Z");
   return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===input;
+}
+// The month the calendar should open on: the current month, or the window end if
+// the loaded window does not include it.
+function windowMonth():string {
+  const low=from.value.slice(0,7), high=to.value.slice(0,7);
+  const current=new Date().toISOString().slice(0,7);
+  return current>=low&&current<=high?current:high;
 }
 function restoreSearchLink():void {
   const params=new URLSearchParams(window.location.search);
@@ -426,12 +433,11 @@ function restoreSearchLink():void {
     from.value=params.get("from")!;
     to.value=params.get("to")!;
   } else {
-    const endMonth=new Date().toISOString().slice(0,7);
-    const startMonth=shiftMonth(endMonth,-(WINDOW_MONTHS-1));
-    from.value=startMonth+"-01";
-    to.value=monthDates(endMonth).to;
+    const year=new Date().toISOString().slice(0,4);
+    from.value=year+"-01-01";
+    to.value=year+"-12-31";
   }
-  activeMonth=to.value.slice(0,7);
+  activeMonth=windowMonth();
   calendarMonth.value=activeMonth;
   const restoredDay=params.get("day");
   if(restoredDay&&validDate(restoredDay)&&restoredDay>=from.value&&restoredDay<=to.value) {
@@ -744,7 +750,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
       initialPermalinkDay<=to.value ? initialPermalinkDay : null;
     initialPermalinkDay=null;
     displayedLimit=40;
-    activeMonth=selectedDay?.slice(0,7)??to.value.slice(0,7);
+    activeMonth=selectedDay?.slice(0,7)??windowMonth();
     calendarMonth.value=activeMonth;
     results.replaceChildren();
     missionFilter.value="";
