@@ -243,7 +243,7 @@ export class StacProvider {
       href = resolved.toString();
       if (method === "POST") {
         const nextBody = object(next.body);
-        body = next.merge === false ? nextBody : { ...body, ...nextBody };
+        body = next.merge === true ? { ...body, ...nextBody } : nextBody;
       }
     }
   }
@@ -266,6 +266,8 @@ export interface AcquisitionProvider {
   readonly id: string;
   upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;
 }
+export { AvailabilityAccumulator, summarizeAvailability } from "./availability.js";
+export type { AvailabilitySummary, AvailabilityMonth, AvailabilityDay, ProviderAvailability } from "./availability.js";
 export { ESAPlansProvider, esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml } from "./acquisitions.js";
 export type { ESAPlan, ESAPlansOptions, AcquisitionQuery } from "./acquisitions.js";
 
@@ -290,6 +292,12 @@ export class SatelliteCatalog {
       if (wanted && !wanted.has(provider.id)) continue;
       yield* provider.search(query);
     }
+  }
+  async availability(query: SearchQuery, providerIds?: string[]): Promise<import("./availability.js").AvailabilitySummary> {
+    const { AvailabilityAccumulator } = await import("./availability.js");
+    const accumulator=new AvailabilityAccumulator();
+    for await (const page of this.search(query,providerIds)) accumulator.addPage(page);
+    return accumulator.summary();
   }
   async upcoming(query: import("./acquisitions.js").AcquisitionQuery,
     providerIds?: string[]): Promise<AcquisitionOpportunity[]> {
