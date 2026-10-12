@@ -283,6 +283,10 @@ class SatelliteCatalog:
             if provider_ids is None or provider.id in provider_ids:
                 yield from provider.search(query)
 
+    def availability(self, query: SearchQuery, provider_ids: list[str] | None = None):
+        from .availability import summarize_availability
+        return summarize_availability(self.search(query, provider_ids))
+
     def upcoming(self, query=None) -> list:
         if not self.acquisition_providers:
             raise SatelliteError("UNSUPPORTED", "Configure an acquisition provider such as ESASentinelPlans()")

@@ -3,6 +3,11 @@
 //! Initial scope: bounded Earth Search STAC queries and metadata normalization.
 //! Published observations are distinct from planned or predicted acquisitions.
 
+pub mod availability;
+pub use availability::{
+    AvailabilityAccumulator, AvailabilitySummary, AvailabilityDay, AvailabilityMonth,
+    ProviderAvailability, summarize_availability,
+};
 pub mod acquisitions;
 pub use acquisitions::{AcquisitionOpportunity, AcquisitionQuery, ESAPlansProvider, ESAPlan,
     parse_esa_plan_index, parse_esa_plan_kml};
@@ -216,6 +221,10 @@ impl EarthSearch {
         let endpoint = Url::parse(EARTH_SEARCH)
             .map_err(|e| Error::InvalidResponse(e.to_string()))?;
         Ok(Self { client, endpoint })
+    }
+    pub async fn availability(&self, query: &SearchQuery) -> Result<AvailabilitySummary, Error> {
+        let pages=self.search_pages(query).await?;
+        summarize_availability(&pages)
     }
     pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
         Ok(self.search_pages(query).await?.into_iter().flat_map(|p| p.items).collect())
