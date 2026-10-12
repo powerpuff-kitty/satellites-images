@@ -96,7 +96,7 @@ function makeScene(scene: Scene): HTMLLIElement {
   const name = document.createElement("strong");
   name.textContent = scene.mission ?? scene.collection;
   const time = document.createElement("time");
-  time.textContent = new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short"});
+  time.textContent = new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
   time.dateTime = scene.acquiredAt;
   heading.append(name,time);
   item.append(heading);
@@ -139,7 +139,6 @@ function makeScene(scene: Scene): HTMLLIElement {
   return item;
 }
 
-let currentSearch = 0;
 interface HistoryScan {
   controller:AbortController;
   accumulator:AvailabilityAccumulator;
@@ -394,12 +393,12 @@ form.addEventListener("submit",async(event)=>{
     latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
     from:from.value,to:to.value,maxPages:50,limit:75,signal:controller.signal,
   };
+  updateLocation(query.latitude,query.longitude,true);
   const session:HistoryScan = {
     controller,accumulator,iterator:catalog.search(query),fetching:false,
     ended:false,signature:currentSearchSignature(),
   };
   activeScan=session;
-  updateLocation(query.latitude,query.longitude,true);
   storeSearchLink();
   await scanNextBatch(session);
 });
