@@ -10,7 +10,6 @@
   <body>
     <main class="layout">
       <section class="panel" aria-label="Satellite image search">
-        <div class="eyebrow">EARTH OBSERVATION / OPEN CATALOGUES</div>
         <h1>Satellite Images<span class="accent">.</span></h1>
         <p class="intro">Choose a location to discover available historical satellite scenes.</p>
         <form id="search-form">
@@ -51,13 +50,6 @@
           <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages ↓</button>
           <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
         </section>
-        <div class="heading">
-          <h2>Published observations</h2>
-          <span id="counter">—</span>
-        </div>
-        <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
-        <ol id="results" class="results" aria-label="Satellite scenes"></ol>
-        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes ↓</button>
         <div class="planning-area">
           <div class="heading">
             <h2>Upcoming planned acquisitions</h2>
@@ -78,7 +70,32 @@
         <div id="map"></div>
         <div class="map-label">SELECT ANY LOCATION ON THE MAP</div>
       </section>
+      <aside class="observations" aria-label="Published observations">
+        <header class="observations-header">
+          <div class="heading">
+            <h2>Published observations</h2>
+            <span id="counter">—</span>
+          </div>
+          <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
+          <figure class="timeline" id="timeline" aria-label="Observation timeline: date (x), time of day (y), cloud cover (colour) and resolution (size)">
+            <figcaption>Run a search to plot observations by date and time of day.</figcaption>
+          </figure>
+          <div class="timeline-legend" aria-hidden="true">
+            <span class="lg"><i class="sw clear"></i>clear &lt;10%</span>
+            <span class="lg"><i class="sw part"></i>partial &lt;60%</span>
+            <span class="lg"><i class="sw cloud"></i>cloudy ≥60%</span>
+            <span class="lg"><i class="sw unknown"></i>no cloud metadata</span>
+            <span class="lg">dot size = resolution (finer = smaller)</span>
+          </div>
+        </header>
+        <ol id="results" class="results" aria-label="Satellite scenes"></ol>
+        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes ↓</button>
+      </aside>
     </main>
+    <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Full-screen preview">
+      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close preview">✕</button>
+      <img id="lightbox-image" alt="" />
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -33,6 +33,10 @@ const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
 const missionFilter = element<HTMLSelectElement>("mission-filter");
+const timeline = element<HTMLElement>("timeline");
+const lightbox = element<HTMLElement>("lightbox");
+const lightboxImage = element<HTMLImageElement>("lightbox-image");
+const lightboxClose = element<HTMLButtonElement>("lightbox-close");
 
 const plansButton = element<HTMLButtonElement>("plans-button");
 const plansStatus = element<HTMLElement>("plans-status");
@@ -125,6 +129,9 @@ function makeScene(scene: Scene): HTMLLIElement {
         image.src = url.toString();
         image.alt = "Provider preview of satellite scene " + scene.id;
         image.loading = "lazy";
+        image.referrerPolicy = "no-referrer";
+        image.addEventListener("error", () => image.remove());
+        image.addEventListener("click", () => openLightbox(url.toString(), image.alt));
         item.append(image);
       }
     } catch { /* Invalid preview: no link */ }
@@ -143,6 +150,87 @@ function makeScene(scene: Scene): HTMLLIElement {
     } catch { /* Invalid source link */ }
   }
   return item;
+}
+
+// --- Full-screen preview ------------------------------------------------------
+function openLightbox(src: string, alt: string): void {
+  lightboxImage.src = src;
+  lightboxImage.alt = alt;
+  lightbox.hidden = false;
+}
+function closeLightbox(): void {
+  lightbox.hidden = true;
+  lightboxImage.removeAttribute("src");
+}
+lightboxClose.addEventListener("click", closeLightbox);
+lightbox.addEventListener("click", (event) => { if (event.target === lightbox) closeLightbox(); });
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && !lightbox.hidden) closeLightbox(); });
+
+// --- Timeline scatter: x = date, y = time of day (UTC), colour = cloud, size = resolution ---
+function cloudColour(percent: number | null): string {
+  if (percent === null) return "#5b665b";
+  if (percent < 10) return "#4fbf7a";
+  if (percent < 60) return "#e0ae54";
+  return "#9aa0a2";
+}
+function resolutionRadius(gsd: number | null): number {
+  if (gsd === null) return 3.4;
+  return Math.max(2.4, Math.min(6.5, 2.4 + Math.log2(gsd / 10 + 1) * 2));
+}
+function renderTimeline(): void {
+  const scenes = loadedScenes.filter(filterByMission);
+  timeline.replaceChildren();
+  if (!scenes.length) {
+    const caption = document.createElement("figcaption");
+    caption.textContent = "No loaded observations to plot yet.";
+    timeline.append(caption);
+    return;
+  }
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", "0 0 360 130");
+  svg.setAttribute("preserveAspectRatio", "none");
+  const padL = 30, padR = 8, padT = 8, padB = 18;
+  const W = 360 - padL - padR, H = 130 - padT - padB;
+  const times = scenes.map((scene) => Date.parse(scene.acquiredAt));
+  const min = Math.min(...times), max = Math.max(...times);
+  const span = Math.max(1, max - min);
+  const xOf = (t: number): number => padL + ((t - min) / span) * W;
+  const yOfHour = (hour: number): number => padT + (1 - hour / 24) * H;
+  for (const hour of [0, 6, 12, 18, 24]) {
+    const y = yOfHour(hour);
+    const grid = document.createElementNS(NS, "line");
+    grid.setAttribute("x1", String(padL)); grid.setAttribute("x2", String(padL + W));
+    grid.setAttribute("y1", String(y)); grid.setAttribute("y2", String(y)); grid.setAttribute("class", "grid");
+    svg.append(grid);
+    const tick = document.createElementNS(NS, "text");
+    tick.setAttribute("x", "2"); tick.setAttribute("y", String(y + 3)); tick.setAttribute("class", "tick");
+    tick.textContent = String(hour).padStart(2, "0");
+    svg.append(tick);
+  }
+  for (const scene of scenes) {
+    const date = new Date(scene.acquiredAt);
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("class", "scene-dot");
+    dot.setAttribute("cx", xOf(Date.parse(scene.acquiredAt)).toFixed(1));
+    dot.setAttribute("cy", yOfHour(date.getUTCHours() + date.getUTCMinutes() / 60).toFixed(1));
+    dot.setAttribute("r", resolutionRadius(scene.gsdMeters).toFixed(1));
+    dot.setAttribute("fill", cloudColour(scene.cloudCoverPercent));
+    const day = scene.acquiredAt.slice(0, 10);
+    dot.setAttribute("data-day", day);
+    const title = document.createElementNS(NS, "title");
+    title.textContent = `${day} ${date.toISOString().slice(11, 16)}Z · ${scene.cloudCoverPercent === null ? "cloud n/a" : scene.cloudCoverPercent.toFixed(0) + "% cloud"} · ${scene.gsdMeters === null ? "res n/a" : scene.gsdMeters + " m"} · ${scene.mission ?? scene.collection}`;
+    dot.append(title);
+    dot.addEventListener("click", () => {
+      selectedDay = selectedDay === day ? null : day;
+      displayedLimit = 40;
+      redrawAvailability();
+      renderLoadedScenes();
+      storeSearchLink();
+    });
+    svg.append(dot);
+  }
+  timeline.append(svg);
 }
 
 interface HistoryScan {
@@ -277,6 +365,7 @@ function renderLoadedScenes():void {
   showMoreButton.hidden=visible.length<=displayedLimit;
   if(selectedDay)highlightScene(visible[0]);
   else highlightScene(undefined);
+  renderTimeline();
 }
 function redrawAvailability():void {
   const full=currentSummary;

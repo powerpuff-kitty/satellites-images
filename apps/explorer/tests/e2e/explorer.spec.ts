@@ -189,3 +189,28 @@ test("planned ESA acquisitions are shown separately from published scenes", asyn
   await expect(page.locator("#plans-results li")).toContainText(/planned/);
   await expect(page.locator("#plans-status")).toContainText(/planned datatake/);
 });
+
+test("the results header timeline plots loaded observations by date and time", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, {
+    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-11T14:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await expect(page.locator("#timeline svg circle.scene-dot")).toHaveCount(2);
+});
+
+test("clicking a preview opens a full-screen lightbox and Escape closes it", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("**/search", (route) => respond(route, { json: collection([stacScene("img", "2025-03-09T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await page.locator("#results img").click();
+  await expect(page.locator("#lightbox")).toBeVisible();
+  await expect(page.locator("#lightbox-image")).toHaveAttribute("src", /thumb-img\.jpg/);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#lightbox")).toBeHidden();
+});

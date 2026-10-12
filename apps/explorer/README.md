@@ -33,3 +33,14 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 An initial search scans up to five pages of 75 items each, and can continue in further five-page batches until all provider pages are exhausted or a 50-page maximum is reached. If more pages are still advertised, the UI says **partial**, and zero-count dates are not proof that no imagery exists. Changing the location/dates requires a new search.
 
 The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
+
+## Layout
+
+Published observations live in an independent, scrollable **right-hand panel** (the left
+controls and the map stay accessible). Its header is **sticky** and contains a **timeline
+scatter** of the loaded observations: horizontal position is the acquisition date, vertical
+position is the time of day (UTC), dot **colour** is scene-wide cloud cover
+(green <10%, amber <60%, grey ≥60%, hollow/unknown when absent) and dot **size** is
+resolution (`gsd` — finer is smaller). Click a dot to select that day. Clicking a scene
+**preview image opens a full-screen lightbox** (Esc closes it). Cloud cover is scene
+metadata, not per-AOI, and resolution is only shown when the provider exposes `gsd`.
