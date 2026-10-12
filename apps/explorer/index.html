@@ -34,9 +34,19 @@
         </div>
         <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
+        <div class="planning-area">
+          <div class="heading">
+            <h2>Upcoming planned acquisitions</h2>
+            <span class="muted">ESA / 14 DAYS</span>
+          </div>
+          <p class="status">Sentinel-1 radar and Sentinel-2 optical mission plans. These are intended datatakes, not images that already exist.</p>
+          <button id="plans-button" class="secondary-button" type="button">Find upcoming observations <span aria-hidden="true">↗</span></button>
+          <p class="status" id="plans-status" role="status">Select a location, then search current published ESA plans.</p>
+          <ol id="plans-results" class="results" aria-label="Planned satellite acquisitions"></ol>
+        </div>
         <div class="footnote">
           Actual acquisition dates only. Asset access may require registration or payment.
-          Future acquisition planning is <strong>not yet available</strong>.
+          Future observations are <strong>planned, not guaranteed</strong>. Browser access can require the optional ESA proxy.
           <a href="https://github.com/powerpuff-kitty/satellites-images" target="_blank" rel="noopener noreferrer">Source code ↗</a>
         </div>
       </section>

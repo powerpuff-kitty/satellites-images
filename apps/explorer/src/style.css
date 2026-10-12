@@ -37,3 +37,8 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
   .panel {order:1; overflow:visible; padding:20px;}
   .intro {max-width:none;}
 }
+
+.secondary-button {background:transparent;color:#e5c083;border:1px solid #7c7157; margin:12px 0 10px;}
+.secondary-button:hover {background:#232a23;}
+.muted {color:#9ca79b;letter-spacing:.08em;font-size:10px;}
+.planning-area {padding-bottom:12px;}

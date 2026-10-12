@@ -1,7 +1,8 @@
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
-import { SatelliteCatalog, earthSearch, planetaryComputer, type Scene } from "@powerpuff-kitty/satellites-images";
+import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
+  type Scene, type AcquisitionOpportunity } from "@powerpuff-kitty/satellites-images";
 
 const element = <T extends HTMLElement>(id: string): T => {
   const item = document.getElementById(id);
@@ -19,6 +20,27 @@ const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
 const button = element<HTMLButtonElement>("search-button");
 const form = element<HTMLFormElement>("search-form");
+
+const plansButton = element<HTMLButtonElement>("plans-button");
+const plansStatus = element<HTMLElement>("plans-status");
+const plansResults = element<HTMLOListElement>("plans-results");
+
+// In Vite development, /esa-proxy is served by a restricted HTTPS reverse proxy.
+// For deployed static applications set VITE_ESA_PROXY_URL to the optional Cloudflare Worker.
+// No arbitrary destination URLs or API credentials are ever accepted by the proxy.
+const esaProxy = import.meta.env.VITE_ESA_PROXY_URL ??
+  (import.meta.env.DEV ? "/esa-proxy" : "");
+
+function esaFetch(url: RequestInfo | URL, options?: RequestInit): Promise<Response> {
+  const original = new URL(String(url));
+  if (original.origin !== "https://sentinels.copernicus.eu") {
+    throw new Error("ESA adapter attempted to fetch an unexpected origin");
+  }
+  const proxied = esaProxy ?
+    esaProxy.replace(/\/$/,"") + original.pathname : original.toString();
+  return fetch(proxied, options);
+}
+
 
 const map = new maplibregl.Map({
   container: "map",
@@ -129,5 +151,84 @@ form.addEventListener("submit",async(event)=>{
     if (token === currentSearch) status.textContent = "Catalogue search failed: " + (error instanceof Error ? error.message : String(error));
   } finally {
     if(token === currentSearch) button.disabled = false;
+  }
+});
+
+
+function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
+  const li = document.createElement("li");
+  const heading = document.createElement("div");
+  heading.className = "scene-heading";
+  const name = document.createElement("strong");
+  name.textContent = item.mission + " / planned";
+  const time = document.createElement("time");
+  time.dateTime = item.expectedAt;
+  time.textContent = new Date(item.expectedAt).toLocaleString(undefined,{
+    dateStyle:"medium",timeStyle:"short"
+  });
+  heading.append(name,time);
+  li.append(heading);
+  if (item.mode) li.append(line("Acquisition mode",item.mode));
+  if (typeof item.orbitRelative === "number")
+    li.append(line("Relative orbit",String(item.orbitRelative)));
+  li.append(line("Image availability","Not yet acquired"));
+  const link = document.createElement("a");
+  link.href = item.sourceUrl;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  link.textContent = "Official ESA plan ↗";
+  li.append(link);
+  return li;
+}
+function displaySwaths(items:AcquisitionOpportunity[]):void {
+  const features = items.flatMap((item) => {
+    if (!item.footprint) return [];
+    return [{type:"Feature" as const, properties:{mission:item.mission,time:item.expectedAt},
+      geometry:item.footprint}];
+  });
+  const data = {type:"FeatureCollection" as const,features} as
+    unknown as GeoJSON.FeatureCollection;
+  const render=() => {
+    const existing = map.getSource("planned-swaths") as maplibregl.GeoJSONSource | undefined;
+    if (existing) existing.setData(data);
+    else {
+      map.addSource("planned-swaths",{type:"geojson",data});
+      map.addLayer({id:"planned-swaths-outline",type:"line",source:"planned-swaths",
+        paint:{"line-color":"#e2ae54","line-width":2,"line-opacity":0.85,
+          "line-dasharray":[3,2]}});
+    }
+  };
+  if (map.isStyleLoaded()) render();
+  else map.once("load",render);
+}
+
+let currentPlanSearch = 0;
+plansButton.addEventListener("click",async()=>{
+  const token=++currentPlanSearch;
+  plansResults.replaceChildren();
+  plansStatus.textContent="Checking the latest ESA acquisition plans…";
+  plansButton.disabled=true;
+  try {
+    const catalog = new SatelliteCatalog([earthSearch()],[
+      esaSentinelPlans({fetchImpl:esaFetch}),
+    ]);
+    const query={latitude:Number(lat.value),longitude:Number(lon.value),
+      radiusMeters:Number(radius.value),days:14};
+    const planned=await catalog.upcoming(query);
+    if(token!==currentPlanSearch)return;
+    displaySwaths(planned);
+    const list=document.createDocumentFragment();
+    for(const item of planned) list.append(makePlanned(item));
+    plansResults.append(list);
+    plansStatus.textContent=planned.length
+      ? planned.length+" officially planned datatake(s) intersect this search area. No image is guaranteed."
+      : "No matching planned datatakes in the latest ESA plans for this location and time window.";
+  } catch(error) {
+    if(token===currentPlanSearch) plansStatus.textContent=
+      "ESA plan lookup failed. "+
+      (error instanceof Error?error.message:String(error))+
+      (esaProxy?"":" Browser CORS may require the optional ESA proxy.");
+  } finally {
+    if(token===currentPlanSearch) plansButton.disabled=false;
   }
 });
