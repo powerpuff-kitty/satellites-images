@@ -42,8 +42,10 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 5. Use the **‹ / › year stepper** beside the matrix to move the window a year at a time. Searches load their whole window up front, so the
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the state: `lat`/`lon` (search point), `radius`,
-   `provider`, `from`/`to` (period), `day` (selected day) and `zoom` (map zoom, kept current
-   as you pan and zoom — the URL updates on every map move).
+   `from`/`to` (period), `day` (selected day), `zoom` (map zoom), `tab`, `metric`, `sensor`,
+   the active filters (`mission`, `collection`, `cloudmin`/`cloudmax`, `hmin`/`hmax`,
+   `maxgsd`, `preview`, `unknown`) and `src` (extra catalogues) — the URL updates on every
+   map move.
 
 The explorer loads **one year at a time** (the current calendar year by default), queried from
 **both Earth Search and Planetary Computer together** — one request per catalogue for the whole
@@ -80,6 +82,10 @@ the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission**
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide
 metadata, not per-AOI.
+
+The "select any location" prompt disappears once a location is chosen, and scene cards show
+**resolution** and **AOI coverage**, while planned datatakes show their **status** and
+**datatake window**.
 
 A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
 knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which

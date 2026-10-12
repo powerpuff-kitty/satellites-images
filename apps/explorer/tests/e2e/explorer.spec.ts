@@ -70,6 +70,15 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(2);
 });
 
+test("the map prompt disappears once a location is chosen", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("l1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await expect(page.locator("#map-label")).toBeVisible();
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#map-label")).toBeHidden();
+});
+
 test("the form defaults to the full calendar year", async ({ page }) => {
   await page.goto("/");
   const year = new Date().toISOString().slice(0, 4);

@@ -23,6 +23,7 @@ const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
 const form = element<HTMLFormElement>("search-form");
 const calendarStatus = element<HTMLElement>("calendar-status");
+const mapLabel = element<HTMLElement>("map-label");
 const sourceList = element<HTMLElement>("source-list");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
@@ -97,6 +98,7 @@ map.addControl(new maplibregl.NavigationControl(), "top-right");
 const marker = new maplibregl.Marker({color:"#e0a84b"})
   .setLngLat([116.1167, -8.5833]).addTo(map);
 
+function hideMapLabel():void { mapLabel.hidden=true; }
 function updateLocation(latitude: number, longitude: number, fly = false): void {
   lat.value = latitude.toFixed(5);
   lon.value = longitude.toFixed(5);
@@ -107,10 +109,11 @@ let searchTimer=0;
 function scheduleSearch():void{ window.clearTimeout(searchTimer); searchTimer=window.setTimeout(()=>void runSearch(), 350); }
 let activeTab:"historical"|"upcoming"="historical";
 function scheduleForTab():void{ if(activeTab==="upcoming") scheduleUpcoming(); else scheduleSearch(); }
-map.on("click", (e) => { updateLocation(e.lngLat.lat, e.lngLat.lng); scheduleForTab(); });
+map.on("click", (e) => { updateLocation(e.lngLat.lat, e.lngLat.lng); hideMapLabel(); scheduleForTab(); });
 for (const el of [lat,lon]) el.addEventListener("change", () => {
   if (Number.isFinite(lat.valueAsNumber) && Number.isFinite(lon.valueAsNumber)) {
     updateLocation(lat.valueAsNumber, lon.valueAsNumber, true);
+    hideMapLabel();
     scheduleForTab();
   }
 });
@@ -146,6 +149,8 @@ function makeScene(scene: Scene): HTMLLIElement {
   item.append(heading);
   item.append(line("Collection",scene.collection));
   item.append(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
+  if (scene.gsdMeters !== null) item.append(line("Resolution", scene.gsdMeters + " m/pixel"));
+  if (scene.coveragePercent !== null) item.append(line("Covers your area", scene.coveragePercent.toFixed(0) + "%"));
   item.append(line("Image access",scene.access==="unknown"?"Not verified":scene.access));
   if (scene.geometry?.type==="Polygon" || scene.geometry?.type==="MultiPolygon") {
     const inspect = document.createElement("button");
@@ -624,6 +629,8 @@ let initialPermalinkDay:string|null=null;
 let loadedScenes:Scene[]=[];
 let currentSummary:AvailabilitySummary|null=null;
 let selectedDay:string|null=null;
+let pendingMissionFilter="";
+let pendingCollectionFilter="";
 let displayedLimit=40;
 let searchErrored=false;
 
@@ -639,6 +646,7 @@ function restoreSearchLink():void {
   if(params.has("lat")&&params.has("lon")&&Number.isFinite(latitude)&&Number.isFinite(longitude)
     &&latitude>=-90&&latitude<=90&&longitude>=-180&&longitude<=180) {
     lat.value=String(latitude); lon.value=String(longitude);
+    mapLabel.hidden=true;
   }
   const wantedRadius=params.get("radius");
   if(wantedRadius&&[...radius.options].some(o=>o.value===wantedRadius))radius.value=wantedRadius;
@@ -655,6 +663,21 @@ function restoreSearchLink():void {
     initialPermalinkDay=restoredDay;
     selectedDay=restoredDay;
   }
+  const cloudMinParam=params.get("cloudmin");
+  if(cloudMinParam!==null)cloudMin.value=cloudMinParam;
+  const cloudMaxParam=params.get("cloudmax");
+  if(cloudMaxParam!==null)cloudMax.value=cloudMaxParam;
+  const hourMinParam=params.get("hmin");
+  if(hourMinParam!==null)hourMin.value=hourMinParam;
+  const hourMaxParam=params.get("hmax");
+  if(hourMaxParam!==null)hourMax.value=hourMaxParam;
+  const maxGsd=params.get("maxgsd");
+  if(maxGsd!==null)resolutionFilter.value=maxGsd;
+  hasPreview.checked=params.get("preview")==="1";
+  const unknownParam=params.get("unknown");
+  if(unknownParam!==null)includeUnknown.checked=unknownParam!=="0";
+  const metricParam=params.get("metric") as MatrixMetric|null;
+  if(metricParam)setMatrixMetric(metricParam);
   const center:[number,number]=[Number(lon.value),Number(lat.value)];
   marker.setLngLat(center);
   const restoredZoom=Number(params.get("zoom"));
@@ -662,23 +685,54 @@ function restoreSearchLink():void {
     map.jumpTo({center,zoom:restoredZoom});
   else
     map.jumpTo({center});
+  // Filters with fixed options restore directly; mission/collection options only exist once
+  // data has loaded, so those are held until then.
+  const wantedMission=params.get("mission");
+  if(wantedMission)pendingMissionFilter=wantedMission;
+  const wantedCollection=params.get("collection");
+  if(wantedCollection)pendingCollectionFilter=wantedCollection;
+  const sensor=params.get("sensor");
+  if(sensor==="optical"||sensor==="radar"||sensor==="all")sensorFilter=sensor;
+  const wantedExtras=params.get("src");
+  if(wantedExtras)
+    for(const id of wantedExtras.split(","))
+      if(EXTRA_SOURCES.some((source)=>source.id===id))enabledExtraSources.add(id);
+  renderSources();
+  const wantedTab=params.get("tab");
+  const hadRange=validDate(params.get("from")??"")&&validDate(params.get("to")??"");
   // A query permalink should reproduce its search, not just fill dormant inputs.
-  if(validDate(params.get("from")??"") && validDate(params.get("to")??""))
-    queueMicrotask(()=>void runSearch());
+  queueMicrotask(async ()=>{
+    if(hadRange)await runSearch();
+    if(wantedTab==="upcoming")setTab("upcoming");
+  });
 }
+const MANAGED_PARAMS=["lat","lon","radius","from","to","day","zoom","tab","metric","sensor",
+  "mission","collection","cloudmin","cloudmax","hmin","hmax","maxgsd","preview","unknown","src"];
 function storeSearchLink():void {
   const url=new URL(window.location.href);
-  for(const name of ["lat","lon","radius","from","to","provider","day","zoom"])url.searchParams.delete(name);
+  for(const name of MANAGED_PARAMS)url.searchParams.delete(name);
   url.searchParams.set("lat",lat.value);
   url.searchParams.set("lon",lon.value);
   url.searchParams.set("radius",radius.value);
   url.searchParams.set("from",from.value);
   url.searchParams.set("to",to.value);
   if(selectedDay)url.searchParams.set("day",selectedDay);
+  url.searchParams.set("tab",activeTab);
+  url.searchParams.set("metric",matrixMetric);
+  url.searchParams.set("sensor",sensorFilter);
+  if(missionFilter.value)url.searchParams.set("mission",missionFilter.value);
+  if(collectionFilter.value)url.searchParams.set("collection",collectionFilter.value);
+  if(cloudMin.value!=="")url.searchParams.set("cloudmin",cloudMin.value);
+  if(cloudMax.value!=="")url.searchParams.set("cloudmax",cloudMax.value);
+  if(hourMin.value!=="0")url.searchParams.set("hmin",hourMin.value);
+  if(hourMax.value!=="23")url.searchParams.set("hmax",hourMax.value);
+  if(resolutionFilter.value)url.searchParams.set("maxgsd",resolutionFilter.value);
+  url.searchParams.set("preview",hasPreview.checked?"1":"0");
+  url.searchParams.set("unknown",includeUnknown.checked?"1":"0");
+  if(enabledExtraSources.size)url.searchParams.set("src",[...enabledExtraSources].sort().join(","));
   url.searchParams.set("zoom",map.getZoom().toFixed(2));
   window.history.replaceState(null,"",url);
 }
-map.on("moveend",()=>storeSearchLink());
 function highlightScene(scene:Scene|undefined):void {
   const featureCollection:FeatureCollection = {
     type:"FeatureCollection",
@@ -764,8 +818,10 @@ function hasActiveFilters():boolean {
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
 }
 function updateFilterChoices():void {
-  const wasMission=missionFilter.value;
+  const wasMission=missionFilter.value||pendingMissionFilter;
   const missions=[...new Set(loadedScenes.map(scene=>scene.mission || "unknown"))].sort();
+  if(wasMission&&!missions.includes(wasMission))missions.push(wasMission);
+  pendingMissionFilter="";
   const missionFragment=document.createDocumentFragment();
   const allMission=document.createElement("option");
   allMission.value=""; allMission.textContent="All satellites"; missionFragment.append(allMission);
@@ -774,8 +830,10 @@ function updateFilterChoices():void {
   }
   missionFilter.replaceChildren(missionFragment);
   missionFilter.value=missions.includes(wasMission)?wasMission:"";
-  const wasCollection=collectionFilter.value;
+  const wasCollection=collectionFilter.value||pendingCollectionFilter;
   const collections=[...new Set(loadedScenes.map(scene=>scene.collection).filter(Boolean))].sort();
+  if(wasCollection&&!collections.includes(wasCollection))collections.push(wasCollection);
+  pendingCollectionFilter="";
   const collectionFragment=document.createDocumentFragment();
   const allCollection=document.createElement("option");
   allCollection.value=""; allCollection.textContent="All collections"; collectionFragment.append(allCollection);
@@ -999,6 +1057,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   activeScan?.controller.abort();
   const controller=new AbortController();
   if(!append){
+    hideMapLabel();
     scanAccumulator=new AvailabilityAccumulator();
     currentSummary=null;
     loadedScenes=[];
@@ -1047,7 +1106,6 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   storeSearchLink();
   await loadWholeWindow(session);
 }
-restoreSearchLink();
 
 
 // --- Data sources (registry) --------------------------------------------------
@@ -1106,6 +1164,11 @@ function renderSources():void {
   sourceList.replaceChildren(fragment);
 }
 renderSources();
+function syncFilterUI():void {
+  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
+    button.setAttribute("aria-pressed",String(button.dataset.sensor===sensorFilter));
+}
+syncFilterUI();
 
 function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   const li = document.createElement("li");
@@ -1123,6 +1186,11 @@ function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   if (item.mode) li.append(line("Acquisition mode",item.mode));
   if (typeof item.orbitRelative === "number")
     li.append(line("Relative orbit",String(item.orbitRelative)));
+  if (item.status) li.append(line("Status", item.status));
+  if (item.endAt) {
+    const from=item.expectedAt.slice(11,16), until=item.endAt.slice(11,16);
+    li.append(line("Datatake window", from + "\u2013" + until + " UTC"));
+  }
   li.append(line("Image availability","Not yet acquired"));
   try {
     const source = new URL(item.sourceUrl);
@@ -1229,3 +1297,8 @@ tabUpcoming.addEventListener("click",()=>setTab("upcoming"));
 let upcomingTimer=0;
 function scheduleUpcoming():void{ window.clearTimeout(upcomingTimer); upcomingTimer=window.setTimeout(()=>void runUpcoming(),350); }
 for(const el of [daysAhead,upcomingMission]) el.addEventListener("change",scheduleUpcoming);
+
+// Bootstrap last: MapLibre fires moveend during map construction and restoreSearchLink
+// reads declarations that appear later in the module, so both run after everything exists.
+map.on("moveend",()=>storeSearchLink());
+restoreSearchLink();

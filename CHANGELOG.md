@@ -167,6 +167,12 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: the **full view state is now in the URL** — `tab`, `metric`, `sensor`, the active
+  filters (`mission`, `collection`, `cloudmin`/`cloudmax`, `hmin`/`hmax`, `maxgsd`, `preview`,
+  `unknown`) and `src` (extra catalogues) round-trip through the permalink.
+- Explorer: scene cards show **resolution** and **AOI coverage**; planned datatakes show
+  **status** and their **datatake window**. The "select any location" prompt hides once a
+  location is chosen.
 - Explorer: new **Data sources** panel built from the registry (`listSources()`) — every
   catalogue with its search/imagery access terms, SDK support and docs, plus opt-in extra
   catalogues (**Copernicus Data Space**, **ASF Vertex** radar) queried alongside the defaults.
