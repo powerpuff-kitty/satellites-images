@@ -260,8 +260,11 @@ test("the day matrix plots one 8x8 px cell per day across the loaded year", asyn
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
   const sizes = await page.locator("#matrix-svg .matrix-cell")
     .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
-  expect(sizes.length).toBe(31); // one cell per day of the loaded month
+  expect(sizes.length).toBeGreaterThanOrEqual(31); // ≥ one cell per day of the loaded month
   expect([...new Set(sizes)]).toEqual(["8x8"]);
+  // A day with no observations still renders a placeholder cell, not a gap.
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]')).toHaveAttribute("fill", "#2f3830");
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).not.toHaveAttribute("fill", "#2f3830");
 });
 
 test("the matrix data links switch the metric it shows", async ({ page }) => {
@@ -274,6 +277,10 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   await page.locator('.matrix-link[data-metric="mission"]').click();
   await expect(page.locator('.matrix-link[data-metric="mission"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "false");
+  // The data links sit on one horizontal row above the matrix.
+  const tops = await page.locator(".matrix-links .matrix-link")
+    .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
+  expect(new Set(tops).size).toBe(1);
 });
 
 test("matrix cells are 8x8 px and the matrix scrolls horizontally", async ({ page }) => {

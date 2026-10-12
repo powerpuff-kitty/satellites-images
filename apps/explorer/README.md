@@ -61,8 +61,9 @@ unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result 
 day matrix and the calendar counts; the counter shows `filtered / total`.
 
 The **day matrix** at the bottom of the map is a GitHub-style grid of **8×8 px** cells — one
-per day across the loaded year (columns = weeks, rows = weekdays). Small links above it
-choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
+per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
+still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
+the grid has no gaps. Small links on one horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide

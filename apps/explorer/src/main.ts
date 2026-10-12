@@ -285,6 +285,8 @@ function selectTimelineDay(day:string):void {
 type MatrixMetric = "total" | "cloud" | "mission" | "provider";
 let matrixMetric:MatrixMetric = "total";
 let matrixItems:Scene[] = [];
+const MATRIX_EMPTY = "#2f3830";   // a day inside the window with no observations
+const MATRIX_PAD = "#171c17";     // padding days outside the loaded window
 function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:string[]):string {
   if(metric==="total"){
     const alpha=0.22+0.78*Math.min(1,list.length/max);
@@ -350,9 +352,9 @@ function renderMatrix():void {
   }
   for(let d=0;d<nDays;d++){
     const time=start+d*dayMs;
-    if(time<first||time>last)continue;
     const day=new Date(time).toISOString().slice(0,10);
-    const list=perDay.get(day);
+    const inWindow=time>=first&&time<=last;
+    const list=inWindow?perDay.get(day):undefined;
     const rect=document.createElementNS(NS,"rect");
     rect.setAttribute("class","matrix-cell");
     rect.setAttribute("data-day",day);
@@ -368,7 +370,8 @@ function renderMatrix():void {
       rect.append(tip);
       rect.addEventListener("click",()=>selectTimelineDay(day));
     }else{
-      rect.setAttribute("fill","#1b211c");
+      // Placeholder so every day of the year reads as a present, empty cell.
+      rect.setAttribute("fill",inWindow?MATRIX_EMPTY:MATRIX_PAD);
     }
     matrixSvg.append(rect);
   }

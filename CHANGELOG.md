@@ -133,6 +133,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   to switch the metric (observations / cloud / mission / provider).
 - Explorer: a search now loads its **whole window up front** (all chunks and provider pages,
   in five-page batches, up to the page safety cap) instead of stopping after one batch.
+- Explorer: day-matrix **empty days render a placeholder** cell (dimmer outside the loaded
+  window) so the grid has no gaps, and the metric links sit on **one horizontal row**.
 
 ## [0.2.0] - 2026-10-12
 
