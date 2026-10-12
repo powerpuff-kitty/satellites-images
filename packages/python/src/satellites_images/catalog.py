@@ -267,10 +267,11 @@ class EarthSearch(StacProvider):
 
 
 class SatelliteCatalog:
-    def __init__(self, providers: list[StacProvider]):
+    def __init__(self, providers: list[StacProvider], acquisition_providers=None):
         if not providers or len({p.id for p in providers}) != len(providers):
             raise SatelliteError("INVALID_PROVIDER", "Provide unique implemented providers")
         self.providers = providers
+        self.acquisition_providers = acquisition_providers or []
 
     def list_sources(self) -> list[dict[str, Any]]:
         return list_sources()
@@ -282,5 +283,11 @@ class SatelliteCatalog:
             if provider_ids is None or provider.id in provider_ids:
                 yield from provider.search(query)
 
-    def upcoming(self) -> list[dict[str, Any]]:
-        raise SatelliteError("UNSUPPORTED", "Future acquisition planning is not implemented in version 0.1")
+    def upcoming(self, query) -> list:
+        if not self.acquisition_providers:
+            raise SatelliteError("UNSUPPORTED", "Configure an acquisition provider such as ESASentinelPlans()")
+        results = []
+        for provider in self.acquisition_providers:
+            results.extend(provider.upcoming(query))
+        return sorted(results, key=lambda opportunity: opportunity.expected_at)
+
