@@ -56,4 +56,6 @@ chart** of the loaded observations: one **bar per day** (height = number of obse
 Click a bar to select that day. Clicking a scene **preview image opens a full-screen
 lightbox** (Esc closes it). Use **◀ earlier / later ▶** to move the whole search window
 one period back or forward (each step issues one new bounded query, with stale results
-discarded). Cloud cover is scene metadata, not per-AOI.
+discarded), or a **Range** preset (1 month / 3 / 6 months / **1 year**) to set the window
+in one step — e.g. **1 year** fetches a full year in a single query, still bounded by the
+50-page cap (use *Load next 5 catalogue pages*). Cloud cover is scene metadata, not per-AOI.
