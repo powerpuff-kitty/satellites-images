@@ -78,6 +78,9 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 
 .mission-field {margin:10px 0 12px;max-width:100%;}
 .mission-field select {height:37px;}
+.filter-pair {margin-bottom:12px;}
+.check-label {flex-direction:row;align-items:center;gap:8px;font-size:11px;}
+.check-label input {width:auto;}
 
 /* Published observations: independent, scrollable right-hand panel with a sticky header. */
 .observations { display:flex; flex-direction:column; overflow-y:auto; min-width:0; height:100vh; border-left:1px solid #353c35; padding:0 20px 24px; }

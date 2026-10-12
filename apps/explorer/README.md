@@ -34,6 +34,13 @@ An initial search scans up to five pages of 75 items each, and can continue in f
 
 The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
 
+## Filters
+
+Client-side filters over the **loaded** results (instant, no new queries): **satellite**,
+**max cloud cover** (≤10/30/60%), **time of day** (UTC buckets 00–06/06–12/12–18/18–24),
+**resolution** (≤10/20/30 m, when the provider exposes `gsd`), and an **include
+unknown-cloud scenes** toggle. Cloud cover is scene-wide metadata, not per-AOI.
+
 ## Layout
 
 Published observations live in an independent, scrollable **right-hand panel** (the left

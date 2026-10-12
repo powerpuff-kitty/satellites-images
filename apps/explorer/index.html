@@ -44,6 +44,20 @@
               <option value="">All satellites</option>
             </select>
           </label>
+          <div class="pair filter-pair">
+            <label>Max cloud cover<select id="cloud-filter" aria-label="Maximum scene cloud cover">
+              <option value="">Any</option><option value="10">≤ 10%</option><option value="30">≤ 30%</option><option value="60">≤ 60%</option>
+            </select></label>
+            <label>Time of day (UTC)<select id="time-filter" aria-label="Time of day of the acquisition">
+              <option value="">Any</option><option value="0-6">00–06</option><option value="6-12">06–12</option><option value="12-18">12–18</option><option value="18-24">18–24</option>
+            </select></label>
+          </div>
+          <div class="pair filter-pair">
+            <label>Resolution<select id="resolution-filter" aria-label="Maximum ground sample distance">
+              <option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option>
+            </select></label>
+            <label class="check-label"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
+          </div>
           <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
           <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
           <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>

@@ -33,6 +33,10 @@ const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
 const missionFilter = element<HTMLSelectElement>("mission-filter");
+const cloudFilter = element<HTMLSelectElement>("cloud-filter");
+const timeFilter = element<HTMLSelectElement>("time-filter");
+const resolutionFilter = element<HTMLSelectElement>("resolution-filter");
+const includeUnknown = element<HTMLInputElement>("include-unknown");
 const timeline = element<HTMLElement>("timeline");
 const lightbox = element<HTMLElement>("lightbox");
 const lightboxImage = element<HTMLImageElement>("lightbox-image");
@@ -179,7 +183,7 @@ function cloudClassOf(percent: number | null): CloudClass {
   return "cloudy";
 }
 function renderTimeline(): void {
-  const scenes = loadedScenes.filter(filterByMission);
+  const scenes = loadedScenes.filter(passesFilters);
   timeline.replaceChildren();
   if (!scenes.length) {
     const empty = document.createElement("figcaption");
@@ -360,8 +364,17 @@ function highlightScene(scene:Scene|undefined):void {
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
 }
-function filterByMission(scene:Scene):boolean {
-  return !missionFilter.value || (scene.mission || "unknown")===missionFilter.value;
+function passesFilters(scene:Scene):boolean {
+  if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
+  if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
+  if (cloudFilter.value && scene.cloudCoverPercent !== null && scene.cloudCoverPercent > Number(cloudFilter.value)) return false;
+  if (timeFilter.value) {
+    const [start, end] = timeFilter.value.split("-").map(Number);
+    const hour = new Date(scene.acquiredAt).getUTCHours();
+    if (hour < start || hour >= end) return false;
+  }
+  if (resolutionFilter.value && (scene.gsdMeters === null || scene.gsdMeters > Number(resolutionFilter.value))) return false;
+  return true;
 }
 function updateMissionChoices():void {
   const wasSelected=missionFilter.value;
@@ -380,28 +393,37 @@ function updateMissionChoices():void {
   missionFilter.replaceChildren(fragment);
   missionFilter.value=values.includes(wasSelected)?wasSelected:"";
 }
-function filteredCalendar(summary:AvailabilitySummary):AvailabilitySummary {
-  const mission=missionFilter.value;
-  if(!mission) return summary;
-  const days=summary.days
-    .map(d=>({...d,count:d.missions[mission]??0}))
-    .filter(d=>d.count>0);
-  const months=summary.months
-    .map(m=>({
-      ...m,count:m.missions[mission]??0,
-      daysWithObservations:days.filter(d=>d.date.startsWith(m.month+"-")).length,
-    })).filter(m=>m.count>0);
-  return {...summary,days,months,uniqueItems:days.reduce((acc,d)=>acc+d.count,0)};
+function summaryFromScenes(scenes:Scene[]):AvailabilitySummary {
+  const days=new Map<string,{count:number;missions:Record<string,number>;collections:Record<string,number>}>();
+  const months=new Map<string,{count:number;days:Set<string>;missions:Record<string,number>}>();
+  for(const scene of scenes){
+    const date=scene.acquiredAt.slice(0,10); const month=date.slice(0,7);
+    const mission=scene.mission||"unknown"; const collection=scene.collection||"unknown";
+    const day=days.get(date)??{count:0,missions:{},collections:{}};
+    day.count++; day.missions[mission]=(day.missions[mission]??0)+1; day.collections[collection]=(day.collections[collection]??0)+1; days.set(date,day);
+    const monthly=months.get(month)??{count:0,days:new Set<string>(),missions:{}};
+    monthly.count++; monthly.days.add(date); monthly.missions[mission]=(monthly.missions[mission]??0)+1; months.set(month,monthly);
+  }
+  return {
+    days:[...days.entries()].sort(([a],[b])=>a.localeCompare(b))
+      .map(([date,d])=>({date,count:d.count,missions:d.missions,collections:d.collections})),
+    months:[...months.entries()].sort(([a],[b])=>a.localeCompare(b))
+      .map(([month,m])=>({month,count:m.count,daysWithObservations:m.days.size,missions:m.missions})),
+    providers:[], pagesScanned:currentSummary?.pagesScanned??0, rawItems:0,
+    uniqueItems:scenes.length, complete:currentSummary?.complete??true,
+    truncatedProviders:currentSummary?.truncatedProviders??[], erroredProviders:currentSummary?.erroredProviders??[],
+  };
 }
 function renderLoadedScenes():void {
   const visible=loadedScenes.filter(scene=>
-    filterByMission(scene) && (!selectedDay || scene.acquiredAt.slice(0,10)===selectedDay));
+    passesFilters(scene) && (!selectedDay || scene.acquiredAt.slice(0,10)===selectedDay));
   const selected=visible.slice(0,displayedLimit);
   const fragment=document.createDocumentFragment();
   for(const scene of selected)fragment.append(makeScene(scene));
   results.replaceChildren(fragment);
-  const counted=loadedScenes.filter(filterByMission).length;
-  counter.textContent=String(visible.length)+((selectedDay || missionFilter.value)?" / "+counted:"");
+  const counted=loadedScenes.filter(passesFilters).length;
+  const filtering=Boolean(missionFilter.value||cloudFilter.value||timeFilter.value||resolutionFilter.value||!includeUnknown.checked);
+  counter.textContent=String(visible.length)+(filtering?" / "+counted:"");
   showMoreButton.hidden=visible.length<=displayedLimit;
   if(selectedDay)highlightScene(visible[0]);
   else highlightScene(undefined);
@@ -410,7 +432,8 @@ function renderLoadedScenes():void {
 function redrawAvailability():void {
   const full=currentSummary;
   if(!full) return;
-  const summary=filteredCalendar(full);
+  const summary=summaryFromScenes(loadedScenes.filter(passesFilters));
+  const filtering=Boolean(missionFilter.value||cloudFilter.value||timeFilter.value||resolutionFilter.value||!includeUnknown.checked);
   renderMonthStrip(monthStrip,summary,from.value,to.value,activeMonth,(month)=>{
     activeMonth=month;calendarMonth.value=month;
     redrawAvailability();
@@ -424,9 +447,9 @@ function redrawAvailability():void {
   });
   allDaysButton.hidden=selectedDay===null;
   const statusParts=[
-    summary.uniqueItems+" "+(missionFilter.value?"filtered ":"")+"published items from "+full.pagesScanned+" catalogue page(s)",
+    summary.uniqueItems+" "+(filtering?"filtered ":"")+"published items from "+full.pagesScanned+" catalogue page(s)",
   ];
-  if(!summary.complete)statusParts.push("Additional pages may exist. Counts are partial.");
+  if(!full.complete)statusParts.push("Additional pages may exist. Counts are partial.");
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
   statusParts.push("Empty cells mean no observation in loaded results, not proof of missing imagery.");
   calendarStatus.textContent=statusParts.join(" ");
@@ -481,6 +504,11 @@ showMoreButton.addEventListener("click",()=>{
   renderLoadedScenes();
 });
 missionFilter.addEventListener("change",()=>{
+  displayedLimit=40;
+  redrawAvailability();
+  renderLoadedScenes();
+});
+for(const control of [cloudFilter,timeFilter,resolutionFilter,includeUnknown]) control.addEventListener("change",()=>{
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();

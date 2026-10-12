@@ -96,6 +96,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   scene `gsdMeters` is exposed by the SDK.
 - Explorer: added **search-window steppers** (◀ earlier / later ▶) to move the whole
   query window one period back/forward in time (one bounded, cancellable query per step).
+- Explorer: added client-side **filters** for max cloud cover, time of day (UTC) and
+  resolution (plus an include-unknown-cloud toggle), applied to the results, timeline
+  and calendar counts without new queries.
 
 ## [0.2.0] - 2026-10-12
 

@@ -230,3 +230,20 @@ test("the search window steps back in time", async ({ page }) => {
   await expect.poll(() => months.at(-1)).toBe("2025-01");
   await expect(page.locator("#window-label")).toContainText("2025-02-28");
 });
+
+test("cloud-cover and time-of-day filters narrow the loaded results", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("f1", "2025-03-10T02:00:00Z"), stacScene("f2", "2025-03-11T02:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.selectOption("#cloud-filter", "10");   // scenes are 12.5% cloud
+  await expect(page.locator("#results li")).toHaveCount(0);
+  await page.selectOption("#cloud-filter", "30");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.selectOption("#time-filter", "12-18"); // scenes are ~02:00 UTC
+  await expect(page.locator("#results li")).toHaveCount(0);
+  await page.selectOption("#time-filter", "0-6");
+  await expect(page.locator("#results li")).toHaveCount(2);
+});
