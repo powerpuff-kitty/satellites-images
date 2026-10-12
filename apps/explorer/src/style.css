@@ -26,7 +26,7 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 .meta-line span:last-child {text-align:right; max-width:60%;}
 .results img {display:block; width:100%; height:140px; object-fit:cover; margin:12px 0; background:#273328;}
 .results a {font-size:12px;}
-.footnote {margin-top:30px; border-top:1px solid #394037; padding-top:15px; line-height:1.7;}
+.footnote {margin-top:auto; padding-top:15px; line-height:1.7;}
 .footnote a {display:block; margin-top:10px;}
 .map-container {position:relative; background:#24322a; min-width:0;}
 #map {position:absolute; inset:0;}
@@ -116,6 +116,7 @@ button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button 
 .matrix-svg { display:block; }
 .matrix-cell { cursor:pointer; }
 .matrix-cell:hover { stroke:#efbe62; stroke-width:1; }
+.matrix-months { align-self:flex-start; font-size:9px; letter-spacing:.06em; text-transform:uppercase; color:#9aa39a; }
 
 /* Full-screen image preview. */
 .map-preview { position:absolute; z-index:4; top:14px; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:8px; pointer-events:none; }

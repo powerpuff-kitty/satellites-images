@@ -39,8 +39,8 @@ function stacScene(id: string, datetime: string, platform = "sentinel-2a") {
     links: [{ rel: "self", href: "https://example.test/items/" + id }],
   };
 }
-const nextLink = (token: string) => ({
-  rel: "next", href: "https://earth-search.aws.element84.com/v1/search", method: "POST", body: { token },
+const nextLink = (token: string, href = "https://earth-search.aws.element84.com/v1/search") => ({
+  rel: "next", href, method: "POST", body: { token },
 });
 const collection = (features: unknown[], links: unknown[], matched: number) =>
   ({ type: "FeatureCollection", features, links, context: { matched } });
@@ -60,28 +60,14 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
     const index = body.token ? Number(body.token) : 0;
     const features = index === 0 ? [stacScene("s10", "2025-03-10T02:00:00Z")]
       : index === 1 ? [stacScene("s11", "2025-03-11T02:00:00Z")] : [];
-    const links = index < 1 ? [nextLink(String(index + 1))] : [];
+    const links = index < 1 ? [nextLink(String(index + 1), route.request().url())] : [];
     await respond(route, { json: collection(features, links, features.length) });
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#counter")).toHaveText("2");
-  await expect(page.locator(".day-cell.has-scenes")).toHaveCount(2);
-});
-
-test("month navigation issues a narrowed month search", async ({ page }) => {
-  const months: string[] = [];
-  await page.route("**/search", async (route) => {
-    const body = JSON.parse(route.request().postData() ?? "{}");
-    months.push(String(body.datetime ?? "").slice(0, 7));
-    await respond(route, { json: collection([], [], 0) });
-  });
-  await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-03-31");
-  await expect.poll(() => months.at(-1)).toBe("2025-01");
-  await page.getByRole("button", { name: /Search next month/ }).click();
-  await expect.poll(() => months.at(-1)).toBe("2025-04");
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(2);
 });
 
 test("the form defaults to the full calendar year", async ({ page }) => {
@@ -91,7 +77,7 @@ test("the form defaults to the full calendar year", async ({ page }) => {
   await expect(page.locator("#date-to")).toHaveValue(year + "-12-31");
 });
 
-test("a year is fetched in a single request", async ({ page }) => {
+test("a year is fetched in a single request per catalogue", async ({ page }) => {
   const starts: string[] = [];
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
@@ -100,24 +86,24 @@ test("a year is fetched in a single request", async ({ page }) => {
   });
   await page.goto("/");
   await setRange(page, "2025-01-01", "2025-12-31");
-  await expect.poll(() => starts.length).toBe(1);
-  expect(starts).toEqual(["2025-01"]);
+  await expect.poll(() => starts.length).toBe(2);
+  expect(new Set(starts)).toEqual(new Set(["2025-01"]));
 });
 
-test("selecting a calendar day filters the result cards", async ({ page }) => {
+test("selecting a matrix day filters the result cards", async ({ page }) => {
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
     const index = body.token ? Number(body.token) : 0;
     const features = index === 0 ? [stacScene("s10", "2025-03-10T02:00:00Z")]
       : index === 1 ? [stacScene("s11", "2025-03-11T02:00:00Z")] : [];
-    const links = index < 1 ? [nextLink(String(index + 1))] : [];
+    const links = index < 1 ? [nextLink(String(index + 1), route.request().url())] : [];
     await respond(route, { json: collection(features, links, features.length) });
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.locator(".day-cell.has-scenes").first().click();
-  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
+  await page.locator("#matrix-svg .matrix-cell.has-scenes").first().click();
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
   await expect(page.locator("#results li")).toHaveCount(1);
 });
 
@@ -127,13 +113,14 @@ test("a search loads every page of its window up front", async ({ page }) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
     const index = body.token ? Number(body.token) : 0;
     requests += 1;
-    const links = index < 11 ? [nextLink(String(index + 1))] : [];
-    await respond(route, { json: collection([stacScene("p" + index, "2025-03-05T02:00:00Z")], links, 12) });
+    const links = index < 11 ? [nextLink(String(index + 1), route.request().url())] : [];
+    const day = String((index % 28) + 1).padStart(2, "0");
+    await respond(route, { json: collection([stacScene("p" + index, "2025-03-" + day + "T02:00:00Z")], links, 12) });
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await expect.poll(() => requests).toBe(12);
-  await expect(page.locator("#results li")).toHaveCount(12);
+  await expect.poll(() => requests).toBe(24); // both catalogues page through the window
+  await expect(page.locator("#results li")).toHaveCount(12); // merged on display
   await expect(page.locator("#load-next-pages")).toBeHidden();
 });
 
@@ -142,7 +129,7 @@ test("a mid-scan catalogue failure is reported and keeps partial results", async
   await page.route("**/search", async (route) => {
     requests += 1;
     if (requests === 1) {
-      return respond(route, { json: collection([stacScene("ok", "2025-03-07T02:00:00Z")], [nextLink("1")], 5) });
+      return respond(route, { json: collection([stacScene("ok", "2025-03-07T02:00:00Z")], [nextLink("1", route.request().url())], 5) });
     }
     return respond(route, { status: 429, body: "rate limited", contentType: "text/plain" });
   });
@@ -157,21 +144,10 @@ test("deep link restores the location, range and selected day and replays the se
     respond(route, { json: collection([stacScene("d", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/?lat=1.35210&lon=103.81980&radius=5000&provider=earth-search&from=2025-03-01&to=2025-03-31&day=2025-03-10&zoom=14");
   await expect(page.locator("#latitude")).toHaveValue("1.35210");
-  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
   await expect(page.locator("#results li")).toHaveCount(1);
   // The zoom parameter is restored and kept current in the URL.
   await expect.poll(() => Number(new URL(page.url()).searchParams.get("zoom"))).toBeGreaterThan(13);
-});
-
-test("calendar days are keyboard operable", async ({ page }) => {
-  await page.route("**/search", (route) =>
-    respond(route, { json: collection([stacScene("k", "2025-03-12T02:00:00Z")], [], 1) }));
-  await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
-  const cell = page.locator(".day-cell.has-scenes").first();
-  await cell.focus();
-  await page.keyboard.press("Enter");
-  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
 });
 
 test("responsive viewport keeps the search form usable", async ({ page }) => {
@@ -271,6 +247,9 @@ test("the day matrix plots one 12x12 px cell per day across the loaded year", as
   const titledCells = await page.locator("#matrix-svg .matrix-cell:has(title)").count();
   expect(titledCells).toBe(allCells);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"] title')).toHaveText(/no observations/);
+  // Padding days outside the window have no fill, and a month legend sits under the grid.
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-02-25"]')).toHaveAttribute("fill", "transparent");
+  await expect(page.locator("#matrix-months")).toContainText(/mar/i);
 });
 
 test("the matrix data links switch the metric it shows", async ({ page }) => {
@@ -353,7 +332,7 @@ test("icon-only buttons centre their glyph", async ({ page }) => {
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#map-matrix")).toBeVisible();
-  for (const id of ["#matrix-prev-year", "#matrix-next-year", "#previous-month", "#next-month"]) {
+  for (const id of ["#matrix-prev-year", "#matrix-next-year"]) {
     const box = (await page.locator(id).boundingBox())!;
     const glyph = (await page.locator(id + " .fa-solid").boundingBox())!;
     expect(Math.abs((glyph.x + glyph.width / 2) - (box.x + box.width / 2))).toBeLessThan(1.5);
@@ -529,7 +508,7 @@ test("clicking a matrix cell selects that day without changing the zoom", async 
   await expect(page.locator("#map-matrix")).toBeVisible();
   const before = Number(new URL(page.url()).searchParams.get("zoom"));
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
-  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
   await page.waitForTimeout(300);
   expect(Number(new URL(page.url()).searchParams.get("zoom"))).toBe(before);
 });
@@ -541,9 +520,9 @@ test("clicking a matrix cell selects that day (does not deselect)", async ({ pag
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toBeVisible();
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
-  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
-  await expect(page.locator(".day-cell.selected")).toHaveAttribute("aria-label", /2025-03-10/);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-10");
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-12"]').click();
-  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
-  await expect(page.locator(".day-cell.selected")).toHaveAttribute("aria-label", /2025-03-12/);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-12");
 });

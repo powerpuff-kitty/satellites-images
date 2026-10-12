@@ -18,17 +18,11 @@ const lon = element<HTMLInputElement>("longitude");
 const radius = element<HTMLSelectElement>("radius");
 const from = element<HTMLInputElement>("date-from");
 const to = element<HTMLInputElement>("date-to");
-const provider = element<HTMLSelectElement>("provider");
 const status = element<HTMLElement>("status");
 const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
 const form = element<HTMLFormElement>("search-form");
-const calendarMonth = element<HTMLInputElement>("calendar-month");
-const calendarGrid = element<HTMLElement>("day-calendar");
-const monthStrip = element<HTMLElement>("month-strip");
 const calendarStatus = element<HTMLElement>("calendar-status");
-const prevMonth = element<HTMLButtonElement>("previous-month");
-const nextMonth = element<HTMLButtonElement>("next-month");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
@@ -45,6 +39,7 @@ const clearFilters = element<HTMLButtonElement>("clear-filters");
 const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
+const matrixMonths = element<HTMLElement>("matrix-months");
 const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
 const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
@@ -116,7 +111,7 @@ for (const el of [lat,lon]) el.addEventListener("change", () => {
   }
 });
 for (const el of [radius]) el.addEventListener("change", scheduleForTab);
-for (const el of [provider,from,to]) el.addEventListener("change", scheduleSearch);
+for (const el of [from,to]) el.addEventListener("change", scheduleSearch);
 
 function icon(cls:string):HTMLElement {
   const node=document.createElement("i");
@@ -381,7 +376,6 @@ type MatrixMetric = "total" | "cloud" | "mission" | "provider";
 let matrixMetric:MatrixMetric = "total";
 let matrixItems:Scene[] = [];
 const MATRIX_EMPTY = "#2f3830";   // a day inside the window with no observations
-const MATRIX_PAD = "#171c17";     // padding days outside the loaded window
 function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:string[]):string {
   if(metric==="total"){
     const alpha=0.22+0.78*Math.min(1,list.length/max);
@@ -464,19 +458,31 @@ function renderMatrix():void {
     rect.setAttribute("height",String(cell));
     rect.setAttribute("rx","1");
     const tip=document.createElementNS(NS,"title");
+    const classes=["matrix-cell"];
+    if(list)classes.push("has-scenes");
+    if(day===selectedDay)classes.push("selected");
+    rect.setAttribute("class",classes.join(" "));
     if(list){
       rect.setAttribute("fill",matrixColourOf(list,metric,max,order));
       tip.textContent=day+" - "+list.length+" observation"+(list.length===1?"":"s");
       rect.addEventListener("click",()=>selectTimelineDay(day));
     }else{
-      // Placeholder so every day of the year reads as a present, empty cell.
-      rect.setAttribute("fill",inWindow?MATRIX_EMPTY:MATRIX_PAD);
+      // In-window days with no observations get a placeholder; padding days outside the
+      // window are left with no fill so they read as background, not as dark blocks.
+      rect.setAttribute("fill",inWindow?MATRIX_EMPTY:"transparent");
       tip.textContent=day+(inWindow?" - no observations":" - outside the loaded range");
     }
     rect.append(tip);
     matrixSvg.append(rect);
   }
   matrixSvg.setAttribute("aria-label","Observations per day across the loaded year");
+  // Month legend under the grid, aligned to the panel's left edge.
+  const monthLabels:string[]=[];
+  for(let month=from.value.slice(0,7);month<=to.value.slice(0,7);month=shiftMonth(month,1)){
+    monthLabels.push(new Date(month+"-01T00:00:00Z")
+      .toLocaleDateString(undefined,{month:"short",timeZone:"UTC"}));
+  }
+  matrixMonths.textContent=monthLabels.join("  ");
 }
 for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link")){
   link.addEventListener("click",()=>{
@@ -496,7 +502,6 @@ function shiftWindowYear(delta:number):void {
   };
   from.value=shift(from.value);
   to.value=shift(to.value);
-  calendarMonth.value=windowMonth();
   void runSearch();
 }
 matrixPrevYear.addEventListener("click",()=>shiftWindowYear(-1));
@@ -519,19 +524,11 @@ let currentSummary:AvailabilitySummary|null=null;
 let selectedDay:string|null=null;
 let displayedLimit=40;
 let searchErrored=false;
-let activeMonth:string = windowMonth();
 
 function validDate(input:string):boolean {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(input))return false;
   const time=Date.parse(input+"T00:00:00Z");
   return Number.isFinite(time)&&new Date(time).toISOString().slice(0,10)===input;
-}
-// The month the calendar should open on: the current month, or the window end if
-// the loaded window does not include it.
-function windowMonth():string {
-  const low=from.value.slice(0,7), high=to.value.slice(0,7);
-  const current=new Date().toISOString().slice(0,7);
-  return current>=low&&current<=high?current:high;
 }
 function restoreSearchLink():void {
   const params=new URLSearchParams(window.location.search);
@@ -543,8 +540,6 @@ function restoreSearchLink():void {
   }
   const wantedRadius=params.get("radius");
   if(wantedRadius&&[...radius.options].some(o=>o.value===wantedRadius))radius.value=wantedRadius;
-  const wantedProvider=params.get("provider");
-  if(wantedProvider&&[...provider.options].some(o=>o.value===wantedProvider))provider.value=wantedProvider;
   if(validDate(params.get("from")??"")&&validDate(params.get("to")??"")) {
     from.value=params.get("from")!;
     to.value=params.get("to")!;
@@ -553,14 +548,10 @@ function restoreSearchLink():void {
     from.value=year+"-01-01";
     to.value=year+"-12-31";
   }
-  activeMonth=windowMonth();
-  calendarMonth.value=activeMonth;
   const restoredDay=params.get("day");
   if(restoredDay&&validDate(restoredDay)&&restoredDay>=from.value&&restoredDay<=to.value) {
     initialPermalinkDay=restoredDay;
     selectedDay=restoredDay;
-    activeMonth=restoredDay.slice(0,7);
-    calendarMonth.value=activeMonth;
   }
   const center:[number,number]=[Number(lon.value),Number(lat.value)];
   marker.setLngLat(center);
@@ -579,7 +570,6 @@ function storeSearchLink():void {
   url.searchParams.set("lat",lat.value);
   url.searchParams.set("lon",lon.value);
   url.searchParams.set("radius",radius.value);
-  url.searchParams.set("provider",provider.value);
   url.searchParams.set("from",from.value);
   url.searchParams.set("to",to.value);
   if(selectedDay)url.searchParams.set("day",selectedDay);
@@ -603,6 +593,23 @@ function highlightScene(scene:Scene|undefined):void {
       paint:{"line-color":"#8dd7c1","line-width":2.5}});
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
+}
+// Earth Search and Planetary Computer both carry the same scenes under different ids, so
+// merge them on display by collection + acquisition time + footprint.
+function sceneKey(scene:Scene):string {
+  const box=Array.isArray(scene.bbox)&&scene.bbox.length===4
+    ?scene.bbox.map((value)=>value.toFixed(4)).join(",")
+    :"";
+  return scene.collection+"|"+scene.acquiredAt+"|"+box;
+}
+function dedupeScenes(scenes:Scene[]):Scene[] {
+  const seen=new Set<string>();
+  return scenes.filter((scene)=>{
+    const key=sceneKey(scene);
+    if(seen.has(key))return false;
+    seen.add(key);
+    return true;
+  });
 }
 function passesFilters(scene:Scene):boolean {
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
@@ -683,18 +690,6 @@ function renderLoadedScenes():void {
 function redrawAvailability():void {
   const full=currentSummary;
   if(!full) return;
-  const summary=summaryFromScenes(loadedScenes.filter(passesFilters));
-  renderMonthStrip(monthStrip,summary,from.value,to.value,activeMonth,(month)=>{
-    activeMonth=month;calendarMonth.value=month;
-    redrawAvailability();
-  });
-  renderDayCalendar(calendarGrid,summary,activeMonth,selectedDay,(day)=>{
-    selectedDay=day;
-    displayedLimit=40;
-    redrawAvailability();
-    renderLoadedScenes();
-    storeSearchLink();
-  });
   allDaysButton.hidden=selectedDay===null;
   const statusParts:string[]=[];
   if(!full.complete)statusParts.push("Additional pages may exist. Counts are partial.");
@@ -718,16 +713,6 @@ function loadQuarter(month:string,direction:number):void {
     :{from:month+"-01",to:monthDates(shiftMonth(month,CHUNK_MONTHS-1)).to};
   void runSearch({append:true,chunks:[chunk],extend:{from:chunk.from.slice(0,7),to:chunk.to.slice(0,7)}});
 }
-function gotoMonth(month:string,direction=0):void {
-  calendarMonth.value=month;
-  activeMonth=month;
-  const lo=from.value.slice(0,7), hi=to.value.slice(0,7);
-  if(month>=lo&&month<=hi){ redrawAvailability(); return; }
-  loadQuarter(month,direction||(month<lo?-1:1));
-}
-prevMonth.addEventListener("click",()=>gotoMonth(shiftMonth(activeMonth,-1),-1));
-nextMonth.addEventListener("click",()=>gotoMonth(shiftMonth(activeMonth,1),1));
-calendarMonth.addEventListener("change",()=>{ if(calendarMonth.value)gotoMonth(calendarMonth.value); });
 
 // Filter select options (populated once) + reset.
 function fillSelect(select:HTMLSelectElement, values:[string,string][]):void{
@@ -768,7 +753,7 @@ for(const control of [missionFilter,collectionFilter,cloudMin,cloudMax,hourMin,h
 
 function currentSearchSignature():string {
   return JSON.stringify([
-    lat.value,lon.value,radius.value,provider.value,from.value,to.value,
+    lat.value,lon.value,radius.value,from.value,to.value,
   ]);
 }
 async function scanNextBatch(session:HistoryScan):Promise<void> {
@@ -790,6 +775,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
       const page=next.value;
       const added=session.accumulator.addPage(page);
       loadedScenes.push(...added);
+      loadedScenes=dedupeScenes(loadedScenes);
       loadedScenes.sort((a,b)=>b.acquiredAt.localeCompare(a.acquiredAt)||a.id.localeCompare(b.id));
       updateFilterChoices();
       currentSummary=session.accumulator.summary();
@@ -873,13 +859,9 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
       initialPermalinkDay<=to.value ? initialPermalinkDay : null;
     initialPermalinkDay=null;
     displayedLimit=40;
-    activeMonth=selectedDay?.slice(0,7)??windowMonth();
-    calendarMonth.value=activeMonth;
     results.replaceChildren();
     missionFilter.value="";
     updateFilterChoices();
-    calendarGrid.replaceChildren();
-    monthStrip.replaceChildren();
     matrixItems=[];
     renderMatrix();
     counter.textContent="—";
@@ -892,8 +874,8 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     closeMapPreview();
   }
   const accumulator=scanAccumulator??(scanAccumulator=new AvailabilityAccumulator());
-  const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();
-  const catalog=new SatelliteCatalog([selected]);
+  // Both public catalogues are queried together; duplicates are merged on display.
+  const catalog=new SatelliteCatalog([planetaryComputer(),earthSearch()]);
   const base={
     latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
     maxPages:50,limit:75,signal:controller.signal,

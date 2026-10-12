@@ -36,18 +36,18 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 ## Historical availability calendar (V0.3)
 
 1. Choose a point on the map or enter latitude/longitude.
-2. Choose a STAC catalogue and date range; the search runs automatically (the explorer fetches on any input change and when you pick a location on the map — there is no search button).
-3. Browse the UTC month/date calendar (numbers show unique scenes **in the loaded results**).
+2. Choose a date range; the search runs automatically (the explorer fetches on any input change and when you pick a location on the map — there is no search button).
+3. Read the **day matrix** under the map (a cell per day); click a cell to filter to that day.
 4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
-5. Use the previous/next month arrows to move the calendar; stepping past the loaded year
-   fetches the next year. Searches load their whole window up front, so the
+5. Use the **‹ / › year stepper** beside the matrix to move the window a year at a time. Searches load their whole window up front, so the
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the state: `lat`/`lon` (search point), `radius`,
    `provider`, `from`/`to` (period), `day` (selected day) and `zoom` (map zoom, kept current
    as you pan and zoom — the URL updates on every map move).
 
-The explorer loads **one year at a time** (the current calendar year by default), fetched as
-a **single request** for the whole window. A search loads every provider page (in five-page
+The explorer loads **one year at a time** (the current calendar year by default), queried from
+**both Earth Search and Planetary Computer together** — one request per catalogue for the whole
+window; the same scene returned by both is shown once (merged on display). A search loads every provider page (in five-page
 batches, up to a 50-page safety cap) so the day matrix covers the full year without manual
 paging. If the cap is reached, the UI says **partial**, and zero-count dates are not proof
 that no imagery exists. Changing the location/dates starts a new search.
@@ -66,7 +66,8 @@ The **day matrix** at the bottom of the map is a GitHub-style grid of **12×12 p
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
 the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
-previous/next **year**. Small links on one horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
+previous/next **year**, and a **month legend** sits under the grid. Small links on one
+horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide

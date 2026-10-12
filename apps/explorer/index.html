@@ -29,19 +29,7 @@
               <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
               <label>To<input id="date-to" type="date" value="2025-12-31" required></label>
             </div>
-            <label class="mission-field">Catalog<select id="provider"><option value="earth-search">Earth Search</option><option value="planetary-computer">Planetary Computer</option></select></label>
             <section class="history-calendar" aria-label="Historical observation availability">
-              <div class="heading">
-                <h2>Historical availability</h2>
-                <span class="muted">UTC / LOADED SCENES</span>
-              </div>
-              <div class="month-navigation">
-                <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-                <label class="month-field">Browse month
-                  <input id="calendar-month" type="month" value="2025-01" aria-label="Search a specific month">
-                </label>
-                <button class="month-arrow" id="next-month" type="button" aria-label="Search next month"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-              </div>
               <div class="heading">
                 <h2>Filters</h2>
                 <button id="clear-filters" type="button" class="text-button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
@@ -61,8 +49,6 @@
                 <label class="check-label"><input type="checkbox" id="has-preview"> Has preview</label>
               </div>
               <label class="check-label filters-unknown"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
-              <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
-              <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
               <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
               <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
               <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
@@ -98,6 +84,7 @@
           <div class="matrix-scroll">
             <svg class="matrix-svg" id="matrix-svg" role="img" aria-label="Observations per day across the loaded year"></svg>
           </div>
+          <div class="matrix-months" id="matrix-months" aria-hidden="true"></div>
         </div>
         <div class="map-preview" id="map-preview" hidden role="group" aria-label="Scene image preview on the map">
           <button id="preview-prev" class="map-preview-arrow" type="button" aria-label="Previous image"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>

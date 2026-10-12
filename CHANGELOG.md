@@ -153,6 +153,13 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the day matrix no longer disappears when a year returns no observations — it
   always draws the window's grid (placeholder cells), and switches to the new year's grid
   immediately when the window moves.
+- Explorer: the **Catalog** input is gone — Earth Search and Planetary Computer are queried
+  **together** and the same scene from both is merged on display into one row.
+- Explorer: removed the **Browse month** control and the UTC **day calendar** (day selection
+  now happens on the day matrix, which marks the selected cell); the matrix gained a **month
+  legend** under the grid, and padding days outside the window no longer paint a dark block.
+- Explorer: the source-code link sits at the **bottom** of the left panel and its divider is
+  removed.
 - SDKs (TS/Python/Rust): **Landsat previews now resolve** — `previewUrl` prefers an http(s)
   preview asset and falls back to the STAC item's **`thumbnail` link**, which Earth Search
   serves for Landsat (whose asset hrefs are `s3://` requester-pays). The explorer likewise
