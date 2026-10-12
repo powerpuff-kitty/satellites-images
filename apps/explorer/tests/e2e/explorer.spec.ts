@@ -268,6 +268,22 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
 });
 
+test("a range preset fetches a full year at once", async ({ page }) => {
+  const windows: string[] = [];
+  await page.route("**/search", (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    windows.push(String(body.datetime ?? ""));
+    return respond(route, { json: collection([], [], 0) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-06-01", "2025-06-30");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect.poll(() => windows.length).toBeGreaterThan(0);
+  await page.selectOption("#range-preset", "12");
+  await expect.poll(() => windows.at(-1)).toBe("2024-07-01T00:00:00Z/2025-06-30T23:59:59Z");
+  await expect(page.locator("#window-label")).toContainText("2024-07-01");
+});
+
 test("clicking timeline bars selects the clicked day (does not deselect)", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("b1", "2025-03-10T02:00:00Z"), stacScene("b2", "2025-03-12T02:00:00Z")], [], 2) }));

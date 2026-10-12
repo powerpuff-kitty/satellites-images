@@ -87,6 +87,9 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .timeline-legend .sw.m1 { background:#e0ae54; } .timeline-legend .sw.m2 { background:#6fb3d2; }
 .timeline-legend .sw.m3 { background:#b98ad6; } .timeline-legend .sw.m4 { background:#4fbf7a; }
 .timeline .heat-cell { stroke:#111512; stroke-width:0.5; }
+.timeline-nav .fa-solid, .month-arrow .fa-solid, .lightbox-close .fa-solid { line-height:1; }
+.timeline-range { display:flex; align-items:center; gap:8px; margin:6px 0 2px; }
+.timeline-range select { height:32px; padding:4px 8px; width:auto; }
 .timeline-caption { font-size:9px; letter-spacing:.07em; text-transform:uppercase; color:#9aa39a; margin:8px 0 1px; }
 
 /* Published observations: independent, scrollable right-hand panel with a sticky header. */
@@ -120,4 +123,4 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 /* Full-screen image preview. */
 .lightbox { position:fixed; inset:0; z-index:20; background:#05070599; display:flex; align-items:center; justify-content:center; padding:24px; }
 .lightbox img { max-width:96vw; max-height:92vh; object-fit:contain; background:#000; }
-.lightbox-close { position:absolute; top:14px; right:16px; width:auto; margin:0; padding:8px 12px; background:#1c231e; color:#edece6; border:1px solid #4a5348; font-size:16px; }
+.lightbox-close { position:absolute; top:14px; right:16px; width:auto; margin:0; padding:8px 12px; background:#1c231e; color:#edece6; border:1px solid #4a5348; font-size:16px; display:grid; place-items:center; }

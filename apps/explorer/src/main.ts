@@ -50,6 +50,7 @@ const lightboxClose = element<HTMLButtonElement>("lightbox-close");
 const windowBack = element<HTMLButtonElement>("window-back");
 const windowForward = element<HTMLButtonElement>("window-forward");
 const windowLabel = element<HTMLElement>("window-label");
+const rangePreset = element<HTMLSelectElement>("range-preset");
 
 const plansButton = element<HTMLButtonElement>("plans-button");
 const plansStatus = element<HTMLElement>("plans-status");
@@ -592,6 +593,16 @@ function shiftWindow(direction:number):void{
 }
 windowBack.addEventListener("click",()=>shiftWindow(-1));
 windowForward.addEventListener("click",()=>shiftWindow(1));
+// Quick range presets anchor on the current "to" month: e.g. 12 -> a full year at once.
+function applyRange(months:number):void{
+  const [y,m]=to.value.slice(0,7).split("-").map(Number);
+  const start=new Date(Date.UTC(y,m-1-(months-1),1)).toISOString().slice(0,10);
+  const end=new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
+  from.value=start; to.value=end;
+  calendarMonth.value=to.value.slice(0,7);
+  form.requestSubmit();
+}
+rangePreset.addEventListener("change",()=>{ if(rangePreset.value) applyRange(Number(rangePreset.value)); });
 
 // Filter select options (populated once) + reset.
 function fillSelect(select:HTMLSelectElement, values:[string,string][]):void{
