@@ -451,7 +451,7 @@ test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", a
   await expect.poll(() => requested.some((u) => u.includes("tilejson"))).toBe(true);
 });
 
-test("the Covers filter hides scenes that miss the searched point", async ({ page }) => {
+test("scenes whose footprint misses the searched point are never shown", async ({ page }) => {
   const covering = stacScene("covering", "2025-03-10T02:00:00Z");
   const missing = stacScene("missing", "2025-03-11T02:00:00Z");
   missing.geometry = { type: "Polygon", coordinates: [[[10.0, -9.0], [10.3, -9.0], [10.3, -8.7], [10.0, -8.7], [10.0, -9.0]]] };
@@ -459,11 +459,10 @@ test("the Covers filter hides scenes that miss the searched point", async ({ pag
   await page.route("**/search", (route) => respond(route, { json: collection([covering, missing], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  // The default point is inside only the first scene's footprint (bbox vs polygon gap).
+  // The default point is inside only the first scene's footprint (bbox vs polygon gap),
+  // so the second is dropped and the matrix/overlay always cover the location.
   await expect(page.locator("#results li")).toHaveCount(1);
-  await page.locator(".matrix-chip-covers").click();
-  await expect(page.locator(".matrix-chip-covers")).toHaveAttribute("aria-pressed", "false");
-  await expect(page.locator("#results li")).toHaveCount(2);
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(1);
 });
 
 test("the More dropdown picks an extra metric", async ({ page }) => {
@@ -586,6 +585,21 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(1);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
+});
+
+test("matrix day cells are keyboard operable", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection([
+    stacScene("k1", "2025-03-10T02:00:00Z"), stacScene("k2", "2025-03-12T02:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-10");
+  // Arrow keys step to the next selectable day; Enter selects it.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-12");
+  await expect(page.locator("#results li")).toHaveCount(1);
 });
 
 test("clicking a matrix cell selects that day without changing the zoom", async ({ page }) => {

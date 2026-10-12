@@ -432,6 +432,29 @@ function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:str
   const index=Math.max(0,order.indexOf(top));
   return SPLIT_PALETTE[index%SPLIT_PALETTE.length];
 }
+let matrixDays:string[]=[];
+let matrixHasData=new Set<string>();
+function focusMatrixCell(day:string):void {
+  matrixSvg.querySelector<SVGElement>('.matrix-cell[data-day="'+day+'"]')?.focus();
+}
+/** Moves focus to the next selectable cell (+7 = a week, +1 = a day). */
+function moveMatrixFocus(from:string, delta:number):void {
+  const fromIndex=matrixDays.indexOf(from);
+  if(fromIndex<0)return;
+  for(let i=fromIndex+delta;i>=0&&i<matrixDays.length;i+=delta){
+    if(matrixHasData.has(matrixDays[i])){ focusMatrixCell(matrixDays[i]); return; }
+  }
+}
+function matrixCellKeydown(event:KeyboardEvent, day:string):void {
+  const delta=event.key==="ArrowRight"?7:event.key==="ArrowLeft"?-7
+    :event.key==="ArrowDown"?1:event.key==="ArrowUp"?-1:0;
+  if(delta!==0){ event.preventDefault(); moveMatrixFocus(day,delta); return; }
+  if(event.key==="Enter"||event.key===" "){
+    event.preventDefault();
+    selectTimelineDay(day);
+    focusMatrixCell(day);   // the grid is rebuilt, so restore focus
+  }
+}
 function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
   matrixSvg.replaceChildren();
@@ -480,11 +503,14 @@ function renderMatrix():void {
     }
     order.push(...[...totals.keys()].sort((a,b)=>totals.get(b)!-totals.get(a)!));
   }
+  matrixDays=[]; matrixHasData=new Set<string>();
   for(let d=0;d<nDays;d++){
     const time=start+d*dayMs;
     const day=new Date(time).toISOString().slice(0,10);
     const inWindow=time>=first&&time<=last;
     const list=inWindow?perDay.get(day):undefined;
+    if(inWindow)matrixDays.push(day);
+    if(list)matrixHasData.add(day);
     const rect=document.createElementNS(NS,"rect");
     rect.setAttribute("class","matrix-cell");
     rect.setAttribute("data-day",day);
@@ -501,7 +527,12 @@ function renderMatrix():void {
     if(list){
       rect.setAttribute("fill",matrixColourOf(list,metric,max,order,keyOf));
       tip.textContent=day+" - "+list.length+" observation"+(list.length===1?"":"s");
+      // Days with observations are selectable by mouse and keyboard.
+      rect.setAttribute("tabindex","0");
+      rect.setAttribute("role","button");
+      rect.setAttribute("aria-label",day+", "+list.length+" observation"+(list.length===1?"":"s"));
       rect.addEventListener("click",()=>selectTimelineDay(day));
+      rect.addEventListener("keydown",(event)=>matrixCellKeydown(event,day));
     }else{
       // In-window days with no observations get a placeholder; padding days outside the
       // window are left with no fill so they read as background, not as dark blocks.
@@ -681,9 +712,8 @@ function isRadarScene(scene:Scene):boolean {
   return RADAR_COLLECTION.test(scene.collection);
 }
 let sensorFilter:"all"|"optical"|"radar"="all";
-// Scenes whose footprint does not cover the searched point still intersect a radius query
-// (bbox vs polygon), so by default only covering scenes are shown.
-let coversSelected=true;
+// A bbox query also matches items whose bounding box overlaps the radius while their real
+// (often rotated) footprint does not, so only scenes covering the searched point are shown.
 function pointInRing(x:number,y:number,ring:number[][]):boolean {
   let inside=false;
   for(let i=0,j=ring.length-1;i<ring.length;j=i++){
@@ -708,10 +738,8 @@ function sceneCoversPoint(scene:Scene, lng:number, latitude:number):boolean {
 function passesFilters(scene:Scene):boolean {
   if(sensorFilter==="radar"&&!isRadarScene(scene))return false;
   if(sensorFilter==="optical"&&isRadarScene(scene))return false;
-  if(coversSelected){
-    const lng=Number(lon.value), latitude=Number(lat.value);
-    if(Number.isFinite(lng)&&Number.isFinite(latitude)&&!sceneCoversPoint(scene,lng,latitude))return false;
-  }
+  const pointLng=Number(lon.value), pointLat=Number(lat.value);
+  if(Number.isFinite(pointLng)&&Number.isFinite(pointLat)&&!sceneCoversPoint(scene,pointLng,pointLat))return false;
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
   if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
@@ -724,7 +752,7 @@ function passesFilters(scene:Scene):boolean {
   return true;
 }
 function hasActiveFilters():boolean {
-  return Boolean(sensorFilter!=="all" || !coversSelected || missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
+  return Boolean(sensorFilter!=="all" || missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
     resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
 }
@@ -835,17 +863,8 @@ function applySensorFilter(choice:string):void {
 }
 for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
   button.addEventListener("click",()=>applySensorFilter(button.dataset.sensor ?? "all"));
-const coversChip=matrixQuick.querySelector<HTMLButtonElement>(".matrix-chip-covers");
-coversChip?.addEventListener("click",()=>{
-  coversSelected=!coversSelected;
-  coversChip.setAttribute("aria-pressed",String(coversSelected));
-  displayedLimit=40;
-  redrawAvailability();
-  renderLoadedScenes();
-});
 clearFilters.addEventListener("click",()=>{
-  sensorFilter="all"; coversSelected=true;
-  matrixQuick.querySelector<HTMLButtonElement>(".matrix-chip-covers")?.setAttribute("aria-pressed","true");
+  sensorFilter="all";
   for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
     button.setAttribute("aria-pressed",String(button.dataset.sensor==="all"));
   missionFilter.value=""; collectionFilter.value=""; cloudMin.value=""; cloudMax.value="";

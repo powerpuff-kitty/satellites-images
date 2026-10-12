@@ -70,8 +70,9 @@ still render a **placeholder** cell (dimmer for padding days outside the loaded 
 the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
 previous/next **year**, and a **month legend** sits under the grid. Small links on one
 horizontal row above it choose the metric (**··· More** adds Resolution, Sensor, Time of day
-and Orbit), and **right-aligned quick filters** (**Covers / All / Image / Radar**) narrow the
-view to scenes that actually cover the searched point, or to optical/SAR scenes: **Observations** (shade by daily count), **Cloud** (best cloud class of
+and Orbit), and **right-aligned quick filters** (**All / Image / Radar**) narrow the view to
+optical or SAR scenes. Scenes whose footprint does **not** contain the searched point are
+always hidden, so the map overlay always covers your location: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide

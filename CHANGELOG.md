@@ -162,11 +162,13 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   removed.
 - Explorer: the active day-matrix cell is **outlined**, and clicking it again **deselects**
   (back to every loaded scene).
-- Explorer: the matrix header pairs the metric links with right-aligned **quick filters**
-  (**Covers / All / Image / Radar**) — "Covers" (on by default) hides scenes whose footprint
-  misses the searched point, which happens for radar tiles that intersect the radius but do
-  not contain the location — plus a **··· More** menu holding extra metrics (**Resolution,
-  Sensor, Time of day, Orbit**). The grid, cards and counter all follow.
+- Explorer: scenes whose footprint does not contain the searched point are **always hidden**
+  (a bbox query also returns radar/SAR tiles that merely intersect the radius), so the map
+  overlay always covers the location. The matrix header pairs the metric links with
+  right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
+  extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: day-matrix cells are **keyboard operable** — focus a day, arrow keys step between
+  days with observations, Enter/Space selects — restoring the access the removed calendar had.
 - SDKs: the Planetary Computer provider now also queries **`sentinel-1-rtc`** (radar) and
   **`naip`** (0.6 m aerial, US) alongside Sentinel-2 and Landsat, so radar and house-scale
   imagery can be searched and rendered (Planetary Computer exposes CORS tile sets for both).
