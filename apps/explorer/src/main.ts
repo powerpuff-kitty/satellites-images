@@ -47,9 +47,18 @@ const lightbox = element<HTMLElement>("lightbox");
 const lightboxImage = element<HTMLImageElement>("lightbox-image");
 const lightboxClose = element<HTMLButtonElement>("lightbox-close");
 
-const plansButton = element<HTMLButtonElement>("plans-button");
-const plansStatus = element<HTMLElement>("plans-status");
 const plansResults = element<HTMLOListElement>("plans-results");
+const tabHistorical = element<HTMLButtonElement>("tab-historical");
+const tabUpcoming = element<HTMLButtonElement>("tab-upcoming");
+const panelHistorical = element<HTMLElement>("panel-historical");
+const panelUpcoming = element<HTMLElement>("panel-upcoming");
+const daysAhead = element<HTMLSelectElement>("days-ahead");
+const upcomingMission = element<HTMLSelectElement>("upcoming-mission");
+const upcomingTimeline = element<HTMLElement>("upcoming-timeline");
+const upcomingStatus = element<HTMLElement>("upcoming-status");
+const viewHistorical = element<HTMLElement>("view-historical");
+const viewUpcoming = element<HTMLElement>("view-upcoming");
+const obsTitle = element<HTMLElement>("obs-title");
 
 // In Vite development, /esa-proxy is served by a restricted HTTPS reverse proxy.
 // For deployed static applications set VITE_ESA_PROXY_URL to the optional Cloudflare Worker.
@@ -94,14 +103,17 @@ function updateLocation(latitude: number, longitude: number, fly = false): void 
 }
 let searchTimer=0;
 function scheduleSearch():void{ window.clearTimeout(searchTimer); searchTimer=window.setTimeout(()=>void runSearch(), 350); }
-map.on("click", (e) => { updateLocation(e.lngLat.lat, e.lngLat.lng); scheduleSearch(); });
+let activeTab:"historical"|"upcoming"="historical";
+function scheduleForTab():void{ if(activeTab==="upcoming") scheduleUpcoming(); else scheduleSearch(); }
+map.on("click", (e) => { updateLocation(e.lngLat.lat, e.lngLat.lng); scheduleForTab(); });
 for (const el of [lat,lon]) el.addEventListener("change", () => {
   if (Number.isFinite(lat.valueAsNumber) && Number.isFinite(lon.valueAsNumber)) {
     updateLocation(lat.valueAsNumber, lon.valueAsNumber, true);
-    scheduleSearch();
+    scheduleForTab();
   }
 });
-for (const el of [radius,provider,from,to]) el.addEventListener("change", scheduleSearch);
+for (const el of [radius]) el.addEventListener("change", scheduleForTab);
+for (const el of [provider,from,to]) el.addEventListener("change", scheduleSearch);
 
 function icon(cls:string):HTMLElement {
   const node=document.createElement("i");
@@ -238,14 +250,14 @@ function renderTimeline(): void {
     timeline.append(empty);
     return;
   }
-  renderTimelineBars(scenes, "cloud", "Cloud cover");
-  renderTimelineBars(scenes, "mission", "Mission");
-  renderTimelineBars(scenes, "provider", "Provider");
-  renderTimelineHeat(scenes, "Time of day (UTC)");
+  renderTimelineBars(timeline, scenes, "cloud", "Cloud cover");
+  renderTimelineBars(timeline, scenes, "mission", "Mission");
+  renderTimelineBars(timeline, scenes, "provider", "Provider");
+  renderTimelineHeat(timeline, scenes, "Time of day (UTC)");
 }
-function renderTimelineBars(scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string): void {
+function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string): void {
   const NS = "http://www.w3.org/2000/svg";
-  const width = Math.max(240, timeline.clientWidth || 320);
+  const width = Math.max(240, container.clientWidth || 320);
   const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
   const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000;
   const byDay = new Map<string, Map<string, number>>();
@@ -270,7 +282,7 @@ function renderTimelineBars(scenes:Scene[], mode:"cloud"|"mission"|"provider", t
   const caption = document.createElement("div");
   caption.className = "timeline-caption";
   caption.textContent = title + " · " + order.slice(0, 5).join(", ") + (order.length > 5 ? "…" : "");
-  timeline.append(caption);
+  container.append(caption);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
@@ -307,11 +319,11 @@ function renderTimelineBars(scenes:Scene[], mode:"cloud"|"mission"|"provider", t
     svg.append(group);
   }
   drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
-  timeline.append(svg);
+  container.append(svg);
 }
-function renderTimelineHeat(scenes:Scene[], title:string): void {
+function renderTimelineHeat(container:HTMLElement, scenes:Scene[], title:string): void {
   const NS = "http://www.w3.org/2000/svg";
-  const width = Math.max(240, timeline.clientWidth || 320);
+  const width = Math.max(240, container.clientWidth || 320);
   const height = 72, padL = 28, padR = 8, padT = 6, padB = 4;
   const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000, rows = 4;
   const cells = new Map<string, number>();
@@ -332,7 +344,7 @@ function renderTimelineHeat(scenes:Scene[], title:string): void {
   const caption = document.createElement("div");
   caption.className = "timeline-caption";
   caption.textContent = title + " · 00–06 / 06–12 / 12–18 / 18–24 (bottom → top)";
-  timeline.append(caption);
+  container.append(caption);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
@@ -365,7 +377,7 @@ function renderTimelineHeat(scenes:Scene[], title:string): void {
   axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H)); axis.setAttribute("class", "axis");
   svg.append(axis);
   drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
-  timeline.append(svg);
+  container.append(svg);
 }
 interface HistoryScan {
   controller:AbortController;
@@ -705,9 +717,7 @@ async function runSearch():Promise<void>{
   status.textContent="Searching public satellite catalogues…";
   calendarStatus.textContent="Loading UTC acquisition dates…";
   currentPlanSearch++;
-  plansButton.disabled=false;
   plansResults.replaceChildren();
-  plansStatus.textContent="Check future acquisitions for this location.";
   displaySwaths([]);
   const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();
   const catalog=new SatelliteCatalog([selected]);
@@ -780,32 +790,63 @@ function displaySwaths(items:AcquisitionOpportunity[]):void {
 }
 
 let currentPlanSearch = 0;
-plansButton.addEventListener("click",async()=>{
+function plannedAsScenes(items:AcquisitionOpportunity[]):Scene[] {
+  return items.map((item) => ({
+    providerId:item.providerId, id:item.id ?? (item.mission + item.expectedAt), collection:"esa-sentinel-plans",
+    acquiredAt:item.expectedAt, mission:item.mission, geometry:null, bbox:null, cloudCoverPercent:null,
+    gsdMeters:null, coveragePercent:null, previewUrl:null, access:"unknown", assets:[], sourceUrl:item.sourceUrl, raw:{},
+  }));
+}
+function renderUpcomingCharts(items:AcquisitionOpportunity[]):void {
+  upcomingTimeline.replaceChildren();
+  if(!items.length){ const empty=document.createElement("figcaption"); empty.textContent="No planned datatakes to plot."; upcomingTimeline.append(empty); return; }
+  const scenes=plannedAsScenes(items);
+  renderTimelineBars(upcomingTimeline, scenes, "mission", "Mission");
+  renderTimelineHeat(upcomingTimeline, scenes, "Time of day (UTC)");
+}
+async function runUpcoming():Promise<void>{
   const token=++currentPlanSearch;
   plansResults.replaceChildren();
-  plansStatus.textContent="Checking the latest ESA acquisition plans…";
-  plansButton.disabled=true;
+  upcomingStatus.textContent="Checking the latest ESA acquisition plans…";
   try {
-    const catalog = new SatelliteCatalog([earthSearch()],[
-      plannedProvider,
-    ]);
-    const query={latitude:Number(lat.value),longitude:Number(lon.value),
-      radiusMeters:Number(radius.value),days:14};
-    const planned=await catalog.upcoming(query);
+    const catalog = new SatelliteCatalog([earthSearch()],[plannedProvider]);
+    const planned=await catalog.upcoming({latitude:Number(lat.value),longitude:Number(lon.value),
+      radiusMeters:Number(radius.value),days:Number(daysAhead.value)});
     if(token!==currentPlanSearch)return;
-    displaySwaths(planned);
+    const mission=upcomingMission.value;
+    const filtered=mission?planned.filter(p=>p.mission.startsWith(mission)):planned;
+    displaySwaths(filtered);
+    renderUpcomingCharts(filtered);
     const list=document.createDocumentFragment();
-    for(const item of planned) list.append(makePlanned(item));
+    for(const item of filtered) list.append(makePlanned(item));
     plansResults.append(list);
-    plansStatus.textContent=planned.length
-      ? planned.length+" officially planned datatake(s) intersect this search area. No image is guaranteed."
-      : "No matching planned datatakes in the latest ESA plans for this location and time window.";
+    counter.textContent=String(filtered.length);
+    upcomingStatus.textContent=filtered.length
+      ? filtered.length+" officially planned datatake(s) intersect this area within "+daysAhead.value+" days. No image is guaranteed."
+      : "No matching planned datatakes in the latest ESA plans for this location and window.";
   } catch(error) {
-    if(token===currentPlanSearch) plansStatus.textContent=
-      "ESA plan lookup failed. "+
-      (error instanceof Error?error.message:String(error))+
+    if(token===currentPlanSearch) upcomingStatus.textContent=
+      "ESA plan lookup failed. "+(error instanceof Error?error.message:String(error))+
       (esaProxy?"":" Browser CORS may require the optional ESA proxy.");
-  } finally {
-    if(token===currentPlanSearch) plansButton.disabled=false;
   }
-});
+}
+function setTab(tab:"historical"|"upcoming"):void{
+  activeTab=tab;
+  tabHistorical.setAttribute("aria-selected",String(tab==="historical"));
+  tabUpcoming.setAttribute("aria-selected",String(tab==="upcoming"));
+  panelHistorical.hidden = tab!=="historical";
+  panelUpcoming.hidden = tab!=="upcoming";
+  viewHistorical.hidden = tab!=="historical";
+  viewUpcoming.hidden = tab!=="upcoming";
+  results.hidden = tab!=="historical";
+  plansResults.hidden = tab!=="upcoming";
+  if(tab!=="historical") showMoreButton.hidden=true;
+  obsTitle.textContent = tab==="upcoming" ? "Upcoming planned acquisitions" : "Published observations";
+  if(tab==="upcoming") void runUpcoming();
+  else counter.textContent = counter.textContent;
+}
+tabHistorical.addEventListener("click",()=>setTab("historical"));
+tabUpcoming.addEventListener("click",()=>setTab("upcoming"));
+let upcomingTimer=0;
+function scheduleUpcoming():void{ window.clearTimeout(upcomingTimer); upcomingTimer=window.setTimeout(()=>void runUpcoming(),350); }
+for(const el of [daysAhead,upcomingMission]) el.addEventListener("change",scheduleUpcoming);

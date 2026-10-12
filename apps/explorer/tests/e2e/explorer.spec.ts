@@ -160,6 +160,20 @@ test("responsive viewport keeps the search form usable", async ({ page }) => {
   await expect(page.locator("#date-from")).toBeVisible();
 });
 
+test("left tabs switch between historical and upcoming views", async ({ page }) => {
+  await page.route("**/acquisition-plans", (route) => respond(route, { contentType: "text/html", body: "<html></html>" }));
+  await page.goto("/");
+  await expect(page.locator("#timeline")).toBeVisible();
+  await expect(page.locator("#upcoming-timeline")).toBeHidden();
+  await page.locator("#tab-upcoming").click();
+  await expect(page.locator("#upcoming-timeline")).toBeVisible();
+  await expect(page.locator("#timeline")).toBeHidden();
+  await expect(page.locator("#plans-results")).toBeVisible();
+  await expect(page.locator("#obs-title")).toHaveText(/Upcoming planned acquisitions/);
+  await page.locator("#tab-historical").click();
+  await expect(page.locator("#timeline")).toBeVisible();
+});
+
 test("planned ESA acquisitions are shown separately from published scenes", async ({ page }) => {
   const now = Date.now();
   const stamp = (d: Date) => new Date(d).toISOString().replace(/[-:]/g, "").slice(0, 15);
@@ -180,10 +194,10 @@ test("planned ESA acquisitions are shown separately from published scenes", asyn
   await page.route("**/documents/**",
     (route) => respond(route, { contentType: "application/vnd.google-earth.kml+xml", body: kml }));
   await page.goto("/");
-  await page.getByRole("button", { name: /Find upcoming observations/ }).click();
+  await page.locator("#tab-upcoming").click();
   await expect(page.locator("#plans-results li")).toHaveCount(1);
   await expect(page.locator("#plans-results li")).toContainText(/planned/);
-  await expect(page.locator("#plans-status")).toContainText(/planned datatake/);
+  await expect(page.locator("#upcoming-status")).toContainText(/planned datatake/);
 });
 
 test("the results header timeline plots per-day observations", async ({ page }) => {

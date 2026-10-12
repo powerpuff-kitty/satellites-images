@@ -112,6 +112,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   bounded query per month), and the default range is a single month.
 - Explorer: removed the **Find observations** button — the search now runs
   automatically when the location is chosen on the map or any query field changes.
+- Explorer: the left column now has **Historical** and **Upcoming** tabs with distinct
+  controls; the right panel switches with the tab, and Upcoming adds **by-mission** and
+  **time-of-day** charts for planned datatakes.
 
 ## [0.2.0] - 2026-10-12
 

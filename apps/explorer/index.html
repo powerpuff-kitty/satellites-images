@@ -4,104 +4,116 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#111512" />
-    <meta name="description" content="Explore public satellite observations by coordinate, mission and date." />
+    <meta name="description" content="Explore public historical and upcoming satellite observations by coordinate, mission and date." />
     <title>Satellite Images — Explorer</title>
   </head>
   <body>
     <main class="layout">
       <section class="panel" aria-label="Satellite image search">
         <h1>Satellite Images<span class="accent">.</span></h1>
-        <p class="intro">Choose a location to discover available historical satellite scenes.</p>
+        <p class="intro">Discover available historical and upcoming satellite observations.</p>
         <form id="search-form">
           <div class="pair">
             <label>Latitude<input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="-8.5833" required></label>
             <label>Longitude<input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="116.1167" required></label>
           </div>
-          <div class="pair">
-            <label>Radius<select id="radius"><option value="1000">1 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="25000">25 km</option></select></label>
-            <label>Catalog<select id="provider"><option value="earth-search">Earth Search</option><option value="planetary-computer">Planetary Computer</option></select></label>
+          <label class="full-field">Radius<select id="radius"><option value="1000">1 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="25000">25 km</option></select></label>
+
+          <div class="tablist" role="tablist" aria-label="Observation type">
+            <button id="tab-historical" class="tab" type="button" role="tab" aria-selected="true" aria-controls="panel-historical">Historical</button>
+            <button id="tab-upcoming" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-upcoming">Upcoming</button>
           </div>
-          <div class="pair">
-            <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
-            <label>To<input id="date-to" type="date" value="2025-01-31" required></label>
-          </div>
+
+          <section id="panel-historical" role="tabpanel" aria-labelledby="tab-historical">
+            <div class="pair">
+              <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
+              <label>To<input id="date-to" type="date" value="2025-01-31" required></label>
+            </div>
+            <label class="mission-field">Catalog<select id="provider"><option value="earth-search">Earth Search</option><option value="planetary-computer">Planetary Computer</option></select></label>
+            <section class="history-calendar" aria-label="Historical observation availability">
+              <div class="heading">
+                <h2>Historical availability</h2>
+                <span class="muted">UTC / LOADED SCENES</span>
+              </div>
+              <div class="month-navigation">
+                <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
+                <label class="month-field">Browse month
+                  <input id="calendar-month" type="month" value="2025-01" aria-label="Search a specific month">
+                </label>
+                <button class="month-arrow" id="next-month" type="button" aria-label="Search next month"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
+              </div>
+              <div class="heading">
+                <h2>Filters</h2>
+                <button id="clear-filters" type="button" class="text-button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
+              </div>
+              <label class="mission-field">Satellite<select id="mission-filter" aria-label="Filter observations by satellite"><option value="">All satellites</option></select></label>
+              <label class="mission-field">Collection<select id="collection-filter" aria-label="Filter observations by collection"><option value="">All collections</option></select></label>
+              <div class="pair filter-pair">
+                <label>Cloud ≥<select id="cloud-min" aria-label="Minimum scene cloud cover"></select></label>
+                <label>Cloud ≤<select id="cloud-max" aria-label="Maximum scene cloud cover"></select></label>
+              </div>
+              <div class="pair filter-pair">
+                <label>From hour<select id="hour-min" aria-label="Earliest hour (UTC)"></select></label>
+                <label>To hour<select id="hour-max" aria-label="Latest hour (UTC)"></select></label>
+              </div>
+              <div class="pair filter-pair">
+                <label>Resolution<select id="resolution-filter" aria-label="Maximum ground sample distance"><option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option></select></label>
+                <label class="check-label"><input type="checkbox" id="has-preview"> Has preview</label>
+              </div>
+              <label class="check-label filters-unknown"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
+              <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
+              <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
+              <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
+              <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
+              <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
+            </section>
+          </section>
+
+          <section id="panel-upcoming" role="tabpanel" aria-labelledby="tab-upcoming" hidden>
+            <div class="pair">
+              <label>Days ahead<select id="days-ahead"><option value="7">7 days</option><option value="14" selected>14 days</option><option value="30">30 days</option></select></label>
+              <label>Mission<select id="upcoming-mission"><option value="">All missions</option><option value="S1">Sentinel-1</option><option value="S2">Sentinel-2</option></select></label>
+            </div>
+            <p class="status" id="upcoming-status" role="status">Planned ESA acquisitions are intended datatakes, not images that already exist. Select a location to load the current plan.</p>
+          </section>
         </form>
-        <section class="history-calendar" aria-label="Historical observation availability">
-          <div class="heading">
-            <h2>Historical availability</h2>
-            <span class="muted">UTC / LOADED SCENES</span>
-          </div>
-          <div class="month-navigation">
-            <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
-            <label class="month-field">Browse month
-              <input id="calendar-month" type="month" value="2025-01" aria-label="Search a specific month">
-            </label>
-            <button class="month-arrow" id="next-month" type="button" aria-label="Search next month"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-          </div>
-          <div class="heading">
-            <h2>Filters</h2>
-            <button id="clear-filters" type="button" class="text-button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
-          </div>
-          <label class="mission-field">Satellite<select id="mission-filter" aria-label="Filter observations by satellite"><option value="">All satellites</option></select></label>
-          <label class="mission-field">Collection<select id="collection-filter" aria-label="Filter observations by collection"><option value="">All collections</option></select></label>
-          <div class="pair filter-pair">
-            <label>Cloud ≥<select id="cloud-min" aria-label="Minimum scene cloud cover"></select></label>
-            <label>Cloud ≤<select id="cloud-max" aria-label="Maximum scene cloud cover"></select></label>
-          </div>
-          <div class="pair filter-pair">
-            <label>From hour<select id="hour-min" aria-label="Earliest hour (UTC)"></select></label>
-            <label>To hour<select id="hour-max" aria-label="Latest hour (UTC)"></select></label>
-          </div>
-          <div class="pair filter-pair">
-            <label>Resolution<select id="resolution-filter" aria-label="Maximum ground sample distance"><option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option></select></label>
-            <label class="check-label"><input type="checkbox" id="has-preview"> Has preview</label>
-          </div>
-          <label class="check-label filters-unknown"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
-          <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
-          <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
-          <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
-          <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
-          <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
-        </section>
-        <div class="planning-area">
-          <div class="heading">
-            <h2>Upcoming planned acquisitions</h2>
-            <span class="muted">ESA / 14 DAYS</span>
-          </div>
-          <p class="status">Sentinel-1 radar and Sentinel-2 optical mission plans. These are intended datatakes, not images that already exist.</p>
-          <button id="plans-button" class="secondary-button" type="button">Find upcoming observations <i class="fa-solid fa-satellite" aria-hidden="true"></i></button>
-          <p class="status" id="plans-status" role="status">Select a location, then search current published ESA plans.</p>
-          <ol id="plans-results" class="results" aria-label="Planned satellite acquisitions"></ol>
-        </div>
         <div class="footnote">
-          Actual acquisition dates only. Asset access may require registration or payment.
+          Historical results are actual published acquisition dates. Asset access may require registration or payment.
           Future observations are <strong>planned, not guaranteed</strong>. Browser access can require the optional ESA proxy.
-          <a href="https://github.com/powerpuff-kitty/satellites-images" target="_blank" rel="noopener noreferrer">Source code ↗</a>
+          <a href="https://github.com/powerpuff-kitty/satellites-images" target="_blank" rel="noopener noreferrer">Source code </a>
         </div>
       </section>
       <section class="map-container" aria-label="Interactive map">
         <div id="map"></div>
         <div class="map-label">SELECT ANY LOCATION ON THE MAP</div>
       </section>
-      <aside class="observations" aria-label="Published observations">
+      <aside class="observations" aria-label="Observations">
         <header class="observations-header">
           <div class="heading">
-            <h2>Published observations</h2>
+            <h2 id="obs-title">Published observations</h2>
             <span id="counter">—</span>
           </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
-          <figure class="timeline" id="timeline" aria-label="Stacked timelines: cloud cover, mission, provider and time of day, by day">
-            <figcaption>Loaded observations by day — cloud cover, mission, provider and time of day on a shared date axis.</figcaption>
-          </figure>
-          <div class="timeline-legend" aria-hidden="true">
-            <span class="lg"><i class="sw clear"></i>clear &lt;10%</span>
-            <span class="lg"><i class="sw part"></i>partial &lt;60%</span>
-            <span class="lg"><i class="sw cloud"></i>cloudy ≥60%</span>
-            <span class="lg"><i class="sw unknown"></i>no cloud metadata</span>
-            <span class="lg">mission/provider panels use distinct colours · click to select a day</span>
+          <div id="view-historical">
+            <figure class="timeline" id="timeline" aria-label="Stacked timelines: cloud cover, mission, provider and time of day, by day">
+              <figcaption>Loaded observations by day — cloud cover, mission, provider and time of day on a shared date axis.</figcaption>
+            </figure>
+            <div class="timeline-legend" aria-hidden="true">
+              <span class="lg"><i class="sw clear"></i>clear &lt;10%</span>
+              <span class="lg"><i class="sw part"></i>partial &lt;60%</span>
+              <span class="lg"><i class="sw cloud"></i>cloudy ≥60%</span>
+              <span class="lg"><i class="sw unknown"></i>no cloud metadata</span>
+              <span class="lg">mission/provider panels use distinct colours · click to select a day</span>
+            </div>
+          </div>
+          <div id="view-upcoming" hidden>
+            <figure class="timeline" id="upcoming-timeline" aria-label="Planned acquisitions by day and mission">
+              <figcaption>Planned datatakes by day (per mission) and time of day.</figcaption>
+            </figure>
           </div>
         </header>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
+        <ol id="plans-results" class="results" aria-label="Planned satellite acquisitions" hidden></ol>
         <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
       </aside>
     </main>

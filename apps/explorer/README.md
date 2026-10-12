@@ -13,6 +13,15 @@ Click the map or type decimal GPS coordinates; choose radius, dates and one supp
 
 Uses **OpenFreeMap**'s keyless, open-source "Liberty" vector style by default (OpenStreetMap data); set `VITE_MAP_STYLE_URL` to use VersaTiles, a self-hosted Protomaps/PMTiles style, or another provider. No API key is bundled.
 
+## Tabs
+
+The left column has two tabs: **Historical** (published STAC scenes — location, month,
+calendar and filters) and **Upcoming** (planned ESA Sentinel-1/2 acquisitions — location,
+days-ahead and mission). Location and radius are shared. The **right panel switches with
+the tab**: Historical shows the published-scene cards and the stacked timelines;
+Upcoming shows the planned-datatake cards plus its own **by-mission** and **time-of-day**
+charts. Searching is automatic (no button) — it runs on location select or any query change.
+
 ## Upcoming ESA plans and CORS
 
 When running with `npm run dev -w @satellites-images/explorer`, Vite proxies official ESA KML/HTML through `/esa-proxy`, so local development can load planned acquisitions with no ESA credentials.

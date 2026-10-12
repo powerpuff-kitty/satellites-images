@@ -44,6 +44,13 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
   .observations {grid-column:1 / -1; max-height:45vh; border-left:0; border-top:1px solid #353c35;}
 }
 
+.full-field { display:flex; flex-direction:column; gap:7px; color:#b2b7ae; font-size:11px; letter-spacing:.02em; margin-bottom:14px; }
+.tablist { display:grid; grid-template-columns:1fr 1fr; margin:6px 0 16px; border:1px solid #394037; }
+.tab { display:flex; justify-content:center; align-items:center; margin:0; padding:10px 8px; background:transparent; color:#b2b7ae; border:0; font-size:12px; font-weight:600; cursor:pointer; }
+.tab + .tab { border-left:1px solid #394037; }
+.tab[aria-selected="true"] { background:#242b24; color:#f1efe8; box-shadow:inset 0 -2px 0 #e2ae54; }
+.tab:hover[aria-selected="false"] { background:#1c231e; }
+
 .secondary-button {background:transparent;color:#e5c083;border:1px solid #7c7157; margin:12px 0 10px;}
 .secondary-button:hover {background:#232a23;}
 .muted {color:#9ca79b;letter-spacing:.08em;font-size:10px;}
