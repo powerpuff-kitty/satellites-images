@@ -114,8 +114,9 @@ button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button 
 .matrix-year-button .fa-solid { line-height:1; }
 .matrix-scroll { max-width:100%; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin; }
 .matrix-svg { display:block; }
-.matrix-cell { cursor:pointer; }
+.matrix-cell { cursor:pointer; shape-rendering:crispEdges; }
 .matrix-cell:hover { stroke:#efbe62; stroke-width:1; }
+.matrix-cell.selected { stroke:#efbe62; stroke-width:2; }
 .matrix-month { fill:#9aa39a; font-size:9px; letter-spacing:.04em; }
 
 /* Full-screen image preview. */

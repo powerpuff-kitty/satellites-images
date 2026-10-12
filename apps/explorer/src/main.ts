@@ -364,7 +364,8 @@ function cloudClassOf(percent: number | null): CloudClass {
 }
 const SPLIT_PALETTE = ["#e0ae54","#6fb3d2","#b98ad6","#4fbf7a","#d98a6a","#9aa0a2","#c0d76a","#7f8cff","#e58fb0","#7ad1c0"];
 function selectTimelineDay(day:string):void {
-  selectedDay = day;
+  // Clicking the active day again clears the selection.
+  selectedDay = selectedDay === day ? null : day;
   displayedLimit = 40;
   redrawAvailability();
   renderLoadedScenes();

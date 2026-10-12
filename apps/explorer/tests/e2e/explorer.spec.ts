@@ -544,7 +544,7 @@ test("clicking a matrix cell selects that day without changing the zoom", async 
   expect(Number(new URL(page.url()).searchParams.get("zoom"))).toBe(before);
 });
 
-test("clicking a matrix cell selects that day (does not deselect)", async ({ page }) => {
+test("clicking a matrix cell toggles the selected day", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("b1", "2025-03-10T02:00:00Z"), stacScene("b2", "2025-03-12T02:00:00Z")], [], 2) }));
   await page.goto("/");
@@ -556,4 +556,10 @@ test("clicking a matrix cell selects that day (does not deselect)", async ({ pag
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-12"]').click();
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-12");
+  // The active cell is outlined, and clicking it again deselects.
+  const stroke = await page.locator("#matrix-svg .matrix-cell.selected").evaluate((el) => getComputedStyle(el).stroke);
+  expect(stroke).not.toBe("none");
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-12"]').click();
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(0);
+  await expect(page.locator("#results li")).toHaveCount(2);
 });
