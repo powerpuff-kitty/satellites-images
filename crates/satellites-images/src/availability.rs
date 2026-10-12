@@ -147,7 +147,7 @@ mod tests {
             provider_id:"earth-search".into(),
             id:id.into(),collection:"sentinel-2-l2a".into(),
             acquired_at:time.into(),mission:Some("sentinel-2a".into()),
-            geometry:None,bbox:None,cloud_cover_percent:None,coverage_percent:None,preview_url:None,
+            geometry:None,bbox:None,cloud_cover_percent:None,gsd_meters:None,coverage_percent:None,preview_url:None,
             access:"unknown".into(),assets:Vec::new(),source_url:None,raw:json!({}),
         }
     }

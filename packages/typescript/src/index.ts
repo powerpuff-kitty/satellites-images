@@ -41,6 +41,8 @@ export interface Scene {
   geometry: Record<string, unknown> | null;
   bbox: number[] | null;
   cloudCoverPercent: number | null;
+  /** Ground sample distance in metres when the provider exposes `gsd` (e.g. 10 for Sentinel-2). */
+  gsdMeters: number | null;
   /**
    * Approximate percentage of the requested area of interest whose bounding box
    * overlaps this scene's bounding box (0-100), or null when the scene has no
@@ -331,6 +333,8 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
                   assets.find((asset) => ["thumbnail","preview","rendered_preview"].includes(asset.key));
   const cloud = properties["eo:cloud_cover"];
   const cloudCoverPercent = typeof cloud === "number" && Number.isFinite(cloud) && cloud >= 0 && cloud <= 100 ? cloud : null;
+  const gsd = properties["gsd"];
+  const gsdMeters = typeof gsd === "number" && Number.isFinite(gsd) && gsd > 0 ? gsd : null;
   const originalLinks = Array.isArray(raw.links) ? raw.links : [];
   const link = originalLinks.map(object).find((v) => v.rel === "self");
   const geometry = object(raw.geometry);
@@ -344,6 +348,7 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
     geometry: Object.keys(geometry).length ? geometry : null,
     bbox,
     cloudCoverPercent,
+    gsdMeters,
     coveragePercent: coveragePercent(bbox, boxes),
     previewUrl: preview?.href ?? null,
     access: "unknown",

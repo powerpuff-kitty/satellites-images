@@ -336,6 +336,8 @@ pub struct Scene {
     pub geometry: Option<Value>,
     pub bbox: Option<Vec<f64>>,
     pub cloud_cover_percent: Option<f64>,
+    /// Ground sample distance in metres when the provider exposes `gsd`.
+    pub gsd_meters: Option<f64>,
     /// Approximate bbox-overlap percentage of the requested AOI (0-100), or None.
     pub coverage_percent: Option<f64>,
     pub preview_url: Option<String>,
@@ -393,6 +395,7 @@ pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -
         .map(|a| a.href.clone());
     let cloud = props.get("eo:cloud_cover").and_then(Value::as_f64)
         .filter(|n| n.is_finite() && (0.0..=100.0).contains(n));
+    let gsd_meters = props.get("gsd").and_then(Value::as_f64).filter(|n| n.is_finite() && *n > 0.0);
     let source_url = item.get("links").and_then(Value::as_array)
         .and_then(|links| links.iter().find(|link| link.get("rel").and_then(Value::as_str) == Some("self")))
         .and_then(|link| link.get("href").and_then(Value::as_str)).map(str::to_owned);
@@ -407,6 +410,7 @@ pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -
         mission: props.get("platform").and_then(Value::as_str).map(str::to_owned),
         geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
         bbox, cloud_cover_percent: cloud,
+        gsd_meters,
         coverage_percent: coverage,
         preview_url,
         access: "unknown".into(), assets, source_url, raw: item,
@@ -677,7 +681,7 @@ pub fn normalize_asf_feature(item: &Value, provider_id: &str) -> Result<Scene, E
         acquired_at: acquired,
         mission: props.get("platform").and_then(Value::as_str).map(str::to_owned),
         geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
-        bbox: None, cloud_cover_percent: None, coverage_percent: None,
+        bbox: None, cloud_cover_percent: None, gsd_meters: None, coverage_percent: None,
         preview_url: preview,
         access: "unknown".into(), assets,
         source_url: download.map(str::to_owned),
@@ -802,7 +806,7 @@ pub fn normalize_jaxa_feature(item: &Value, provider_id: &str) -> Result<Scene, 
         acquired_at: acquired,
         mission: props.get("platformShortName").and_then(Value::as_str).map(str::to_owned),
         geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
-        bbox: None, cloud_cover_percent: cloud, coverage_percent: None,
+        bbox: None, cloud_cover_percent: cloud, gsd_meters: None, coverage_percent: None,
         preview_url: preview,
         access: "unknown".into(), assets,
         source_url: download.map(str::to_owned),

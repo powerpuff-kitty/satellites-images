@@ -93,6 +93,8 @@ class Scene:
     assets: tuple[SceneAsset, ...]
     source_url: str | None
     raw: dict[str, Any]
+    #: Ground sample distance in metres when the provider exposes `gsd`.
+    gsd_meters: float | None = None
     #: Approximate bbox-overlap percentage of the requested AOI (0-100), or None.
     coverage_percent: float | None = None
 
@@ -290,6 +292,8 @@ def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | Non
         preview = next((a.href for a in assets if a.key in ("thumbnail", "preview", "rendered_preview")), None)
     cloud = props.get("eo:cloud_cover")
     cloud_value = float(cloud) if isinstance(cloud, (int, float)) and not isinstance(cloud, bool) and math.isfinite(cloud) and 0 <= cloud <= 100 else None
+    gsd = props.get("gsd")
+    gsd_meters = float(gsd) if isinstance(gsd, (int, float)) and not isinstance(gsd, bool) and math.isfinite(gsd) and gsd > 0 else None
     links = obj.get("links")
     source_link = next((l.get("href") for l in links if isinstance(l, dict) and l.get("rel") == "self"), None) if isinstance(links, list) else None
     bbox = obj.get("bbox")
@@ -307,6 +311,7 @@ def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | Non
         assets=tuple(assets),
         source_url=source_link if isinstance(source_link, str) else None,
         raw=obj,
+        gsd_meters=gsd_meters,
         coverage_percent=coverage_percent(bbox, boxes) if boxes else None,
     )
 
