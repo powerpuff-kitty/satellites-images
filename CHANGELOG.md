@@ -122,6 +122,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   timeline date labels **below** the axis line.
 - Explorer: timeline bars are a fixed **4 px wide** inside a **horizontally scrollable**
   pane; dropped the calendar "N published items… / Empty cells…" status line.
+- Explorer: the search window is now **twelve months**, fetched as **four three-month
+  chunks**; the month arrows move within the loaded year and fetch the next quarter when
+  you step past its edge (results append instead of resetting).
 
 ## [0.2.0] - 2026-10-12
 

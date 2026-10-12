@@ -84,6 +84,27 @@ test("month navigation issues a narrowed month search", async ({ page }) => {
   await expect.poll(() => months.at(-1)).toBe("2025-04");
 });
 
+test("the default window spans twelve months", async ({ page }) => {
+  await page.goto("/");
+  const from = await page.locator("#date-from").inputValue();
+  const to = await page.locator("#date-to").inputValue();
+  const months = (Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 + (Number(to.slice(5, 7)) - Number(from.slice(5, 7))) + 1;
+  expect(months).toBe(12);
+});
+
+test("a year is fetched as four three-month chunks", async ({ page }) => {
+  const starts: string[] = [];
+  await page.route("**/search", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    starts.push(String(body.datetime ?? "").slice(0, 7));
+    await respond(route, { json: collection([], [], 0) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-01-01", "2025-12-31");
+  await expect.poll(() => starts.length).toBe(4);
+  expect(starts).toEqual(["2025-01", "2025-04", "2025-07", "2025-10"]);
+});
+
 test("selecting a calendar day filters the result cards", async ({ page }) => {
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");

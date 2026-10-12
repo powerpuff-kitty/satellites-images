@@ -402,6 +402,8 @@ interface HistoryScan {
   ended:boolean;
   signature:string;
 }
+const WINDOW_MONTHS=12, CHUNK_MONTHS=3;
+let scanAccumulator:AvailabilityAccumulator|null=null;
 let activeScan:HistoryScan|null=null;
 let initialPermalinkDay:string|null=null;
 let loadedScenes:Scene[]=[];
@@ -432,10 +434,10 @@ function restoreSearchLink():void {
     from.value=params.get("from")!;
     to.value=params.get("to")!;
   } else {
-    const today=new Date().toISOString().slice(0,10);
-    const previous=shiftMonth(today.slice(0,7),-1);
-    from.value=previous+"-01";
-    to.value=monthDates(previous).to;
+    const endMonth=new Date().toISOString().slice(0,7);
+    const startMonth=shiftMonth(endMonth,-(WINDOW_MONTHS-1));
+    from.value=startMonth+"-01";
+    to.value=monthDates(endMonth).to;
   }
   activeMonth=to.value.slice(0,7);
   calendarMonth.value=activeMonth;
@@ -577,20 +579,33 @@ function redrawAvailability():void {
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
   calendarStatus.textContent=statusParts.join(" ");
 }
-function searchMonth(month:string):void {
-  const dates=monthDates(month);
+function monthChunks(fromMonth:string,toMonth:string,size:number):{from:string;to:string}[] {
+  const chunks:{from:string;to:string}[]=[];
+  let month=fromMonth, guard=0;
+  while(month<=toMonth&&guard++<600){
+    const end=shiftMonth(month,size-1);
+    const last=end>toMonth?toMonth:end;
+    chunks.push({from:month+"-01",to:monthDates(last).to});
+    month=shiftMonth(month,size);
+  }
+  return chunks;
+}
+function loadQuarter(month:string,direction:number):void {
+  const chunk=direction<0
+    ?{from:shiftMonth(month,-(CHUNK_MONTHS-1))+"-01",to:monthDates(month).to}
+    :{from:month+"-01",to:monthDates(shiftMonth(month,CHUNK_MONTHS-1)).to};
+  void runSearch({append:true,chunks:[chunk],extend:{from:chunk.from.slice(0,7),to:chunk.to.slice(0,7)}});
+}
+function gotoMonth(month:string,direction=0):void {
   calendarMonth.value=month;
   activeMonth=month;
-  selectedDay=null;
-  from.value=dates.from;
-  to.value=dates.to;
-  void runSearch();
+  const lo=from.value.slice(0,7), hi=to.value.slice(0,7);
+  if(month>=lo&&month<=hi){ redrawAvailability(); return; }
+  loadQuarter(month,direction||(month<lo?-1:1));
 }
-prevMonth.addEventListener("click",()=>searchMonth(shiftMonth(calendarMonth.value,-1)));
-nextMonth.addEventListener("click",()=>searchMonth(shiftMonth(calendarMonth.value,1)));
-calendarMonth.addEventListener("change",()=>{
-  if(calendarMonth.value)searchMonth(calendarMonth.value);
-});
+prevMonth.addEventListener("click",()=>gotoMonth(shiftMonth(activeMonth,-1),-1));
+nextMonth.addEventListener("click",()=>gotoMonth(shiftMonth(activeMonth,1),1));
+calendarMonth.addEventListener("change",()=>{ if(calendarMonth.value)gotoMonth(calendarMonth.value); });
 
 // Filter select options (populated once) + reset.
 function fillSelect(select:HTMLSelectElement, values:[string,string][]):void{
@@ -661,14 +676,13 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
       examined++;
       status.textContent="Scanned "+currentSummary.pagesScanned+" catalogue page(s); "+
         currentSummary.uniqueItems+" unique published observations loaded…";
-      if(!page.hasNext){session.ended=true;break;}
     }
     if(session!==activeScan||session.controller.signal.aborted)return;
     const summary=session.accumulator.summary();
     currentSummary=summary;
     if(summary.pagesScanned>=50)session.ended=true;
     redrawAvailability();
-    loadNextPagesButton.hidden=session.ended || summary.complete;
+    loadNextPagesButton.hidden=session.ended;
     if(summary.uniqueItems===0 && summary.complete) {
       status.textContent="No scenes returned by this catalogue for the selected time window.";
     }else if(summary.complete){
@@ -705,40 +719,56 @@ form.addEventListener("submit",(event)=>{
   event.preventDefault();
   void runSearch();
 });
-async function runSearch():Promise<void>{
+async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[];extend?:{from:string;to:string}} = {}):Promise<void>{
+  const append=opts.append===true;
+  const chunks=opts.chunks??monthChunks(from.value.slice(0,7),to.value.slice(0,7),CHUNK_MONTHS);
+  if(chunks.length===0)return;
+  if(opts.extend){
+    if(opts.extend.from<from.value.slice(0,7))from.value=opts.extend.from+"-01";
+    if(opts.extend.to>to.value.slice(0,7))to.value=monthDates(opts.extend.to).to;
+  }
   activeScan?.controller.abort();
   const controller=new AbortController();
-  const accumulator=new AvailabilityAccumulator();
-  currentSummary=null;
-  loadedScenes=[];
-  searchErrored=false;
-  selectedDay=initialPermalinkDay && initialPermalinkDay>=from.value &&
-    initialPermalinkDay<=to.value ? initialPermalinkDay : null;
-  initialPermalinkDay=null;
-  displayedLimit=40;
-  activeMonth=selectedDay?.slice(0,7)??to.value.slice(0,7);
-  calendarMonth.value=activeMonth;
-  results.replaceChildren();
-  missionFilter.value="";
-  updateFilterChoices();
-  calendarGrid.replaceChildren();
-  monthStrip.replaceChildren();
-  counter.textContent="—";
-  loadNextPagesButton.hidden=true;
-  status.textContent="Searching public satellite catalogues…";
-  calendarStatus.textContent="Loading UTC acquisition dates…";
-  currentPlanSearch++;
-  plansResults.replaceChildren();
-  displaySwaths([]);
+  if(!append){
+    scanAccumulator=new AvailabilityAccumulator();
+    currentSummary=null;
+    loadedScenes=[];
+    searchErrored=false;
+    selectedDay=initialPermalinkDay && initialPermalinkDay>=from.value &&
+      initialPermalinkDay<=to.value ? initialPermalinkDay : null;
+    initialPermalinkDay=null;
+    displayedLimit=40;
+    activeMonth=selectedDay?.slice(0,7)??to.value.slice(0,7);
+    calendarMonth.value=activeMonth;
+    results.replaceChildren();
+    missionFilter.value="";
+    updateFilterChoices();
+    calendarGrid.replaceChildren();
+    monthStrip.replaceChildren();
+    counter.textContent="—";
+    loadNextPagesButton.hidden=true;
+    status.textContent="Searching public satellite catalogues…";
+    calendarStatus.textContent="Loading UTC acquisition dates…";
+    currentPlanSearch++;
+    plansResults.replaceChildren();
+    displaySwaths([]);
+  }
+  const accumulator=scanAccumulator??(scanAccumulator=new AvailabilityAccumulator());
   const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();
   const catalog=new SatelliteCatalog([selected]);
-  const query={
+  const base={
     latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
-    from:from.value,to:to.value,maxPages:50,limit:75,signal:controller.signal,
+    maxPages:50,limit:75,signal:controller.signal,
   };
-  updateLocation(query.latitude,query.longitude,true);
+  updateLocation(base.latitude,base.longitude,true);
+  const iterator=(async function*(){
+    for(const chunk of chunks){
+      if(controller.signal.aborted)return;
+      yield* catalog.search({...base, from:chunk.from, to:chunk.to});
+    }
+  })();
   const session:HistoryScan = {
-    controller,accumulator,iterator:catalog.search(query),fetching:false,
+    controller,accumulator,iterator,fetching:false,
     ended:false,signature:currentSearchSignature(),
   };
   activeScan=session;
