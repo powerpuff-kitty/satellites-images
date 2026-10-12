@@ -406,11 +406,21 @@ pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -
     })
 }
 
+/// Backoff delay for a retry attempt, honouring a Retry-After value when present.
+pub fn retry_delay_ms(attempt: u32, retry_after_secs: Option<u64>, base_ms: u64) -> u64 {
+    match retry_after_secs {
+        Some(secs) => secs.saturating_mul(1000),
+        None => base_ms.saturating_mul(1u64 << attempt.min(10)),
+    }
+}
+
 #[derive(Clone)]
 pub struct StacProvider {
     id: String,
     client: Client,
     endpoint: Url,
+    retries: u32,
+    retry_base_delay_ms: u64,
 }
 /// Backwards-compatible alias for the default Earth Search provider.
 pub type EarthSearch = StacProvider;
@@ -428,7 +438,13 @@ impl StacProvider {
         if endpoint.scheme() != "https" && host != Some("localhost") && host != Some("127.0.0.1") {
             return Err(Error::InvalidProvider("Provider must use HTTPS except localhost".into()));
         }
-        Ok(Self { id: id.into(), client, endpoint })
+        Ok(Self { id: id.into(), client, endpoint, retries: 0, retry_base_delay_ms: 500 })
+    }
+    /// Retry transient HTTP 429/503 responses up to `retries` times, honouring Retry-After.
+    pub fn with_retries(mut self, retries: u32, retry_base_delay_ms: u64) -> Self {
+        self.retries = retries;
+        self.retry_base_delay_ms = retry_base_delay_ms;
+        self
     }
     /// Element 84 Earth Search (Sentinel-2 L2A, Landsat C2 L2).
     pub fn earth_search() -> Result<Self, Error> {
@@ -460,6 +476,28 @@ impl StacProvider {
         let pages=self.search_pages(query).await?;
         summarize_availability(&pages)
     }
+    async fn send_with_retries(&self, method: &Method, href: &Url, body: &Value) -> Result<reqwest::Response, Error> {
+        let mut attempt = 0u32;
+        loop {
+            let request = self.client.request(method.clone(), href.clone())
+                .header("Accept", "application/geo+json, application/json");
+            let request = if *method == Method::POST { request.json(body) } else { request };
+            let response = request.send().await?;
+            let status = response.status();
+            let transient = status == reqwest::StatusCode::TOO_MANY_REQUESTS
+                || status == reqwest::StatusCode::SERVICE_UNAVAILABLE;
+            if transient && attempt < self.retries {
+                let retry_after = response.headers().get(reqwest::header::RETRY_AFTER)
+                    .and_then(|value| value.to_str().ok())
+                    .and_then(|text| text.trim().parse::<u64>().ok());
+                let delay = retry_delay_ms(attempt, retry_after, self.retry_base_delay_ms);
+                tokio::time::sleep(Duration::from_millis(delay)).await;
+                attempt += 1;
+                continue;
+            }
+            return Ok(response);
+        }
+    }
     pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
         Ok(self.search_pages(query).await?.into_iter().flat_map(|p| p.items).collect())
     }
@@ -486,10 +524,7 @@ impl StacProvider {
             while box_pages < query.max_pages {
                 let key = format!("{method} {href} {body}");
                 if !seen_requests.insert(key) { return Err(Error::PaginationLoop); }
-                let request = self.client.request(method.clone(), href.clone())
-                    .header("Accept", "application/geo+json, application/json");
-                let request = if method == Method::POST { request.json(&body) } else { request };
-                let response = request.send().await?;
+                let response = self.send_with_retries(&method, &href, &body).await?;
                 if !response.status().is_success() {
                     return Err(Error::Http(response.status().as_u16()));
                 }
@@ -811,6 +846,12 @@ mod tests {
         let sources = registry["sources"].as_array().unwrap();
         assert!(sources.len() >= 12);
         assert_eq!(sources.iter().find(|s| s["id"] == "skyfi").unwrap()["implemented"]["rust"], false);
+    }
+    #[test]
+    fn retry_delay_prefers_retry_after() {
+        assert_eq!(retry_delay_ms(0, Some(2), 500), 2000);
+        assert_eq!(retry_delay_ms(0, None, 500), 500);
+        assert_eq!(retry_delay_ms(3, None, 500), 4000);
     }
     #[test]
     fn stac_reuse_adapters() {

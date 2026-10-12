@@ -153,6 +153,51 @@ class CatalogTests(unittest.TestCase):
         with self.assertRaises(SatelliteError):
             JaxaGPortal("GCOM-C_SGLI_L2_SST_250m")
 
+    def test_retry_honours_retry_after(self):
+        calls = []
+
+        def transport(url, method, body):
+            calls.append(url)
+            if len(calls) == 1:
+                raise SatelliteError("HTTP_ERROR", "STAC API returned HTTP 429 retry-after=0")
+            return {**SAMPLE, "links": []}
+        provider = EarthSearch(transport=transport, retries=2, retry_base_delay_ms=1)
+        pages = list(provider.search(self.query))
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(len(pages), 1)
+
+    def test_persistent_429_fails_explicitly(self):
+        calls = []
+
+        def transport(url, method, body):
+            calls.append(url)
+            raise SatelliteError("HTTP_ERROR", "STAC API returned HTTP 429 retry-after=0")
+        provider = EarthSearch(transport=transport, retries=2, retry_base_delay_ms=1)
+        with self.assertRaises(SatelliteError) as context:
+            list(provider.search(self.query))
+        self.assertEqual(context.exception.code, "HTTP_ERROR")
+        self.assertEqual(len(calls), 3)
+
+    def test_403_and_signed_assets_never_fetched(self):
+        def forbidden(url, method, body):
+            raise SatelliteError("HTTP_ERROR", "STAC API returned HTTP 403")
+        with self.assertRaises(SatelliteError) as context:
+            list(EarthSearch(transport=forbidden).search(self.query))
+        self.assertEqual(context.exception.code, "HTTP_ERROR")
+
+        signed = {**SAMPLE, "links": [], "features": [{**SAMPLE["features"][0],
+            "assets": {"data": {"href": "https://example.test/data.tif?token=expired&Signature=abc",
+                                "roles": ["data"], "type": "image/tiff"}}}]}
+        seen = []
+
+        def transport(url, method, body):
+            seen.append(url)
+            return signed
+        pages = list(EarthSearch(transport=transport).search(self.query))
+        self.assertEqual(pages[0].items[0].access, "unknown")
+        self.assertIn("token=expired", pages[0].items[0].assets[0].href)
+        self.assertEqual(len(seen), 1, "signed asset bytes are never fetched")
+
     def test_pagination_and_metadata(self):
         seen = []
         def mock(url, method, body):

@@ -275,6 +275,7 @@ function object(value: unknown): Record<string, unknown> {
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length ? value : null;
 }
+const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Scene {
   const raw = object(item);
   const properties = object(raw.properties);
@@ -321,17 +322,25 @@ export interface StacProviderOptions {
   baseUrl: string;
   collections: string[];
   fetchImpl?: typeof fetch;
+  /** Retry attempts for transient HTTP 429/503 responses. Default 0 (no retries). */
+  retries?: number;
+  /** Base backoff delay in ms when no `Retry-After` header is present. Default 500. */
+  retryBaseDelayMs?: number;
 }
 export class StacProvider {
   readonly id: string;
   private readonly baseUrl: string;
   private readonly collections: string[];
   private readonly fetchImpl: typeof fetch;
+  private readonly retries: number;
+  private readonly retryBaseDelayMs: number;
   constructor(options: StacProviderOptions) {
     this.id = options.id;
     this.baseUrl = options.baseUrl.replace(/\/+$/, "");
     this.collections = [...options.collections];
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
+    this.retries = options.retries ?? 0;
+    this.retryBaseDelayMs = options.retryBaseDelayMs ?? 500;
     const url = new URL(this.baseUrl);
     if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") {
       throw new SatelliteError("INVALID_PROVIDER", "Provider must use HTTPS except localhost", this.id);
@@ -368,6 +377,21 @@ export class StacProvider {
               ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)])
               : AbortSignal.timeout(20000),
           });
+          for (let attempt = 0; (response.status === 429 || response.status === 503) && attempt < this.retries; attempt++) {
+            const retryAfter = Number(response.headers.get("retry-after"));
+            const delay = Number.isFinite(retryAfter) && retryAfter > 0
+              ? retryAfter * 1000
+              : this.retryBaseDelayMs * Math.pow(2, attempt);
+            await sleep(delay);
+            response = await this.fetchImpl(href, {
+              method,
+              headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
+              body: method === "POST" ? JSON.stringify(body) : undefined,
+              signal: query.signal
+                ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)])
+                : AbortSignal.timeout(20000),
+            });
+          }
         } catch (error) {
           throw new SatelliteError("NETWORK", "STAC request failed: " + String(error), this.id);
         }

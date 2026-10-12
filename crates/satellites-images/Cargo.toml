@@ -18,6 +18,7 @@ chrono = { version = "0.4", default-features = false, features = ["std", "clock"
 thiserror = "2"
 regex = "1"
 roxmltree = "0.20"
+tokio = { version = "1", default-features = false, features = ["time"] }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }

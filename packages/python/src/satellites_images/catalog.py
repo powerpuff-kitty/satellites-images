@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import math
 import re
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from importlib.resources import files
@@ -303,7 +304,9 @@ def _http_json(url: str, method: str, body: dict[str, Any] | None) -> dict[str, 
         with urlopen(req, timeout=20) as response:
             content = response.read()
     except HTTPError as exc:
-        raise SatelliteError("HTTP_ERROR", "STAC API returned HTTP " + str(exc.code)) from exc
+        retry_after = exc.headers.get("Retry-After") if exc.headers else None
+        detail = "HTTP " + str(exc.code) + ((" retry-after=" + retry_after) if retry_after else "")
+        raise SatelliteError("HTTP_ERROR", "STAC API returned " + detail) from exc
     except (URLError, TimeoutError, OSError) as exc:
         raise SatelliteError("NETWORK", "STAC request failed: " + str(exc)) from exc
     try:
@@ -318,15 +321,32 @@ def _http_json(url: str, method: str, body: dict[str, Any] | None) -> dict[str, 
 class StacProvider:
     def __init__(
         self, *, id: str, base_url: str, collections: tuple[str, ...],
-        transport: Transport | None = None,
+        transport: Transport | None = None, retries: int = 0, retry_base_delay_ms: int = 500,
     ):
         self.id = id
         self.base_url = base_url.rstrip("/")
         self.collections = collections
         self._transport = transport or _http_json
+        self.retries = retries
+        self.retry_base_delay_ms = retry_base_delay_ms
         url = urlsplit(self.base_url)
         if url.scheme != "https" and not (url.scheme == "http" and url.hostname in ("localhost", "127.0.0.1")):
             raise SatelliteError("INVALID_PROVIDER", "Provider must use HTTPS except localhost")
+
+    def _retrying_transport(self, href: str, method: str, body: Any) -> Any:
+        """Retry transient HTTP 429/503 responses, honouring Retry-After when present."""
+        for attempt in range(self.retries + 1):
+            try:
+                return self._transport(href, method, body if method == "POST" else None)
+            except SatelliteError as exc:
+                message = str(exc)
+                transient = exc.code == "HTTP_ERROR" and ("HTTP 429" in message or "HTTP 503" in message)
+                if not transient or attempt >= self.retries:
+                    raise
+                match = re.search(r"retry-after=(\d+)", message)
+                delay = int(match.group(1)) * 1000 if match else self.retry_base_delay_ms * (2 ** attempt)
+                time.sleep(max(0, delay) / 1000)
+        raise SatelliteError("HTTP_ERROR", "STAC request failed after retries", self.id)
 
     def search(self, query: SearchQuery) -> Iterator[SearchPage]:
         collections = query.collections if query.collections is not None else self.collections
@@ -354,7 +374,7 @@ class StacProvider:
                     raise SatelliteError("PAGINATION_LOOP", "Repeating next link", self.id)
                 visited.add(cursor)
                 try:
-                    result = self._transport(href, method, body if method == "POST" else None)
+                    result = self._retrying_transport(href, method, body)
                 except SatelliteError as exc:
                     if exc.provider_id is None:
                         exc.provider_id = self.id
@@ -624,44 +644,48 @@ class JaxaGPortal:
 
 
 class EarthSearch(StacProvider):
-    def __init__(self, transport: Transport | None = None):
+    def __init__(self, transport: Transport | None = None, **kwargs: Any):
         super().__init__(
             id="earth-search",
             base_url="https://earth-search.aws.element84.com/v1",
             collections=("sentinel-2-l2a", "landsat-c2-l2"),
             transport=transport,
+            **kwargs,
         )
 
 
 class PlanetaryComputer(StacProvider):
-    def __init__(self, transport: Transport | None = None):
+    def __init__(self, transport: Transport | None = None, **kwargs: Any):
         super().__init__(
             id="planetary-computer",
             base_url="https://planetarycomputer.microsoft.com/api/stac/v1",
             collections=("sentinel-2-l2a", "landsat-c2-l2"),
             transport=transport,
+            **kwargs,
         )
 
 
 class CopernicusDataSpace(StacProvider):
-    def __init__(self, transport: Transport | None = None):
+    def __init__(self, transport: Transport | None = None, **kwargs: Any):
         super().__init__(
             id="copernicus",
             base_url="https://stac.dataspace.copernicus.eu/v1",
             collections=("sentinel-2-l2a", "sentinel-1-grd"),
             transport=transport,
+            **kwargs,
         )
 
 
 class UsgsLandsatLook(StacProvider):
     """USGS LandsatLook STAC server. Server-side only: its CORS policy blocks other origins."""
 
-    def __init__(self, transport: Transport | None = None):
+    def __init__(self, transport: Transport | None = None, **kwargs: Any):
         super().__init__(
             id="usgs-landsatlook",
             base_url="https://landsatlook.usgs.gov/stac-server",
             collections=("landsat-c2l2-sr", "landsat-c2l2-st", "landsat-c2l1"),
             transport=transport,
+            **kwargs,
         )
 
 
@@ -669,7 +693,7 @@ class CmrStac(StacProvider):
     """NASA CMR-STAC, provider-scoped (e.g. "ASF", "USGS_LTA", "JAXA")."""
 
     def __init__(self, provider_id: str, collections: tuple[str, ...],
-                 transport: Transport | None = None):
+                 transport: Transport | None = None, **kwargs: Any):
         if not re.fullmatch(r"[A-Za-z0-9_-]+", provider_id):
             raise SatelliteError("INVALID_PROVIDER", "CMR provider id must be alphanumeric")
         super().__init__(
@@ -677,6 +701,7 @@ class CmrStac(StacProvider):
             base_url="https://cmr.earthdata.nasa.gov/stac/" + provider_id,
             collections=collections,
             transport=transport,
+            **kwargs,
         )
 
 

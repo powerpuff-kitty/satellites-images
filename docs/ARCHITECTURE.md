@@ -26,7 +26,7 @@ The *registry* is the canonical source of provider metadata. Run `npm run genera
 
 ## Not included
 
-Pixel downloads/reprojection, NDVI analysis, paywall purchases, predicted orbital passes, account management and an always-on tile backend are future work. A production use should add request throttling, durable caching and a provider-specific backoff policy.
+Pixel downloads/reprojection, NDVI analysis, paywall purchases, predicted orbital passes, account management and an always-on tile backend are future work. The SDKs expose an **opt-in retry/backoff policy** for STAC providers (retry transient HTTP 429/503, honouring `Retry-After`); an always-on service should still add request throttling, durable caching and source-health monitoring.
 
 ## Package compatibility
 

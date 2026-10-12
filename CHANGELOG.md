@@ -19,6 +19,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   Planetary Computer parity, in all three SDKs.
 - ASF SAR Search API adapter (keyword query, GeoJSON output) in all three SDKs.
 - JAXA G-Portal granule adapter (CSW 3.0.0 GET, GeoJSON) in all three SDKs.
+- Opt-in retry/backoff for transient HTTP 429/503 (honouring `Retry-After`) in the
+  STAC providers of all three SDKs, with recorded contract tests for 403, 429 and
+  expired-signed-URL / metadata-only responses (assets are recorded, never fetched,
+  and `access` stays `unknown`).
 - Historical availability summaries (UTC day/month counts with provenance and
   truncation status) in all three SDKs.
 - Explorer: availability calendar, month navigation, per-mission filter, shareable

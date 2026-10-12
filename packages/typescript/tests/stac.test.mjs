@@ -138,6 +138,42 @@ test("JAXA G-Portal granule adapter maps acquisition time and browse",async()=>{
   assert.equal(pages[0].items[0].previewUrl,"https://gportal.jaxa.jp/gpr/img/x.jpg");
   assert.throws(()=>jaxaGPortal({datasetId:"GCOM-C_SGLI_L2_SST_250m"}),e=>e.code==="INVALID_PROVIDER");
 });
+test("retries transient 429 responses and honours Retry-After",async()=>{
+  let calls=0;
+  const mock=async()=>{
+    calls+=1;
+    if(calls===1) return new Response("slow down",{status:429,headers:{"retry-after":"0"}});
+    return new Response(JSON.stringify({...sample,links:[]}),{status:200});
+  };
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock,retries:2,retryBaseDelayMs:1});
+  const pages=[]; for await(const p of provider.search(search)) pages.push(p);
+  assert.equal(calls,2);
+  assert.equal(pages.length,1);
+});
+test("a persistent 429 fails explicitly rather than an empty success",async()=>{
+  let calls=0;
+  const mock=async()=>{calls+=1;return new Response("rate limited",{status:429,headers:{"retry-after":"0"}});};
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock,retries:2,retryBaseDelayMs:1});
+  await assert.rejects(async()=>{for await(const _ of provider.search(search)){}},e=>e.code==="HTTP_ERROR");
+  assert.equal(calls,3,"initial attempt plus two retries");
+});
+test("a 403 metadata denial surfaces as an HTTP error, not empty results",async()=>{
+  const mock=async()=>new Response(JSON.stringify({code:403,description:"Forbidden"}),{status:403});
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock});
+  await assert.rejects(async()=>{for await(const _ of provider.search(search)){}},e=>e.code==="HTTP_ERROR");
+});
+test("expired-signed and metadata-only assets are recorded, never fetched",async()=>{
+  let calls=0;
+  const signed={...sample,links:[],features:[{...sample.features[0],
+    assets:{data:{href:"https://example.test/data.tif?token=expired&Signature=abc",roles:["data"],type:"image/tiff"}}}]};
+  const mock=async()=>{calls+=1;return new Response(JSON.stringify(signed),{status:200});};
+  const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock});
+  const pages=[]; for await(const p of provider.search(search)) pages.push(p);
+  const scene=pages[0].items[0];
+  assert.equal(scene.access,"unknown","asset entitlement is never assumed");
+  assert.ok(scene.assets[0].href.includes("token=expired"));
+  assert.equal(calls,1,"the SDK never fetches signed asset bytes");
+});
 test("STAC pagination, normalization, and precise acquisition times",async()=>{
   const calls=[];
   const mock=async (href, init) => {
