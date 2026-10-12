@@ -183,16 +183,17 @@ test("responsive viewport keeps the search form usable", async ({ page }) => {
 
 test("left tabs switch between historical and upcoming views", async ({ page }) => {
   await page.route("**/acquisition-plans", (route) => respond(route, { contentType: "text/html", body: "<html></html>" }));
+  await page.route("**/search", (route) => respond(route, { json: collection([stacScene("h1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await expect(page.locator("#timeline")).toBeVisible();
-  await expect(page.locator("#upcoming-timeline")).toBeHidden();
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#map-matrix")).toBeVisible();
   await page.locator("#tab-upcoming").click();
-  await expect(page.locator("#upcoming-timeline")).toBeVisible();
-  await expect(page.locator("#timeline")).toBeHidden();
   await expect(page.locator("#plans-results")).toBeVisible();
+  await expect(page.locator("#results")).toBeHidden();
   await expect(page.locator("#obs-title")).toHaveText(/Upcoming planned acquisitions/);
   await page.locator("#tab-historical").click();
-  await expect(page.locator("#timeline")).toBeVisible();
+  await expect(page.locator("#results")).toBeVisible();
 });
 
 test("planned ESA acquisitions are shown separately from published scenes", async ({ page }) => {
@@ -219,10 +220,8 @@ test("planned ESA acquisitions are shown separately from published scenes", asyn
   await expect(page.locator("#plans-results li")).toHaveCount(1);
   await expect(page.locator("#plans-results li")).toContainText(/planned/);
   await expect(page.locator("#upcoming-status")).toContainText(/planned datatake/);
-  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "Acquisition mode" })).toHaveCount(1);
-  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "NOBS" })).toHaveCount(1);
-  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "Relative orbit" })).toHaveCount(1);
-  await expect(page.locator("#upcoming-timeline .gantt-bar")).toHaveCount(1);
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="' + observation.slice(0, 10) + '"]')).toHaveCount(1);
 });
 
 test("upcoming view overlays published-so-far against planned", async ({ page }) => {
@@ -246,43 +245,48 @@ test("upcoming view overlays published-so-far against planned", async ({ page })
   await expect(page.locator("#results li")).toHaveCount(1);
   await page.locator("#tab-upcoming").click();
   await expect(page.locator("#plans-results li")).toHaveCount(1);
-  await expect(page.locator("#upcoming-timeline .timeline-caption").filter({ hasText: "Published so far vs planned" })).toHaveCount(1);
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator("#matrix-svg .matrix-cell").first()).toBeVisible();
 });
 
-test("the results header timeline plots per-day observations", async ({ page }) => {
+test("the day matrix plots one 8x8 px cell per day across the loaded year", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(3);
-  await expect(page.locator("#timeline .timeline-caption")).toHaveCount(4); // cloud, mission, provider, time-of-day
-  await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(1);
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
+  const sizes = await page.locator("#matrix-svg .matrix-cell")
+    .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
+  expect(sizes.length).toBe(31); // one cell per day of the loaded month
+  expect([...new Set(sizes)]).toEqual(["8x8"]);
 });
 
-test("timeline date labels sit below the axis line", async ({ page }) => {
+test("the matrix data links switch the metric it shows", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
-    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-20T02:00:00Z")], [], 2) }));
+    json: collection([stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await expect(page.locator("#results li")).toHaveCount(2);
-  const positions = await page.locator("#timeline svg").first().evaluate((svg) => {
-    const axis = svg.querySelector(".axis");
-    const tick = svg.querySelector(".tick");
-    return { axisY: Number(axis?.getAttribute("y1")), labelY: Number(tick?.getAttribute("y")) };
-  });
-  expect(positions.labelY).toBeGreaterThan(positions.axisY);
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "true");
+  await page.locator('.matrix-link[data-metric="mission"]').click();
+  await expect(page.locator('.matrix-link[data-metric="mission"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "false");
 });
 
-test("timeline bars are a fixed width and the chart scrolls horizontally", async ({ page }) => {
+test("matrix cells are 8x8 px and the matrix scrolls horizontally", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
-    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-11T02:00:00Z")], [], 2) }));
+    json: collection([stacScene("t1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
-  await expect(page.locator("#results li")).toHaveCount(2);
-  await expect(page.locator("#timeline .timeline-scroll")).toHaveCount(1);
-  const widths = await page.locator("#timeline .bar-group rect").evaluateAll((rects) => rects.map((r) => r.getAttribute("width")));
-  expect(widths.length).toBeGreaterThan(0);
-  expect([...new Set(widths)]).toEqual(["4"]);
+  await setRange(page, "2025-01-01", "2025-12-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator(".matrix-scroll")).toHaveCount(1);
+  const sizes = await page.locator("#matrix-svg .matrix-cell")
+    .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
+  expect(sizes.length).toBeGreaterThan(300);
+  expect([...new Set(sizes)]).toEqual(["8x8"]);
 });
 
 test("clicking a preview overlays the image on the map with prev/next navigation", async ({ page }) => {
@@ -335,20 +339,20 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(1);
   await page.locator("#clear-filters").click();
   await expect(page.locator("#results li")).toHaveCount(2);
-  await expect(page.locator("#timeline .timeline-caption")).toHaveCount(4);
-  await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(1);
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
 });
 
-test("clicking timeline bars selects the clicked day (does not deselect)", async ({ page }) => {
+test("clicking a matrix cell selects that day (does not deselect)", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("b1", "2025-03-10T02:00:00Z"), stacScene("b2", "2025-03-12T02:00:00Z")], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await expect(page.locator('#timeline .bar-group[data-day="2025-03-10"]').first()).toBeVisible();
-  await page.locator('#timeline .bar-group[data-day="2025-03-10"]').first().click();
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toBeVisible();
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
   await expect(page.locator(".day-cell.selected")).toHaveCount(1);
   await expect(page.locator(".day-cell.selected")).toHaveAttribute("aria-label", /2025-03-10/);
-  await page.locator('#timeline .bar-group[data-day="2025-03-12"]').first().click();
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-12"]').click();
   await expect(page.locator(".day-cell.selected")).toHaveCount(1);
   await expect(page.locator(".day-cell.selected")).toHaveAttribute("aria-label", /2025-03-12/);
 });

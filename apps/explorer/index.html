@@ -84,6 +84,17 @@
       <section class="map-container" aria-label="Interactive map">
         <div id="map"></div>
         <div class="map-label">SELECT ANY LOCATION ON THE MAP</div>
+        <div class="map-matrix" id="map-matrix" hidden>
+          <div class="matrix-links" id="matrix-links" role="group" aria-label="Choose what the day matrix shows">
+            <button class="matrix-link" type="button" data-metric="total" aria-pressed="true">Observations</button>
+            <button class="matrix-link" type="button" data-metric="cloud" aria-pressed="false">Cloud</button>
+            <button class="matrix-link" type="button" data-metric="mission" aria-pressed="false">Mission</button>
+            <button class="matrix-link" type="button" data-metric="provider" aria-pressed="false">Provider</button>
+          </div>
+          <div class="matrix-scroll">
+            <svg class="matrix-svg" id="matrix-svg" role="img" aria-label="Observations per day across the loaded year"></svg>
+          </div>
+        </div>
         <div class="map-preview" id="map-preview" hidden role="group" aria-label="Scene image preview on the map">
           <button id="preview-prev" class="map-preview-arrow" type="button" aria-label="Previous image"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
           <p id="preview-caption" class="map-preview-caption"></p>
@@ -98,23 +109,6 @@
             <span id="counter">—</span>
           </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
-          <div id="view-historical">
-            <figure class="timeline" id="timeline" aria-label="Stacked timelines: cloud cover, mission, provider and time of day, by day">
-              <figcaption>Loaded observations by day — cloud cover, mission, provider and time of day on a shared date axis.</figcaption>
-            </figure>
-            <div class="timeline-legend" aria-hidden="true">
-              <span class="lg"><i class="sw clear"></i>clear &lt;10%</span>
-              <span class="lg"><i class="sw part"></i>partial &lt;60%</span>
-              <span class="lg"><i class="sw cloud"></i>cloudy ≥60%</span>
-              <span class="lg"><i class="sw unknown"></i>no cloud metadata</span>
-              <span class="lg">mission/provider panels use distinct colours · click to select a day</span>
-            </div>
-          </div>
-          <div id="view-upcoming" hidden>
-            <figure class="timeline" id="upcoming-timeline" aria-label="Planned acquisitions by day and mission">
-              <figcaption>Planned datatakes by day (per mission) and time of day.</figcaption>
-            </figure>
-          </div>
         </header>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
         <ol id="plans-results" class="results" aria-label="Planned satellite acquisitions" hidden></ol>

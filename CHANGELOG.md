@@ -128,6 +128,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: clicking a scene **preview overlays the image on the map** (georeferenced via
   its footprint) so it pans/zooms with the map; **‹ / ›** arrows step through the loaded
   images. Replaces the full-screen lightbox.
+- Explorer: the stacked **timelines are replaced** by a GitHub-style **day matrix** at the
+  bottom of the map — one **8×8 px** cell per day across the loaded year, with small links
+  to switch the metric (observations / cloud / mission / provider).
 
 ## [0.2.0] - 2026-10-12
 

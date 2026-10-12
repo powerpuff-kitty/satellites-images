@@ -8,10 +8,10 @@ import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
   type Scene, type AcquisitionOpportunity } from "@powerpuff-kitty/satellites-images";
 import { renderDayCalendar, renderMonthStrip, shiftMonth, monthDates, asMonthLabel } from "./calendar.js";
 
-const element = <T extends HTMLElement>(id: string): T => {
+const element = <T extends Element>(id: string): T => {
   const item = document.getElementById(id);
   if (!item) throw new Error("Missing UI element " + id);
-  return item as T;
+  return item as unknown as T;
 };
 const lat = element<HTMLInputElement>("latitude");
 const lon = element<HTMLInputElement>("longitude");
@@ -42,7 +42,9 @@ const resolutionFilter = element<HTMLSelectElement>("resolution-filter");
 const hasPreview = element<HTMLInputElement>("has-preview");
 const includeUnknown = element<HTMLInputElement>("include-unknown");
 const clearFilters = element<HTMLButtonElement>("clear-filters");
-const timeline = element<HTMLElement>("timeline");
+const matrixPanel = element<HTMLElement>("map-matrix");
+const matrixLinks = element<HTMLElement>("matrix-links");
+const matrixSvg = element<SVGSVGElement>("matrix-svg");
 const mapPreview = element<HTMLElement>("map-preview");
 const previewCaption = element<HTMLElement>("preview-caption");
 const previewPrev = element<HTMLButtonElement>("preview-prev");
@@ -56,10 +58,7 @@ const panelHistorical = element<HTMLElement>("panel-historical");
 const panelUpcoming = element<HTMLElement>("panel-upcoming");
 const daysAhead = element<HTMLSelectElement>("days-ahead");
 const upcomingMission = element<HTMLSelectElement>("upcoming-mission");
-const upcomingTimeline = element<HTMLElement>("upcoming-timeline");
 const upcomingStatus = element<HTMLElement>("upcoming-status");
-const viewHistorical = element<HTMLElement>("view-historical");
-const viewUpcoming = element<HTMLElement>("view-upcoming");
 const obsTitle = element<HTMLElement>("obs-title");
 
 // In Vite development, /esa-proxy is served by a restricted HTTPS reverse proxy.
@@ -255,7 +254,7 @@ previewNext.addEventListener("click",()=>stepPreview(1));
 previewClose.addEventListener("click",closeMapPreview);
 document.addEventListener("keydown",(event)=>{ if(event.key==="Escape"&&!mapPreview.hidden)closeMapPreview(); });
 
-// --- Timeline: observations per day, stacked by cloud cover (readable at a glance) ---
+// --- Day classification (cloud classes + palette used by the day matrix) ------
 type CloudClass = "clear" | "partial" | "cloudy" | "unknown";
 const CLOUD_FILL: Record<CloudClass, string> = { clear:"#4fbf7a", partial:"#e0ae54", cloudy:"#9aa0a2", unknown:"#5b665b" };
 function cloudClassOf(percent: number | null): CloudClass {
@@ -282,173 +281,108 @@ function selectTimelineDay(day:string):void {
   fitToDay(day);
   storeSearchLink();
 }
-function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, dayMs:number, colW:number, padL:number, height:number, padB:number):void {
-  const labelIndices = new Set<number>([0, nDays - 1]);
-  for (let k = 1; k <= 3; k++) labelIndices.add(Math.round((nDays - 1) * k / 4));
-  for (const index of [...labelIndices].sort((a, b) => a - b)) {
-    const date = new Date(first + index * dayMs);
-    const label = document.createElementNS(NS, "text");
-    label.setAttribute("x", (padL + index * colW + colW / 2).toFixed(1));
-    label.setAttribute("y", String(height - padB + 10));
-    label.setAttribute("text-anchor", "middle");
-    label.setAttribute("class", "tick");
-    label.textContent = date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-    svg.append(label);
+// --- Year-at-a-glance day matrix (GitHub-style, 8x8 px cells) ------------------
+type MatrixMetric = "total" | "cloud" | "mission" | "provider";
+let matrixMetric:MatrixMetric = "total";
+let matrixItems:Scene[] = [];
+function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:string[]):string {
+  if(metric==="total"){
+    const alpha=0.22+0.78*Math.min(1,list.length/max);
+    return `rgba(79,191,122,${alpha.toFixed(2)})`;
   }
-}
-function timelineScrollRoot(figure:HTMLElement):HTMLElement {
-  const scroll=document.createElement("div");
-  scroll.className="timeline-scroll";
-  figure.append(scroll);
-  return scroll;
-}
-function renderTimeline(): void {
-  const scenes = loadedScenes.filter(passesFilters);
-  timeline.replaceChildren();
-  if (!scenes.length) {
-    const empty = document.createElement("figcaption");
-    empty.textContent = "No loaded observations match the current filters.";
-    timeline.append(empty);
-    return;
+  if(metric==="cloud"){
+    const classes=list.map((scene)=>cloudClassOf(scene.cloudCoverPercent));
+    if(classes.includes("clear"))return CLOUD_FILL.clear;
+    if(classes.includes("partial"))return CLOUD_FILL.partial;
+    if(classes.includes("cloudy"))return CLOUD_FILL.cloudy;
+    return CLOUD_FILL.unknown;
   }
-  const scroll = timelineScrollRoot(timeline);
-  renderTimelineBars(scroll, scenes, "cloud", "Cloud cover");
-  renderTimelineBars(scroll, scenes, "mission", "Mission");
-  renderTimelineBars(scroll, scenes, "provider", "Provider");
-  renderTimelineHeat(scroll, scenes, "Time of day (UTC)");
-}
-function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string, opts:{keyOf?:(s:Scene)=>string; colourOf?:(k:string)=>string; interactive?:boolean} = {}): void {
-  const NS = "http://www.w3.org/2000/svg";
-  const height = 82, padL = 28, padR = 8, padT = 6, padB = 14;
-  const H = height - padT - padB, dayMs = 86400000;
-  const dayPx = 6, barPx = 4;
-  const byDay = new Map<string, Map<string, number>>();
-  const totals = new Map<string, number>();
-  for (const scene of scenes) {
-    const day = scene.acquiredAt.slice(0, 10);
-    const key = opts.keyOf ? opts.keyOf(scene) : mode === "mission" ? (scene.mission || "unknown") : mode === "provider" ? scene.providerId : cloudClassOf(scene.cloudCoverPercent);
-    const m = byDay.get(day) ?? new Map<string, number>();
-    m.set(key, (m.get(key) ?? 0) + 1);
-    byDay.set(day, m);
-    totals.set(key, (totals.get(key) ?? 0) + 1);
+  const counts=new Map<string,number>();
+  for(const scene of list){
+    const key=metric==="mission"?(scene.mission||"unknown"):scene.providerId;
+    counts.set(key,(counts.get(key)??0)+1);
   }
-  const order = [...totals.keys()].sort((a, b) => (totals.get(b)! - totals.get(a)!));
-  const days = [...byDay.keys()].sort();
-  const first = Date.parse(days[0] + "T00:00:00Z");
-  const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
-  const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
-  const colW = dayPx;
-  const W = nDays * colW;
-  const width = padL + W + padR;
-  const maxCount = Math.max(...[...byDay.values()].map((m) => [...m.values()].reduce((a, b) => a + b, 0)));
-  const colourOf = (key:string):string => opts.colourOf ? opts.colourOf(key) :
-    mode === "cloud" ? (CLOUD_FILL[key as CloudClass] ?? "#9aa0a2") : SPLIT_PALETTE[order.indexOf(key) % SPLIT_PALETTE.length];
-  const caption = document.createElement("div");
-  caption.className = "timeline-caption";
-  caption.textContent = title + " · " + order.slice(0, 5).join(", ") + (order.length > 5 ? "…" : "");
-  container.append(caption);
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
-  svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", title + " by day");
-  const axis = document.createElementNS(NS, "line");
-  axis.setAttribute("x1", String(padL)); axis.setAttribute("x2", String(padL + W));
-  axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H)); axis.setAttribute("class", "axis");
-  svg.append(axis);
-  for (const day of days) {
-    const m = byDay.get(day)!;
-    const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
-    const x = padL + index * colW;
-    const group = document.createElementNS(NS, "g");
-    group.setAttribute("class", "bar-group"); group.setAttribute("data-day", day);
-    let baseline = padT + H;
-    for (const key of order) {
-      const n = m.get(key) ?? 0;
-      if (!n) continue;
-      const h = (n / maxCount) * H;
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("x", (x + (colW - barPx) / 2).toFixed(1));
-      rect.setAttribute("width", String(barPx));
-      rect.setAttribute("y", (baseline - h).toFixed(1));
-      rect.setAttribute("height", h.toFixed(1));
-      rect.setAttribute("fill", colourOf(key));
-      group.append(rect);
-      baseline -= h;
+  const top=[...counts.entries()].sort((a,b)=>b[1]-a[1])[0][0];
+  const index=Math.max(0,order.indexOf(top));
+  return SPLIT_PALETTE[index%SPLIT_PALETTE.length];
+}
+function renderMatrix():void {
+  const NS="http://www.w3.org/2000/svg";
+  matrixSvg.replaceChildren();
+  const scenes=matrixItems, metric=matrixMetric;
+  if(!scenes.length){ matrixPanel.hidden=true; return; }
+  matrixPanel.hidden=false;
+  const dayMs=86400000, cell=8, step=cell+1;
+  const dates=scenes.map((scene)=>scene.acquiredAt.slice(0,10))
+    .filter((date)=>/^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
+  const windowFrom=Date.parse(from.value+"T00:00:00Z");
+  const windowTo=Date.parse(to.value+"T00:00:00Z");
+  const dataFirst=dates.length?Date.parse(dates[0]+"T00:00:00Z"):NaN;
+  const dataLast=dates.length?Date.parse(dates[dates.length-1]+"T00:00:00Z"):NaN;
+  let first=Number.isFinite(windowFrom)?windowFrom:dataFirst;
+  let last=Number.isFinite(windowTo)?windowTo:dataLast;
+  if(Number.isFinite(dataFirst))first=Math.min(first,dataFirst);
+  if(Number.isFinite(dataLast))last=Math.max(last,dataLast);
+  const startDow=(new Date(first).getUTCDay()+6)%7;
+  const start=first-startDow*dayMs;
+  const nDays=Math.max(1,Math.round((last-start)/dayMs)+1);
+  const weeks=Math.ceil(nDays/7);
+  const width=weeks*step, height=7*step;
+  matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  matrixSvg.setAttribute("width",String(width));
+  matrixSvg.setAttribute("height",String(height));
+  const perDay=new Map<string,Scene[]>();
+  for(const scene of scenes){
+    const day=scene.acquiredAt.slice(0,10);
+    const list=perDay.get(day);
+    if(list)list.push(scene); else perDay.set(day,[scene]);
+  }
+  let max=1;
+  for(const list of perDay.values())max=Math.max(max,list.length);
+  const order:string[]=[];
+  if(metric==="mission"||metric==="provider"){
+    const totals=new Map<string,number>();
+    for(const scene of scenes){
+      const key=metric==="mission"?(scene.mission||"unknown"):scene.providerId;
+      totals.set(key,(totals.get(key)??0)+1);
     }
-    const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const tip = document.createElementNS(NS, "title");
-    tip.textContent = `${day} · ${total} obs · ` + [...m.entries()].map(([k, v]) => `${k} ${v}`).join(", ");
-    group.append(tip);
-    if (opts.interactive !== false) group.addEventListener("click", () => selectTimelineDay(day));
-    svg.append(group);
+    order.push(...[...totals.keys()].sort((a,b)=>totals.get(b)!-totals.get(a)!));
   }
-  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
-  container.append(svg);
-}
-function renderTimelineHeat(container:HTMLElement, scenes:Scene[], title:string): void {
-  const NS = "http://www.w3.org/2000/svg";
-  const height = 82, padL = 28, padR = 8, padT = 6, padB = 14;
-  const H = height - padT - padB, dayMs = 86400000, rows = 4;
-  const dayPx = 6;
-  const cells = new Map<string, number>();
-  const daySet = new Set<string>();
-  for (const scene of scenes) {
-    const day = scene.acquiredAt.slice(0, 10);
-    const row = Math.min(rows - 1, Math.floor(new Date(scene.acquiredAt).getUTCHours() / 6));
-    const key = day + "|" + row;
-    cells.set(key, (cells.get(key) ?? 0) + 1);
-    daySet.add(day);
-  }
-  const days = [...daySet].sort();
-  const first = Date.parse(days[0] + "T00:00:00Z");
-  const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
-  const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
-  const colW = dayPx, rowH = H / rows;
-  const W = nDays * colW;
-  const width = padL + W + padR;
-  const maxCell = Math.max(...[...cells.values()]);
-  const caption = document.createElement("div");
-  caption.className = "timeline-caption";
-  caption.textContent = title + " · 00–06 / 06–12 / 12–18 / 18–24 (bottom → top)";
-  container.append(caption);
-  const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
-  svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", title + " heatmap by day");
-  for (const day of days) {
-    const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
-    const x = padL + index * colW;
-    for (let row = 0; row < rows; row++) {
-      const n = cells.get(day + "|" + row) ?? 0;
-      if (!n) continue;
-      const y = padT + (rows - 1 - row) * rowH;
-      const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("class", "heat-cell");
-      rect.setAttribute("x", x.toFixed(1)); rect.setAttribute("y", y.toFixed(1));
-      rect.setAttribute("width", Math.max(1, colW).toFixed(1)); rect.setAttribute("height", rowH.toFixed(1));
-      rect.setAttribute("fill", `rgba(224,174,84,${(0.15 + 0.85 * (n / maxCell)).toFixed(2)})`);
-      svg.append(rect);
+  for(let d=0;d<nDays;d++){
+    const time=start+d*dayMs;
+    if(time<first||time>last)continue;
+    const day=new Date(time).toISOString().slice(0,10);
+    const list=perDay.get(day);
+    const rect=document.createElementNS(NS,"rect");
+    rect.setAttribute("class","matrix-cell");
+    rect.setAttribute("data-day",day);
+    rect.setAttribute("x",String(Math.floor(d/7)*step));
+    rect.setAttribute("y",String((d%7)*step));
+    rect.setAttribute("width",String(cell));
+    rect.setAttribute("height",String(cell));
+    rect.setAttribute("rx","1");
+    if(list){
+      rect.setAttribute("fill",matrixColourOf(list,metric,max,order));
+      const tip=document.createElementNS(NS,"title");
+      tip.textContent=day+" - "+list.length+" observation"+(list.length===1?"":"s");
+      rect.append(tip);
+      rect.addEventListener("click",()=>selectTimelineDay(day));
+    }else{
+      rect.setAttribute("fill","#1b211c");
     }
-    const hit = document.createElementNS(NS, "rect");
-    hit.setAttribute("class", "bar-group"); hit.setAttribute("data-day", day);
-    hit.setAttribute("x", x.toFixed(1)); hit.setAttribute("y", String(padT));
-    hit.setAttribute("width", Math.max(1, colW).toFixed(1)); hit.setAttribute("height", H.toFixed(1));
-    hit.setAttribute("fill", "transparent");
-    const tip = document.createElementNS(NS, "title"); tip.textContent = day; hit.append(tip);
-    hit.addEventListener("click", () => selectTimelineDay(day));
-    svg.append(hit);
+    matrixSvg.append(rect);
   }
-  const axis = document.createElementNS(NS, "line");
-  axis.setAttribute("x1", String(padL)); axis.setAttribute("x2", String(padL + W));
-  axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H)); axis.setAttribute("class", "axis");
-  svg.append(axis);
-  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height, padB);
-  container.append(svg);
+  matrixSvg.setAttribute("aria-label","Observations per day across the loaded year");
 }
+for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link")){
+  link.addEventListener("click",()=>{
+    matrixMetric=(link.dataset.metric as MatrixMetric) ?? "total";
+    for(const other of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
+      other.setAttribute("aria-pressed",String(other===link));
+    renderMatrix();
+  });
+}
+
 interface HistoryScan {
   controller:AbortController;
   accumulator:AvailabilityAccumulator;
@@ -611,7 +545,8 @@ function renderLoadedScenes():void {
   showMoreButton.hidden=visible.length<=displayedLimit;
   if(selectedDay)highlightScene(visible[0]);
   else highlightScene(undefined);
-  renderTimeline();
+  matrixItems=loadedScenes.filter(passesFilters);
+  renderMatrix();
 }
 function redrawAvailability():void {
   const full=currentSummary;
@@ -896,95 +831,6 @@ function plannedAsScenes(items:AcquisitionOpportunity[]):PlannedScene[] {
     mode:item.mode ?? null, orbitRelative:item.orbitRelative ?? null, endAt:item.endAt ?? null, status:item.status,
   }));
 }
-function renderDatatakeGantt(container:HTMLElement, items:AcquisitionOpportunity[], title:string):void {
-  const NS="http://www.w3.org/2000/svg";
-  const caption=document.createElement("div");
-  caption.className="timeline-caption";
-  if(!items.length){ caption.textContent=title+" · no planned datatakes"; container.append(caption); return; }
-  const withEnd=items.filter(i=>i.endAt && Date.parse(i.endAt)>Date.parse(i.expectedAt)).length;
-  caption.textContent=title+(withEnd<items.length?" · "+(items.length-withEnd)+" without an end time shown as a tick":"");
-  container.append(caption);
-  const width=Math.max(240, container.clientWidth || 320);
-  const missions=[...new Set(items.map(i=>i.mission||"unknown"))].sort();
-  const rowH=18, padL=28, padR=8, padT=6, padB=16;
-  const height=padT+missions.length*rowH+padB, W=width-padL-padR;
-  const startOf=(i:AcquisitionOpportunity)=>Date.parse(i.expectedAt);
-  const endOf=(i:AcquisitionOpportunity)=>i.endAt?Math.max(Date.parse(i.endAt),startOf(i)):startOf(i)+1800000;
-  const first=Math.min(...items.map(startOf)), last=Math.max(...items.map(endOf));
-  const span=Math.max(1,last-first);
-  const xOf=(t:number)=>padL+((t-first)/span)*W;
-  const svg=document.createElementNS(NS,"svg");
-  svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
-  svg.setAttribute("role","img");
-  svg.setAttribute("aria-label",title);
-  missions.forEach((mission,row)=>{
-    const y=padT+row*rowH;
-    for(const item of items){
-      if((item.mission||"unknown")!==mission) continue;
-      const x1=xOf(startOf(item)), x2=xOf(endOf(item));
-      const rect=document.createElementNS(NS,"rect");
-      rect.setAttribute("class","gantt-bar");
-      rect.setAttribute("x",x1.toFixed(1));
-      rect.setAttribute("y",(y+3).toFixed(1));
-      rect.setAttribute("width",Math.max(2,x2-x1).toFixed(1));
-      rect.setAttribute("height",(rowH-6).toFixed(1));
-      rect.setAttribute("fill",SPLIT_PALETTE[missions.indexOf(mission)%SPLIT_PALETTE.length]);
-      const tip=document.createElementNS(NS,"title");
-      tip.textContent=mission+" · "+new Date(startOf(item)).toISOString().slice(0,16).replace("T"," ")+"Z"+(item.mode?" · "+item.mode:"")+(item.orbitRelative!=null?" · orbit "+item.orbitRelative:"");
-      rect.append(tip);
-      svg.append(rect);
-    }
-    const label=document.createElementNS(NS,"text");
-    label.setAttribute("x",String(padL-4));
-    label.setAttribute("y",(y+rowH/2+3).toFixed(1));
-    label.setAttribute("text-anchor","end");
-    label.setAttribute("class","tick");
-    label.textContent=mission;
-    svg.append(label);
-  });
-  const axis=document.createElementNS(NS,"line");
-  axis.setAttribute("x1",String(padL)); axis.setAttribute("x2",String(padL+W));
-  axis.setAttribute("y1",String(height-padB)); axis.setAttribute("y2",String(height-padB));
-  axis.setAttribute("class","axis");
-  svg.append(axis);
-  for(let k=0;k<=3;k++){
-    const t=first+(span*k)/3;
-    const label=document.createElementNS(NS,"text");
-    label.setAttribute("x",xOf(t).toFixed(1));
-    label.setAttribute("y",String(height-3));
-    label.setAttribute("text-anchor",k===0?"start":k===3?"end":"middle");
-    label.setAttribute("class","tick");
-    label.textContent=new Date(t).toLocaleString(undefined,{month:"short",day:"numeric",hour:"2-digit",timeZone:"UTC"});
-    svg.append(label);
-  }
-  container.append(svg);
-}
-function renderPublishedVsPlanned(container:HTMLElement, published:Scene[], planned:PlannedScene[], title:string):void {
-  if(!published.length || !planned.length) return;
-  const combined:Scene[] = [
-    ...published.map((s)=>({ ...s, __kind:"published" } as Scene)),
-    ...planned.map((s)=>({ ...s, __kind:"planned" } as Scene)),
-  ];
-  renderTimelineBars(container, combined, "mission", title, {
-    keyOf:(s)=>String((s as Scene & { __kind?:string }).__kind ?? "other"),
-    colourOf:(k)=>k==="published" ? "#6fa8dc" : k==="planned" ? "#e2ae54" : "#9aa0a2",
-    interactive:false,
-  });
-}
-function renderUpcomingCharts(items:AcquisitionOpportunity[]):void {
-  upcomingTimeline.replaceChildren();
-  if(!items.length){ const empty=document.createElement("figcaption"); empty.textContent="No planned datatakes to plot."; upcomingTimeline.append(empty); return; }
-  const scroll=timelineScrollRoot(upcomingTimeline);
-  const scenes=plannedAsScenes(items);
-  renderPublishedVsPlanned(scroll, loadedScenes, scenes, "Published so far vs planned");
-  renderTimelineBars(scroll, scenes, "mission", "Mission");
-  renderTimelineBars(scroll, scenes, "mission", "Acquisition mode", { keyOf:(s)=>(s as PlannedScene).mode ?? "unknown" });
-  renderTimelineBars(scroll, scenes, "mission", "Relative orbit", { keyOf:(s)=>(s as PlannedScene).orbitRelative!=null ? "orbit "+(s as PlannedScene).orbitRelative : "unknown" });
-  renderDatatakeGantt(scroll, items, "Datatake windows (UTC)");
-  renderTimelineHeat(scroll, scenes, "Time of day (UTC)");
-}
 async function runUpcoming():Promise<void>{
   const token=++currentPlanSearch;
   plansResults.replaceChildren();
@@ -997,7 +843,8 @@ async function runUpcoming():Promise<void>{
     const mission=upcomingMission.value;
     const filtered=mission?planned.filter(p=>p.mission.startsWith(mission)):planned;
     displaySwaths(filtered);
-    renderUpcomingCharts(filtered);
+    matrixItems=plannedAsScenes(filtered);
+    renderMatrix();
     const list=document.createDocumentFragment();
     for(const item of filtered) list.append(makePlanned(item));
     plansResults.append(list);
@@ -1017,14 +864,12 @@ function setTab(tab:"historical"|"upcoming"):void{
   tabUpcoming.setAttribute("aria-selected",String(tab==="upcoming"));
   panelHistorical.hidden = tab!=="historical";
   panelUpcoming.hidden = tab!=="upcoming";
-  viewHistorical.hidden = tab!=="historical";
-  viewUpcoming.hidden = tab!=="upcoming";
   results.hidden = tab!=="historical";
   plansResults.hidden = tab!=="upcoming";
   if(tab!=="historical") showMoreButton.hidden=true;
   obsTitle.textContent = tab==="upcoming" ? "Upcoming planned acquisitions" : "Published observations";
   if(tab==="upcoming") void runUpcoming();
-  else counter.textContent = counter.textContent;
+  else { matrixItems=loadedScenes.filter(passesFilters); renderMatrix(); }
 }
 tabHistorical.addEventListener("click",()=>setTab("historical"));
 tabUpcoming.addEventListener("click",()=>setTab("upcoming"));

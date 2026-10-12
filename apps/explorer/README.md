@@ -53,28 +53,28 @@ new search.
 
 The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
 
-## Filters and timeline
+## Filters and the day matrix
 
 Client-side filters over the **loaded** results (instant, no new queries): **satellite**,
 **collection**, **cloud-cover range** (≥ / ≤), **hour range** (UTC from/to), **resolution**
 (≤10/20/30 m, when the provider exposes `gsd`), **has preview**, an **include
 unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result cards, the
-timeline and the calendar counts; the counter shows `filtered / total`.
+day matrix and the calendar counts; the counter shows `filtered / total`.
 
-The sticky header shows **all timelines stacked** on one shared date axis: daily bars
-split **by cloud cover**, **by mission** and **by provider**, plus a **time-of-day**
-heatmap (00–06 / 06–12 / 12–18 / 18–24). Click a bar or cell to select that day. Bars are a
-fixed **4 px wide** on the shared day scale, and the stacked charts sit in a pane that
-**scrolls horizontally** when the loaded period is wider than the panel. Cloud cover is
-scene-wide metadata, not per-AOI.
+The **day matrix** at the bottom of the map is a GitHub-style grid of **8×8 px** cells — one
+per day across the loaded year (columns = weeks, rows = weekdays). Small links above it
+choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
+the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
+**Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
+**scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide
+metadata, not per-AOI.
 
 ## Layout
 
 Published observations live in an independent, scrollable **right-hand panel** (the left
-controls and the map stay accessible). Its header is **sticky** and contains a **timeline
-chart** of the loaded observations: one **bar per day** (height = number of observations),
-**stacked by scene-wide cloud cover** (green <10%, amber <60%, grey ≥60%, dark = unknown).
-Click a bar to select that day. Clicking a scene **preview image overlays it on the map**
+controls and the map stay accessible). Its header is **sticky** and holds the result
+counter and status; the loaded observations are summarised by the **day matrix** at the
+bottom of the map (see above). Clicking a scene **preview image overlays it on the map**
 so you can pan/zoom with the map; the **‹ / ›** arrows step through the loaded images and
 **Esc** closes the overlay. The explorer loads **one year at a time** (twelve months) in
 **three-month chunks**: use the **month navigation above the calendar** (← / → and the month
