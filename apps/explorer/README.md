@@ -65,7 +65,8 @@ day matrix and the calendar counts; the counter shows `filtered / total`.
 The **day matrix** at the bottom of the map is a GitHub-style grid of **12×12 px** cells — one
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
-the grid has no gaps. Small links on one horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
+the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
+previous/next **year**. Small links on one horizontal row above it choose the metric: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
 **Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide
@@ -78,7 +79,11 @@ controls and the map stay accessible). Its header is **sticky** and holds the re
 counter and status; the loaded observations are summarised by the **day matrix** at the
 bottom of the map (see above). Clicking a scene **preview image overlays it on the map**
 so you can pan/zoom with the map; the **‹ / ›** arrows step through the loaded images and
-**Esc** closes the overlay. The explorer loads **one year at a time** in a **single
+**Esc** closes the overlay. Opening an image leaves the camera alone (no zoom change). The
+image is the best the source publishes — a provider **rendered tile set** where one exists
+(Planetary Computer's true-colour tiles, full resolution) or the largest **displayable
+preview** asset, overlaid on the footprint (Earth Search only publishes a fixed-size
+`preview.jpg`, so its quality is capped by the source). The explorer loads **one year at a time** in a **single
 request**: use the **month navigation above the calendar** (← / → and the month field) to
 move the visible month; stepping past the edge of what's loaded fetches the next year and
 appends it. Cloud cover is scene-wide metadata, not per-AOI.

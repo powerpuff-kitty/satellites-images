@@ -12,6 +12,7 @@ label { display:flex; flex-direction:column; gap:7px; color:#b2b7ae; font-size:1
 input, select { width:100%; min-width:0; border:1px solid #3b443b; background:#1c231e; color:#f1efe8; padding:10px; border-radius:0; font:inherit; color-scheme:dark; }
 input:focus-visible, select:focus-visible, button:focus-visible { outline:2px solid #e2ae54; outline-offset:2px; }
 button { display:flex; justify-content:space-between; align-items:center; width:100%; background:#e2ae54; color:#191b17; border:0; padding:13px 14px; cursor:pointer; border-radius:0; font-size:13px; font-weight:650; margin-top:6px; }
+button .fa-solid { display:block; line-height:1; }
 button:disabled { opacity:.5; cursor:progress; }
 .heading {display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px; border-top:1px solid #394037; padding-top:14px;}
 h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
@@ -61,7 +62,7 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 .month-navigation { display:grid; grid-template-columns:40px minmax(0,1fr) 40px; gap:8px; align-items:end; margin:12px 0 8px; }
 .month-navigation .month-field { min-width:0; }
 .month-navigation input { min-height:38px; }
-button.month-arrow { padding:0; display:grid; place-items:center; height:38px; width:40px; background:#252c25; border:1px solid #434d42; color:#edece6; font-size:17px; }
+button.month-arrow { padding:0; display:grid; place-items:center; height:40px; width:40px; background:#252c25; border:1px solid #434d42; color:#edece6; font-size:17px; }
 .month-strip { display:flex; gap:5px; overflow-x:auto; padding:3px 0 8px; scrollbar-width:thin; }
 button.month-pill {display:flex; align-items:center; flex-direction:column; justify-content:center; width:auto; min-width:78px; margin:0; padding:7px 8px; background:transparent; color:#a9b2a8; border:1px solid #363d35; font-size:10px; }
 .month-pill small {font-size:13px; font-weight:650; color:#d0d4cb; font-variant-numeric:tabular-nums;}
@@ -89,7 +90,8 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .check-label {flex-direction:row;align-items:center;gap:8px;font-size:11px;}
 .check-label input {width:auto;}
 .filters-unknown {margin:2px 0 12px;}
-.month-arrow .fa-solid, .map-preview-arrow .fa-solid, .map-preview-close .fa-solid { line-height:1; }
+/* Icon-only buttons: the glyph is a block, centred on both axes. */
+button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button { display:grid; place-items:center; place-content:center; line-height:1; }
 
 /* Published observations: independent, scrollable right-hand panel with a sticky header. */
 .observations { display:flex; flex-direction:column; overflow-y:auto; min-width:0; height:100vh; border-left:1px solid #353c35; padding:0 20px 24px; }
@@ -105,6 +107,11 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .matrix-link { background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .matrix-link[aria-pressed="true"] { color:#e2ae54; font-weight:600; }
 .matrix-link:hover { color:#edece6; }
+/* Year stepper sits outside the panel, to its left, arrows stacked vertically. */
+.matrix-year-nav { position:absolute; top:0; right:calc(100% + 8px); display:flex; flex-direction:column; gap:6px; }
+.matrix-year-button { display:grid; place-items:center; width:30px; height:30px; margin:0; padding:0; background:#111512e6; color:#edece6; border:1px solid #4a5348; border-radius:0; font-size:12px; cursor:pointer; }
+.matrix-year-button:hover { background:#1c231e; border-color:#8dd7c1; }
+.matrix-year-button .fa-solid { line-height:1; }
 .matrix-scroll { max-width:100%; overflow-x:auto; padding-bottom:2px; scrollbar-width:thin; }
 .matrix-svg { display:block; }
 .matrix-cell { cursor:pointer; }
@@ -112,6 +119,6 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 
 /* Full-screen image preview. */
 .map-preview { position:absolute; z-index:4; top:14px; left:0; right:0; display:flex; align-items:center; justify-content:center; gap:8px; pointer-events:none; }
-.map-preview-arrow, .map-preview-close { pointer-events:auto; display:inline-grid; place-items:center; width:36px; height:36px; margin:0; padding:0; background:#111512e6; color:#edece6; border:1px solid #4a5348; border-radius:999px; font-size:15px; cursor:pointer; }
+.map-preview-arrow, .map-preview-close { pointer-events:auto; display:inline-grid; place-items:center; width:36px; height:36px; margin:0; padding:0; background:#111512e6; color:#edece6; border:1px solid #4a5348; border-radius:0; font-size:15px; cursor:pointer; }
 .map-preview-arrow:hover, .map-preview-close:hover { background:#1c231e; border-color:#8dd7c1; }
 .map-preview-caption { pointer-events:auto; margin:0; background:#111512e6; color:#e8e6dd; border:1px solid #394037; padding:8px 12px; font-size:11px; letter-spacing:.03em; }

@@ -5,7 +5,7 @@ import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
   AvailabilityAccumulator, type AvailabilitySummary,
-  type Scene, type AcquisitionOpportunity } from "@powerpuff-kitty/satellites-images";
+  type Scene, type SceneAsset, type AcquisitionOpportunity } from "@powerpuff-kitty/satellites-images";
 import { renderDayCalendar, renderMonthStrip, shiftMonth, monthDates, asMonthLabel } from "./calendar.js";
 
 const element = <T extends Element>(id: string): T => {
@@ -45,6 +45,8 @@ const clearFilters = element<HTMLButtonElement>("clear-filters");
 const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
+const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
+const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
 const previewCaption = element<HTMLElement>("preview-caption");
 const previewPrev = element<HTMLButtonElement>("preview-prev");
@@ -155,9 +157,10 @@ function makeScene(scene: Scene): HTMLLIElement {
     inspect.addEventListener("click",()=>highlightScene(scene));
     item.append(inspect);
   }
-  if (scene.previewUrl) {
+  const previewHref = previewUrlFor(scene);
+  if (previewHref) {
     try {
-      const url = new URL(scene.previewUrl);
+      const url = new URL(previewHref);
       if (url.protocol === "https:") {
         const image = document.createElement("img");
         image.src = url.toString();
@@ -198,6 +201,27 @@ function makeScene(scene: Scene): HTMLLIElement {
 let previewScenes:Scene[]=[];
 let previewIndex=0;
 type PreviewCorner=[number,number];
+const DISPLAYABLE_IMAGE=/^image\/(jpeg|png|webp|avif)$/i;
+const RASTER_EXTENSION=/\.(jpe?g|png|webp|avif)(\?|#|$)/i;
+const PREVIEW_PRIORITY=["rendered_preview","overview","visual","preview","thumbnail"];
+function isDisplayable(asset:SceneAsset):boolean {
+  return (asset.type!==null&&DISPLAYABLE_IMAGE.test(asset.type))||RASTER_EXTENSION.test(asset.href);
+}
+/** The best displayable still image the provider exposes for a scene. */
+function previewUrlFor(scene:Scene):string|null {
+  const candidates=scene.assets.filter(isDisplayable);
+  if(!candidates.length)return scene.previewUrl;
+  const rank=(asset:SceneAsset)=>{
+    const keys=[asset.key,...asset.roles].map((value)=>value.toLowerCase());
+    const found=PREVIEW_PRIORITY.findIndex((name)=>keys.includes(name));
+    return found<0?PREVIEW_PRIORITY.length:found;
+  };
+  return [...candidates].sort((a,b)=>rank(a)-rank(b))[0].href;
+}
+/** A provider-rendered tile set (e.g. Planetary Computer) at full resolution. */
+function tileUrlFor(scene:Scene):string|null {
+  return scene.assets.find((asset)=>asset.roles.includes("tiles"))?.href??null;
+}
 function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCorner,PreviewCorner] {
   const box=Array.isArray(scene.bbox)&&scene.bbox.length===4?scene.bbox as number[]:null;
   if(box&&box.every((value)=>Number.isFinite(value))){
@@ -216,17 +240,20 @@ function removePreviewLayer():void {
 }
 function showMapPreview(index:number):void {
   const scene=previewScenes[index];
-  const url=scene?.previewUrl;
-  if(!scene||!url){ closeMapPreview(); return; }
+  const image=scene?previewUrlFor(scene):null;
+  const tiles=scene?tileUrlFor(scene):null;
+  if(!scene||(!image&&!tiles)){ closeMapPreview(); return; }
   previewIndex=index;
   const coordinates=previewCoordinates(scene);
   const apply=()=>{
     removePreviewLayer();
-    map.addSource("scene-preview",{type:"image",url,coordinates});
+    // A provider tile set renders the true-colour image at full resolution; otherwise
+    // overlay the best still preview, georeferenced to the scene footprint. The map
+    // zoom is left untouched so the view does not jump when an image is opened.
+    if(tiles)map.addSource("scene-preview",{type:"raster",url:tiles,tileSize:256});
+    else map.addSource("scene-preview",{type:"image",url:image as string,coordinates});
     map.addLayer({id:"scene-preview-layer",type:"raster",source:"scene-preview",
       paint:{"raster-opacity":0.96}});
-    try{ map.fitBounds([[coordinates[0][0],coordinates[3][1]],[coordinates[2][0],coordinates[1][1]]],{padding:70,maxZoom:14}); }
-    catch { /* degenerate bounds */ }
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
   previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
@@ -243,7 +270,7 @@ function stepPreview(delta:number):void {
   showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
 }
 function openScenePreview(scene:Scene):void {
-  const withPreviews=loadedScenes.filter((candidate)=>Boolean(candidate.previewUrl));
+  const withPreviews=loadedScenes.filter((candidate)=>Boolean(previewUrlFor(candidate)??tileUrlFor(candidate)));
   const index=withPreviews.indexOf(scene);
   if(index<0)return;
   previewScenes=withPreviews;
@@ -378,6 +405,21 @@ for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"
     renderMatrix();
   });
 }
+// Year stepper: shift the whole loaded window a year back or forward and re-search.
+function shiftWindowYear(delta:number):void {
+  const shift=(value:string):string=>{
+    const date=new Date(value+"T00:00:00Z");
+    if(!Number.isFinite(date.getTime()))return value;
+    date.setUTCFullYear(date.getUTCFullYear()+delta);
+    return date.toISOString().slice(0,10);
+  };
+  from.value=shift(from.value);
+  to.value=shift(to.value);
+  calendarMonth.value=windowMonth();
+  void runSearch();
+}
+matrixPrevYear.addEventListener("click",()=>shiftWindowYear(-1));
+matrixNextYear.addEventListener("click",()=>shiftWindowYear(1));
 
 interface HistoryScan {
   controller:AbortController;

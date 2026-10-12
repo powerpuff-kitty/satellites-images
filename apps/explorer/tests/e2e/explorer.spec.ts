@@ -312,6 +312,39 @@ test("matrix cells are 12x12 px and the matrix scrolls horizontally", async ({ p
   expect([...new Set(sizes)]).toEqual(["12x12"]);
 });
 
+test("the matrix year arrows load the previous/next year", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, {
+    json: collection([stacScene("y1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-01-01", "2025-12-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator("#date-from")).toHaveValue("2025-01-01");
+  await page.locator("#matrix-next-year").click();
+  await expect(page.locator("#date-from")).toHaveValue("2026-01-01");
+  await expect(page.locator("#date-to")).toHaveValue("2026-12-31");
+  await page.locator("#matrix-prev-year").click();
+  await expect(page.locator("#date-from")).toHaveValue("2025-01-01");
+  await expect(page.locator("#date-to")).toHaveValue("2025-12-31");
+});
+
+test("icon-only buttons centre their glyph", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("i1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  for (const id of ["#matrix-prev-year", "#matrix-next-year", "#previous-month", "#next-month"]) {
+    const box = (await page.locator(id).boundingBox())!;
+    const glyph = (await page.locator(id + " .fa-solid").boundingBox())!;
+    expect(Math.abs((glyph.x + glyph.width / 2) - (box.x + box.width / 2))).toBeLessThan(1.5);
+    expect(Math.abs((glyph.y + glyph.height / 2) - (box.y + box.height / 2))).toBeLessThan(1.5);
+    expect(Math.round(box.width)).toBe(Math.round(box.height)); // square
+  }
+  // Square corners, not pills.
+  expect(await page.locator("#matrix-next-year").evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe("0px");
+  expect(await page.locator("#preview-next").evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe("0px");
+});
+
 test("clicking a preview overlays the image on the map with prev/next navigation", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
@@ -320,6 +353,7 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results img")).toHaveCount(2);
+  const zoomBefore = Number(new URL(page.url()).searchParams.get("zoom"));
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
   const firstCaption = (await page.locator("#preview-caption").textContent()) ?? "";
@@ -328,8 +362,43 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   await expect(page.locator("#preview-caption")).not.toHaveText(firstCaption);
   await page.locator("#preview-prev").click();
   await expect(page.locator("#preview-caption")).toHaveText(firstCaption);
+  // Opening (and stepping through) images must not move the camera.
+  await page.waitForTimeout(250);
+  expect(Number(new URL(page.url()).searchParams.get("zoom"))).toBe(zoomBefore);
   await page.keyboard.press("Escape");
   await expect(page.locator("#map-preview")).toBeHidden();
+});
+
+test("the card and map preview prefer a higher-resolution provider asset", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  const scene = stacScene("hq", "2025-03-10T02:00:00Z");
+  // A rendered preview (overview role) should win over the small thumbnail.
+  scene.assets.rendered_preview = { href: "https://example.test/rendered-hq.png", roles: ["overview"], type: "image/png" };
+  await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await expect(page.locator("#results img")).toHaveAttribute("src", /rendered-hq\.png/);
+});
+
+test("a provider tile set is used when the scene exposes one", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  let tilejsonRequests = 0;
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("https://example.test/tilejson.json**", (route) => {
+    tilejsonRequests += 1;
+    return respond(route, { json: { tiles: ["https://example.test/tiles/{z}/{x}/{y}.png"], tileSize: 256, minzoom: 0, maxzoom: 14 } });
+  });
+  const scene = stacScene("tiled", "2025-03-10T02:00:00Z");
+  scene.assets.tilejson = { href: "https://example.test/tilejson.json?item=tiled", roles: ["tiles"], type: "application/json" };
+  await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await page.locator("#results img").first().click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  await expect.poll(() => tilejsonRequests).toBeGreaterThan(0);
 });
 
 test("cloud-cover and hour filters narrow the loaded results", async ({ page }) => {

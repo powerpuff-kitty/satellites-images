@@ -143,6 +143,13 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: clicking a day-matrix cell selects the day **without changing the map zoom**;
   the zoom is stored in the URL (`zoom`) and restored from it, and the URL updates on every
   map move.
+- Explorer: opening a scene image **no longer moves the camera**, and previews now use the
+  best the source publishes — a provider **rendered tile set** (Planetary Computer
+  `tilejson`, full resolution) when present, otherwise the largest **displayable** preview
+  asset instead of the thumbnail.
+- Explorer: the day matrix gained a vertical **‹ / › year stepper** to its left (outside the
+  panel) that shifts the whole window one year; icon-only buttons **centre their glyph** and
+  are **square** (no pill corners).
 
 ## [0.2.0] - 2026-10-12
 
