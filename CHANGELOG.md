@@ -138,6 +138,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   window) so the grid has no gaps, and the metric links sit on **one horizontal row**.
 - Explorer: day-matrix cells are **12×12 px**; the form now defaults to the **full current
   calendar year** (Jan 1 – Dec 31) and the calendar opens on the current month.
+- Explorer: the day-matrix container now **fits the grid** (shrink-to-fit, capped to the map
+  width) and its metric links are **left-aligned**.
 
 ## [0.2.0] - 2026-10-12
 

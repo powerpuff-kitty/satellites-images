@@ -281,10 +281,16 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   await page.locator('.matrix-link[data-metric="mission"]').click();
   await expect(page.locator('.matrix-link[data-metric="mission"]')).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "false");
-  // The data links sit on one horizontal row above the matrix.
+  // The data links sit on one horizontal row, aligned to the container's left edge.
   const tops = await page.locator(".matrix-links .matrix-link")
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
+  const linkLefts = await page.locator(".matrix-links .matrix-link")
+    .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left));
+  const matrixBox = (await page.locator("#map-matrix").boundingBox())!;
+  const mapBox = (await page.locator(".map-container").boundingBox())!;
+  expect(Math.min(...linkLefts) - matrixBox.x).toBeLessThan(20);
+  expect(matrixBox.width).toBeLessThanOrEqual(mapBox.width - 20);
 });
 
 test("matrix cells are 12x12 px and the matrix scrolls horizontally", async ({ page }) => {
