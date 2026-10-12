@@ -51,7 +51,19 @@ export interface AcquisitionOpportunity {
   sourceUrl: string;
   footprint?: Record<string, unknown> | null;
 }
-export type SourceRecord = (typeof registry.sources)[number];
+export interface SourceRecord {
+  id: string;
+  name: string;
+  type: string;
+  url: string | null;
+  docs: string;
+  searchAccess: string;
+  imageryAccess: string;
+  scheduled: string;
+  collections: string[];
+  implemented: { typescript: boolean; python: boolean; rust: boolean };
+  notes: string;
+}
 
 export class SatelliteError extends Error {
   constructor(public readonly code: string, message: string, public readonly providerId?: string) {
