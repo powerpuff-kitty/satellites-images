@@ -722,7 +722,7 @@ class PlanetaryComputer(StacProvider):
         super().__init__(
             id="planetary-computer",
             base_url="https://planetarycomputer.microsoft.com/api/stac/v1",
-            collections=("sentinel-2-l2a", "landsat-c2-l2"),
+            collections=("sentinel-2-l2a", "landsat-c2-l2", "sentinel-1-rtc", "naip"),
             transport=transport,
             **kwargs,
         )

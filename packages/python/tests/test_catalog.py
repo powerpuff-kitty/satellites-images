@@ -1,7 +1,7 @@
 import unittest
 
 from satellites_images import (
-    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, SatelliteCatalog, SatelliteError,
+    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, PlanetaryComputer, SatelliteCatalog, SatelliteError,
     SearchQuery, UsgsLandsatLook, to_json,
     bounds_around, coverage_percent, list_sources,
     polygon_boxes, radius_boxes, resolve_areas,
@@ -223,6 +223,17 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(pages[0].items[0].preview_url, "https://example.test/thumb.jpg")
         self.assertEqual(seen[1][2]["token"], "page2")
         self.assertIn("bbox", seen[1][2])
+
+    def test_planetary_computer_queries_radar_and_aerial_collections(self):
+        seen = []
+        def mock(url, method, body):
+            seen.append(dict(body or {}))
+            return {"type": "FeatureCollection", "features": [], "links": []}
+        list(SatelliteCatalog([PlanetaryComputer(transport=mock)]).search(self.query))
+        self.assertEqual(
+            seen[0]["collections"],
+            ["sentinel-2-l2a", "landsat-c2-l2", "sentinel-1-rtc", "naip"],
+        )
 
     def test_thumbnail_link_fallback_for_non_http_assets(self):
         item = {

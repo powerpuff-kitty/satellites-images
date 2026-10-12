@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -259,4 +259,12 @@ test("a truncated antimeridian box marks the split search incomplete",async()=>{
   const summary=summarizeAvailability(pages);
   assert.equal(summary.complete,false,"a split query that truncates must not report complete");
   assert.deepEqual(summary.truncatedProviders,["earth-search"]);
+});
+
+test("planetary computer also queries the radar and aerial collections",async()=>{
+  let body=null;
+  const mock=async(_href,init)=>{ body=JSON.parse(init.body); return new Response(JSON.stringify({type:"FeatureCollection",features:[],links:[]}),{status:200}); };
+  const catalog=new SatelliteCatalog([planetaryComputer(mock)]);
+  for await(const _ of catalog.search(search)){ /* drain */ }
+  assert.deepEqual(body.collections,["sentinel-2-l2a","landsat-c2-l2","sentinel-1-rtc","naip"]);
 });

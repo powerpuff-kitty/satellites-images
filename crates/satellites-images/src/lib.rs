@@ -1149,6 +1149,13 @@ mod tests {
         assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/preview.png"));
     }
     #[test]
+    fn query_accepts_radar_and_aerial_collections() {
+        // Collections live on the query in Rust, so callers opt in per search.
+        let mut query = SearchQuery::new(0.0, 0.0, 1000.0, "2025-01-01", "2025-01-31").unwrap();
+        query.collections = vec!["sentinel-1-rtc".into(), "naip".into()];
+        assert!(query.validate().is_ok());
+    }
+    #[test]
     fn stac_preview_falls_back_to_thumbnail_link() {
         let fixture = json!({
             "id": "LC09_1", "collection": "landsat-c2-l2",

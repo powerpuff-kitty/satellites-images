@@ -204,7 +204,9 @@
       "scheduled": "no",
       "collections": [
         "sentinel-2-l2a",
-        "landsat-c2-l2"
+        "landsat-c2-l2",
+        "sentinel-1-rtc",
+        "naip"
       ],
       "implemented": {
         "typescript": true,

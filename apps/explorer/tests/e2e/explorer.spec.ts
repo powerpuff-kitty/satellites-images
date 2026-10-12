@@ -448,6 +448,36 @@ test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", a
   await expect.poll(() => requested.some((u) => u.includes("tilejson"))).toBe(true);
 });
 
+test("a radar scene renders its tile set and is listed in the collection filter", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => {
+    const url = route.request().url();
+    return url.includes("tilejson")
+      ? respond(route, { json: { tiles: ["https://example.test/t/{z}/{x}/{y}.png"], minzoom: 0, maxzoom: 20, tileSize: 256 } })
+      : route.fulfill({ contentType: "image/png", body: png });
+  });
+  const scene = {
+    type: "Feature", id: "S1A_IW_rtc", collection: "sentinel-1-rtc",
+    geometry: { type: "Polygon", coordinates: [[[116.0, -8.7], [116.3, -8.7], [116.3, -8.4], [116.0, -8.4], [116.0, -8.7]]] },
+    bbox: [116.0, -8.7, 116.3, -8.4],
+    properties: { datetime: "2025-03-10T02:00:00Z", platform: "sentinel-1c" },
+    assets: {
+      tilejson: { href: "https://example.test/s1/tilejson.json", roles: ["tiles"], type: "application/json" },
+      thumbnail: { href: "https://example.test/s1-thumb.png", roles: ["thumbnail"], type: "image/png" },
+    },
+  };
+  await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#collection-filter option", { hasText: "sentinel-1-rtc" })).toHaveCount(1);
+  await page.locator("#results img").click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  // Radar has no cloud cover, so the cloud metric reports "no cloud metadata" for that day.
+  await page.locator('.matrix-link[data-metric="cloud"]').click();
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveAttribute("fill", "#5b665b");
+});
+
 test("a provider tile set is used when the scene exposes one", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   let tilejsonRequests = 0;

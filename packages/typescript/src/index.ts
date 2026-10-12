@@ -526,7 +526,7 @@ export function earthSearch(fetchImpl?: typeof fetch): StacProvider {
 export function planetaryComputer(fetchImpl?: typeof fetch): StacProvider {
   return new StacProvider({
     id:"planetary-computer", baseUrl:"https://planetarycomputer.microsoft.com/api/stac/v1",
-    collections:["sentinel-2-l2a","landsat-c2-l2"], fetchImpl,
+    collections:["sentinel-2-l2a","landsat-c2-l2","sentinel-1-rtc","naip"], fetchImpl,
   });
 }
 /** Copernicus Data Space Ecosystem STAC (anonymous metadata; assets are account-gated). */

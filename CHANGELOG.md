@@ -160,6 +160,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   legend** under the grid, each label starting at the week column its month begins in, and padding days outside the window no longer paint a dark block.
 - Explorer: the source-code link sits at the **bottom** of the left panel and its divider is
   removed.
+- SDKs: the Planetary Computer provider now also queries **`sentinel-1-rtc`** (radar) and
+  **`naip`** (0.6 m aerial, US) alongside Sentinel-2 and Landsat, so radar and house-scale
+  imagery can be searched and rendered (Planetary Computer exposes CORS tile sets for both).
+  In Rust the collections live on the query, so callers opt in per search.
 - SDKs (TS/Python/Rust): **Landsat previews now resolve** — `previewUrl` prefers an http(s)
   preview asset and falls back to the STAC item's **`thumbnail` link**, which Earth Search
   serves for Landsat (whose asset hrefs are `s3://` requester-pays). The explorer likewise
