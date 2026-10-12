@@ -102,6 +102,10 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .timeline-legend .sw { width:9px; height:9px; border-radius:50%; display:inline-block; }
 .timeline-legend .sw.clear { background:#4fbf7a; } .timeline-legend .sw.part { background:#e0ae54; }
 .timeline-legend .sw.cloud { background:#9aa0a2; } .timeline-legend .sw.unknown { background:#5b665b; }
+.timeline-nav { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; margin:10px 0 2px; }
+.timeline-nav button { width:auto; margin:0; padding:6px 10px; font-size:11px; background:#252c25; border:1px solid #434d42; color:#edece6; justify-content:center; }
+.timeline-nav button:hover:not(:disabled) { background:#2c352c; border-color:#5a6558; }
+.timeline-nav #window-label { text-align:center; }
 
 /* Full-screen image preview. */
 .lightbox { position:fixed; inset:0; z-index:20; background:#05070599; display:flex; align-items:center; justify-content:center; padding:24px; }

@@ -41,4 +41,6 @@ controls and the map stay accessible). Its header is **sticky** and contains a *
 chart** of the loaded observations: one **bar per day** (height = number of observations),
 **stacked by scene-wide cloud cover** (green <10%, amber <60%, grey ≥60%, dark = unknown).
 Click a bar to select that day. Clicking a scene **preview image opens a full-screen
-lightbox** (Esc closes it). Cloud cover is scene metadata, not per-AOI.
+lightbox** (Esc closes it). Use **◀ earlier / later ▶** to move the whole search window
+one period back or forward (each step issues one new bounded query, with stale results
+discarded). Cloud cover is scene metadata, not per-AOI.

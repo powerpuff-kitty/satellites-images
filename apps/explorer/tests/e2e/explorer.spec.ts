@@ -214,3 +214,19 @@ test("clicking a preview opens a full-screen lightbox and Escape closes it", asy
   await page.keyboard.press("Escape");
   await expect(page.locator("#lightbox")).toBeHidden();
 });
+
+test("the search window steps back in time", async ({ page }) => {
+  const months: string[] = [];
+  await page.route("**/search", (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    months.push(String(body.datetime ?? "").slice(0, 7));
+    return respond(route, { json: collection([], [], 0) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect.poll(() => months.at(-1)).toBe("2025-03");
+  await page.locator("#window-back").click();
+  await expect.poll(() => months.at(-1)).toBe("2025-01");
+  await expect(page.locator("#window-label")).toContainText("2025-02-28");
+});

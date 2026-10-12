@@ -94,6 +94,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   header; added an observation **timeline** (per-day bars stacked by cloud cover), a
   **full-screen image preview** on click, image error handling, and removed the eyebrow;
   scene `gsdMeters` is exposed by the SDK.
+- Explorer: added **search-window steppers** (◀ earlier / later ▶) to move the whole
+  query window one period back/forward in time (one bounded, cancellable query per step).
 
 ## [0.2.0] - 2026-10-12
 
