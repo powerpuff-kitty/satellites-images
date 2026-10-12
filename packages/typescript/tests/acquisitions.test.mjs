@@ -1,0 +1,76 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml, boundsAround,
+  SatelliteCatalog, earthSearch } from "../dist/index.js";
+
+const origin="https://sentinels.copernicus.eu/documents/d/sentinel/";
+const s2=origin+"s2b_mp_acq__kml_20261008t120000_20261026t150000";
+const oldS2=origin+"s2b_mp_acq__kml_20260924t120000_20261012t150000";
+const s1=origin+"s1c_mp_user_20261012t173841_20261103t194800";
+const index='<html><a href="'+oldS2+'">old</a><a href="'+s2+'">new</a>'+
+  '<a href="'+s1+'">S1</a><a href="https://evil.test/documents/d/sentinel/s2a_mp_acq__kml_20261012t120000_20261028t120000">external</a></html>';
+const matching="-8.7,116.0,0 -8.4,116.0,0 -8.4,116.3,0 -8.7,116.3,0 -8.7,116.0,0";
+const outside="1,1,0 2,1,0 2,2,0 1,2,0 1,1,0";
+const placemark=(name,style,coords,date="2026-10-15T02:12:00.000") =>
+  '<Placemark><name>'+name+'</name><styleUrl>'+style+'</styleUrl><ExtendedData>'+
+  '<Data name="ObservationTimeStart"><value>'+date+'</value></Data>'+
+  '<Data name="ObservationTimeStop"><value>2026-10-15T02:14:00.000</value></Data>'+
+  '<Data name="OrbitRelative"><value>47</value></Data>'+
+  '<Data name="Mode"><value>NOBS</value></Data></ExtendedData>'+
+  '<Polygon><outerBoundaryIs><LinearRing><coordinates>'+coords+'</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark>';
+const kml='<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'+
+  placemark('123-1','S2B_NOBS_NOMINAL',matching)+
+  placemark('calibration','S2B_VIC',matching)+
+  placemark('far-away','S2B_NOBS_NOMINAL',outside)+
+  '</Document></kml>';
+const s1kml='<kml xmlns="http://www.opengis.net/kml/2.2"><Document>'+
+  placemark('127-4','S1C_IW',matching)+'</Document></kml>';
+
+test("extract official latest plan metadata without trusting external hrefs",()=>{
+  const plans=parseESAPlanIndex(index);
+  assert.equal(plans.length,3);
+  assert.ok(plans.some(p=>p.mission==="S2B"&&p.url===s2));
+  assert.ok(plans.some(p=>p.mission==="S1C"));
+  assert.ok(!plans.some(p=>p.mission==="S2A"));
+});
+test("parse real-shaped ExtendedData and ignore calibration/out-of-bounds strips",()=>{
+  const plan=parseESAPlanIndex(index).find(p=>p.url===s2);
+  const results=parseESAPlanKml(kml,plan,boundsAround(-8.5833,116.1167,5000),
+    Date.parse("2026-10-12"),Date.parse("2026-10-20"));
+  assert.equal(results.length,1);
+  assert.equal(results[0].mission,"S2B");
+  assert.equal(results[0].status,"planned");
+  assert.equal(results[0].expectedAt,"2026-10-15T02:12:00.000Z");
+  assert.equal(results[0].orbitRelative,47);
+  assert.equal(results[0].footprint.type,"Polygon");
+});
+test("future adapter selects newest plan per satellite with bounded queries",async()=>{
+  const calls=[];
+  const mock=async(url)=>{
+    calls.push(url);
+    if(url.endsWith("/acquisition-plans")) return new Response(index,{status:200});
+    if(url===s2) return new Response(kml,{status:200});
+    if(url===s1) return new Response(s1kml,{status:200});
+    throw Error("Unexpected requested plan: "+url);
+  };
+  const catalog=new SatelliteCatalog([earthSearch()], [
+    esaSentinelPlans({fetchImpl:mock, clock:()=>new Date("2026-10-12T16:00:00Z"),
+      missions:["S1C","S2B"]}),
+  ]);
+  const results=await catalog.upcoming({latitude:-8.5833,longitude:116.1167,
+    radiusMeters:5000,days:10});
+  assert.equal(results.length,2);
+  assert.deepEqual(results.map(r=>r.mission),["S1C","S2B"]);
+  assert.ok(!calls.includes(oldS2));
+  assert.equal(calls.length,4); // 2 index pages, 2 KML files
+});
+test("reject malicious XML and invalid window without relying on network",()=>{
+  const plan=parseESAPlanIndex(index).find(p=>p.url===s2);
+  assert.throws(()=>parseESAPlanKml('<!DOCTYPE kml><kml></kml>',plan,
+    boundsAround(-8.5,116,1000),0,Date.now()),e=>e.code==="INVALID_RESPONSE");
+});
+test("transport failures are explicit, not an empty upcoming result",async()=>{
+  const mock=async()=>new Response("bad",{status:503});
+  await assert.rejects(()=>esaSentinelPlans({fetchImpl:mock}).upcoming({
+    latitude:0,longitude:0,radiusMeters:1000,days:2}),e=>e.code==="HTTP_ERROR");
+});

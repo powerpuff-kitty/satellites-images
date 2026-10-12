@@ -50,6 +50,10 @@ export interface AcquisitionOpportunity {
   status: AcquisitionStatus;
   sourceUrl: string;
   footprint?: Record<string, unknown> | null;
+  id?: string;
+  endAt?: string | null;
+  mode?: string | null;
+  orbitRelative?: number | null;
 }
 export interface SourceRecord {
   id: string;
@@ -258,8 +262,16 @@ export function planetaryComputer(fetchImpl?: typeof fetch): StacProvider {
   });
 }
 
+export interface AcquisitionProvider {
+  readonly id: string;
+  upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;
+}
+export { ESAPlansProvider, esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml } from "./acquisitions.js";
+export type { ESAPlan, ESAPlansOptions, AcquisitionQuery } from "./acquisitions.js";
+
 export class SatelliteCatalog {
-  constructor(private readonly providers: StacProvider[]) {
+  constructor(private readonly providers: StacProvider[],
+    private readonly acquisitionProviders: AcquisitionProvider[] = []) {
     if (!providers.length) throw new SatelliteError("INVALID_PROVIDER", "Add at least one implemented provider");
     const ids = new Set(providers.map((p) => p.id));
     if (ids.size !== providers.length) throw new SatelliteError("INVALID_PROVIDER", "Duplicate provider ids");
@@ -279,7 +291,18 @@ export class SatelliteCatalog {
       yield* provider.search(query);
     }
   }
-  async upcoming(): Promise<AcquisitionOpportunity[]> {
-    throw new SatelliteError("UNSUPPORTED", "Future acquisition planning is not implemented in version 0.1");
+  async upcoming(query: import("./acquisitions.js").AcquisitionQuery,
+    providerIds?: string[]): Promise<AcquisitionOpportunity[]> {
+    if (!this.acquisitionProviders.length) throw new SatelliteError("UNSUPPORTED",
+      "Configure an acquisition provider such as esaSentinelPlans()");
+    const selected = providerIds ? new Set(providerIds) : null;
+    if (selected && [...selected].some(id => !this.acquisitionProviders.some(p => p.id === id)))
+      throw new SatelliteError("UNSUPPORTED_PROVIDER", "Acquisition provider not configured");
+    const results:AcquisitionOpportunity[]=[];
+    for (const provider of this.acquisitionProviders) {
+      if (selected && !selected.has(provider.id)) continue;
+      results.push(...await provider.upcoming(query));
+    }
+    return results.sort((a,b) => a.expectedAt.localeCompare(b.expectedAt));
   }
 }
