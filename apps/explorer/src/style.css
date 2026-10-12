@@ -66,3 +66,6 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .results .scene-inspect {margin:12px 0 2px; width:auto; padding:7px 10px; border:1px solid #596557; color:#d7dcce; background:transparent; font-size:11px; }
 .results .scene-inspect:hover {border-color:#e0ae54;}
 @media (prefers-reduced-motion: reduce) {*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important;}}
+
+#load-next-pages {border-color:#466958;color:#c1e4d1;}
+#load-next-pages:not(:disabled):hover {background:#1c362d;}

@@ -31,6 +31,7 @@ const prevMonth = element<HTMLButtonElement>("previous-month");
 const nextMonth = element<HTMLButtonElement>("next-month");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
+const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
 
 const plansButton = element<HTMLButtonElement>("plans-button");
 const plansStatus = element<HTMLElement>("plans-status");
@@ -52,6 +53,8 @@ function esaFetch(url: RequestInfo | URL, options?: RequestInit): Promise<Respon
   return fetch(proxied, options);
 }
 
+
+const plannedProvider=esaSentinelPlans({fetchImpl:esaFetch});
 
 const map = new maplibregl.Map({
   container: "map",
@@ -137,7 +140,16 @@ function makeScene(scene: Scene): HTMLLIElement {
 }
 
 let currentSearch = 0;
-let currentController:AbortController|null=null;
+interface HistoryScan {
+  controller:AbortController;
+  accumulator:AvailabilityAccumulator;
+  iterator:AsyncGenerator<import("@powerpuff-kitty/satellites-images").SearchPage>;
+  fetching:boolean;
+  ended:boolean;
+  signature:string;
+}
+let activeScan:HistoryScan|null=null;
+let initialPermalinkDay:string|null=null;
 let loadedScenes:Scene[]=[];
 let currentSummary:AvailabilitySummary|null=null;
 let selectedDay:string|null=null;
@@ -175,12 +187,16 @@ function restoreSearchLink():void {
   calendarMonth.value=activeMonth;
   const restoredDay=params.get("day");
   if(restoredDay&&validDate(restoredDay)&&restoredDay>=from.value&&restoredDay<=to.value) {
+    initialPermalinkDay=restoredDay;
     selectedDay=restoredDay;
     activeMonth=restoredDay.slice(0,7);
     calendarMonth.value=activeMonth;
   }
   marker.setLngLat([Number(lon.value),Number(lat.value)]);
   map.jumpTo({center:[Number(lon.value),Number(lat.value)]});
+  // A query permalink should reproduce its search, not just fill dormant inputs.
+  if(validDate(params.get("from")??"") && validDate(params.get("to")??""))
+    queueMicrotask(()=>form.requestSubmit());
 }
 function storeSearchLink():void {
   const url=new URL(window.location.href);
@@ -272,72 +288,120 @@ showMoreButton.addEventListener("click",()=>{
   renderLoadedScenes();
 });
 
+function currentSearchSignature():string {
+  return JSON.stringify([
+    lat.value,lon.value,radius.value,provider.value,from.value,to.value,
+  ]);
+}
+async function scanNextBatch(session:HistoryScan):Promise<void> {
+  if(session.fetching||session.ended||session!==activeScan)return;
+  if(session.signature!==currentSearchSignature()){
+    status.textContent="Location, source or date filters changed. Search again before loading more pages.";
+    return;
+  }
+  session.fetching=true;
+  button.disabled=true;
+  loadNextPagesButton.disabled=true;
+  loadNextPagesButton.hidden=true;
+  try {
+    const batchSize=5;
+    let examined=0;
+    while(examined<batchSize && session===activeScan && !session.controller.signal.aborted) {
+      const next=await session.iterator.next();
+      if(session!==activeScan||session.controller.signal.aborted)return;
+      if(next.done){session.ended=true;break;}
+      const page=next.value;
+      const added=session.accumulator.addPage(page);
+      loadedScenes.push(...added);
+      loadedScenes.sort((a,b)=>b.acquiredAt.localeCompare(a.acquiredAt)||a.id.localeCompare(b.id));
+      currentSummary=session.accumulator.summary();
+      redrawAvailability();
+      renderLoadedScenes();
+      examined++;
+      status.textContent="Scanned "+currentSummary.pagesScanned+" catalogue page(s); "+
+        currentSummary.uniqueItems+" unique published observations loaded…";
+      if(!page.hasNext){session.ended=true;break;}
+    }
+    if(session!==activeScan||session.controller.signal.aborted)return;
+    const summary=session.accumulator.summary();
+    currentSummary=summary;
+    if(summary.pagesScanned>=50)session.ended=true;
+    redrawAvailability();
+    loadNextPagesButton.hidden=session.ended || summary.complete;
+    if(summary.uniqueItems===0 && summary.complete) {
+      status.textContent="No scenes returned by this catalogue for the selected time window.";
+    }else if(summary.complete){
+      status.textContent=summary.uniqueItems+" unique scenes returned; "+
+        "catalogue pagination exhausted for this query.";
+    }else if(session.ended){
+      status.textContent=summary.uniqueItems+" unique scenes loaded. "+
+        "Search reached its 50-page safety limit; narrow the period for more coverage.";
+    }else{
+      status.textContent=summary.uniqueItems+" scenes loaded from "+
+        summary.pagesScanned+" pages. Further pages are available.";
+    }
+  }catch(error){
+    if(session!==activeScan||session.controller.signal.aborted)return;
+    searchErrored=true;
+    session.ended=true;
+    currentSummary=session.accumulator.summary();
+    redrawAvailability();
+    status.textContent="Catalogue search failed: "+
+      (error instanceof Error?error.message:String(error))+
+      ". Previously loaded scenes may be incomplete.";
+    loadNextPagesButton.hidden=true;
+  }finally{
+    session.fetching=false;
+    if(session===activeScan){
+      button.disabled=false;
+      loadNextPagesButton.disabled=false;
+    }
+  }
+}
+loadNextPagesButton.addEventListener("click",()=>{
+  if(activeScan)void scanNextBatch(activeScan);
+});
+
 form.addEventListener("submit",async(event)=>{
   event.preventDefault();
-  currentController?.abort();
+  activeScan?.controller.abort();
   const controller=new AbortController();
-  currentController=controller;
-  const token=++currentSearch;
   const accumulator=new AvailabilityAccumulator();
   currentSummary=null;
   loadedScenes=[];
   searchErrored=false;
-  selectedDay=null;
+  selectedDay=initialPermalinkDay && initialPermalinkDay>=from.value &&
+    initialPermalinkDay<=to.value ? initialPermalinkDay : null;
+  initialPermalinkDay=null;
   displayedLimit=40;
-  activeMonth=to.value.slice(0,7);
+  activeMonth=selectedDay?.slice(0,7)??to.value.slice(0,7);
   calendarMonth.value=activeMonth;
   results.replaceChildren();
   calendarGrid.replaceChildren();
   monthStrip.replaceChildren();
   counter.textContent="—";
-  button.disabled=true;
+  loadNextPagesButton.hidden=true;
   status.textContent="Searching public satellite catalogues…";
-  calendarStatus.textContent="Loading satellite acquisition dates…";
-  // Planned footprints belong to a separate search; clear stale old-area results.
+  calendarStatus.textContent="Loading UTC acquisition dates…";
   currentPlanSearch++;
   plansButton.disabled=false;
   plansResults.replaceChildren();
   plansStatus.textContent="Check future acquisitions for this location.";
   displaySwaths([]);
-  try {
-    const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();
-    const catalog=new SatelliteCatalog([selected]);
-    const query={
-      latitude:Number(lat.value), longitude:Number(lon.value), radiusMeters:Number(radius.value),
-      from:from.value, to:to.value,maxPages:10,limit:75,signal:controller.signal,
-    };
-    updateLocation(query.latitude,query.longitude,true);
-    storeSearchLink();
-    for await (const page of catalog.search(query)) {
-      if(token!==currentSearch || controller.signal.aborted)break;
-      const novel=accumulator.addPage(page);
-      loadedScenes.push(...novel);
-      loadedScenes.sort((a,b)=>b.acquiredAt.localeCompare(a.acquiredAt)||a.id.localeCompare(b.id));
-      currentSummary=accumulator.summary();
-      redrawAvailability();
-      renderLoadedScenes();
-      status.textContent="Scanned "+currentSummary.pagesScanned+" page(s), "+
-        currentSummary.uniqueItems+" unique observations loaded…";
-    }
-    if(token!==currentSearch||controller.signal.aborted)return;
-    const summary=accumulator.summary();
-    currentSummary=summary;
-    redrawAvailability();
-    status.textContent=summary.uniqueItems===0
-      ? "No matching scenes returned in this query window (not a claim about other archives)."
-      : summary.complete
-        ? summary.uniqueItems+" unique scenes returned; provider pagination exhausted for this search window."
-        : summary.uniqueItems+" unique scenes loaded. More provider pages exist; narrow to a month for more coverage.";
-  }catch(error){
-    if(token!==currentSearch||controller.signal.aborted)return;
-    searchErrored=true;
-    currentSummary=accumulator.summary();
-    redrawAvailability();
-    status.textContent="Catalogue search failed: "+(error instanceof Error?error.message:String(error))+
-      (loadedScenes.length?" Previously loaded scenes may be incomplete.":"");
-  }finally{
-    if(token===currentSearch)button.disabled=false;
-  }
+  const selected=provider.value==="planetary-computer"?planetaryComputer():earthSearch();
+  const catalog=new SatelliteCatalog([selected]);
+  const query={
+    latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
+    from:from.value,to:to.value,maxPages:50,limit:75,signal:controller.signal,
+  };
+  const session:HistoryScan = {
+    controller,accumulator,iterator:catalog.search(query),fetching:false,
+    ended:false,signature:currentSearchSignature(),
+  };
+  activeScan=session;
+  updateLocation(query.latitude,query.longitude,true);
+  storeSearchLink();
+  await scanNextBatch(session);
 });
 restoreSearchLink();
 
@@ -395,7 +459,7 @@ plansButton.addEventListener("click",async()=>{
   plansButton.disabled=true;
   try {
     const catalog = new SatelliteCatalog([earthSearch()],[
-      esaSentinelPlans({fetchImpl:esaFetch}),
+      plannedProvider,
     ]);
     const query={latitude:Number(lat.value),longitude:Number(lon.value),
       radiusMeters:Number(radius.value),days:14};
