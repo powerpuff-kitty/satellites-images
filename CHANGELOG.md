@@ -167,6 +167,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: **draw an area on the map** — "Draw area", click three or more corners, "Finish
+  area" searches that polygon through the SDK's `aoi` path (the SDK handles box splitting and
+  the antimeridian); "Use a point + radius" clears it. The polygon is rendered on the map and
+  round-trips through the `aoi` permalink parameter.
 - Explorer: the **full view state is now in the URL** — `tab`, `metric`, `sensor`, the active
   filters (`mission`, `collection`, `cloudmin`/`cloudmax`, `hmin`/`hmax`, `maxgsd`, `preview`,
   `unknown`) and `src` (extra catalogues) round-trip through the permalink.

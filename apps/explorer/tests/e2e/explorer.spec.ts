@@ -70,6 +70,29 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(2);
 });
 
+test("a drawn area is searched as a polygon and can be cleared", async ({ page }) => {
+  const bodies: Record<string, unknown>[] = [];
+  await page.route("**/search", (route) => {
+    bodies.push(JSON.parse(route.request().postData() ?? "{}"));
+    return respond(route, { json: collection([stacScene("a1", "2025-03-10T02:00:00Z")], [], 1) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  // Draw three corners on the map, then finish.
+  await page.locator("#draw-area").click();
+  const box = (await page.locator("#map").boundingBox())!;
+  await page.mouse.click(box.x + 60, box.y + 60);
+  await page.mouse.click(box.x + 140, box.y + 60);
+  await page.mouse.click(box.x + 140, box.y + 140);
+  await page.locator("#draw-area").click();
+  await expect.poll(() => bodies.some((body) => JSON.stringify(body).includes("intersects"))).toBe(true);
+  await expect(page.locator("#clear-area")).toBeVisible();
+  // ...and clearing it falls back to the point + radius query.
+  await page.locator("#clear-area").click();
+  await expect.poll(() => bodies.some((body) => JSON.stringify(body).includes("bbox"))).toBe(true);
+});
+
 test("the map prompt disappears once a location is chosen", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("l1", "2025-03-10T02:00:00Z")], [], 1) }));

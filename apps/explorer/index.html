@@ -18,6 +18,10 @@
             <label>Longitude<input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="116.1167" required></label>
           </div>
           <label class="full-field">Radius<select id="radius"><option value="1000">1 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="25000">25 km</option></select></label>
+          <div class="area-controls">
+            <button id="draw-area" type="button" class="secondary-button">Draw area</button>
+            <button id="clear-area" type="button" class="text-button" hidden>Use a point + radius</button>
+          </div>
 
           <div class="tablist" role="tablist" aria-label="Observation type">
             <button id="tab-historical" class="tab" type="button" role="tab" aria-selected="true" aria-controls="panel-historical">Historical</button>

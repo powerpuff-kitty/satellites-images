@@ -35,7 +35,8 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 
 ## Historical availability calendar (V0.3)
 
-1. Choose a point on the map or enter latitude/longitude.
+1. Choose a point on the map or enter latitude/longitude — or press **Draw area**, click three
+   or more corners and **Finish area** to search that polygon instead.
 2. Choose a date range; the search runs automatically (the explorer fetches on any input change and when you pick a location on the map — there is no search button).
 3. Read the **day matrix** under the map (a cell per day); click a cell to filter to that day.
 4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
@@ -44,8 +45,8 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 6. Copy the browser URL to share the state: `lat`/`lon` (search point), `radius`,
    `from`/`to` (period), `day` (selected day), `zoom` (map zoom), `tab`, `metric`, `sensor`,
    the active filters (`mission`, `collection`, `cloudmin`/`cloudmax`, `hmin`/`hmax`,
-   `maxgsd`, `preview`, `unknown`) and `src` (extra catalogues) — the URL updates on every
-   map move.
+   `maxgsd`, `preview`, `unknown`), `src` (extra catalogues) and `aoi` (a drawn area) — the URL
+   updates on every map move.
 
 The explorer loads **one year at a time** (the current calendar year by default), queried from
 **both Earth Search and Planetary Computer together** — one request per catalogue for the whole

@@ -24,6 +24,8 @@ const counter = element<HTMLElement>("counter");
 const form = element<HTMLFormElement>("search-form");
 const calendarStatus = element<HTMLElement>("calendar-status");
 const mapLabel = element<HTMLElement>("map-label");
+const drawAreaButton = element<HTMLButtonElement>("draw-area");
+const clearAreaButton = element<HTMLButtonElement>("clear-area");
 const sourceList = element<HTMLElement>("source-list");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
@@ -105,11 +107,60 @@ function updateLocation(latitude: number, longitude: number, fly = false): void 
   marker.setLngLat([longitude, latitude]);
   if (fly) map.flyTo({center:[longitude,latitude], zoom:Math.max(map.getZoom(), 8)});
 }
+// --- Drawn area (polygon AOI) -------------------------------------------------
+let aoiRing:[number,number][]|null=null;
+let drawingArea=false;
+let draftRing:[number,number][]=[];
+function aoiCentroid(ring:[number,number][]):[number,number] {
+  const sum=ring.reduce((acc,[lng,lat])=>[acc[0]+lng,acc[1]+lat],[0,0]);
+  return [sum[0]/ring.length,sum[1]/ring.length];
+}
+function renderAoi():void {
+  const ring=drawingArea?draftRing:(aoiRing??[]);
+  const features:FeatureCollection["features"]=[];
+  if(ring.length>=3){
+    const closed:[number,number][]=[...ring,ring[0]];
+    features.push({type:"Feature",properties:{},geometry:{type:"Polygon",coordinates:[closed]}});
+  }else if(ring.length>=2){
+    features.push({type:"Feature",properties:{},geometry:{type:"LineString",coordinates:ring}});
+  }
+  const data:FeatureCollection={type:"FeatureCollection",features};
+  const apply=()=>{
+    const source=map.getSource("drawn-area") as maplibregl.GeoJSONSource|undefined;
+    if(source){source.setData(data);return;}
+    map.addSource("drawn-area",{type:"geojson",data});
+    map.addLayer({id:"drawn-area-fill",type:"fill",source:"drawn-area",
+      paint:{"fill-color":"#e2ae54","fill-opacity":0.16}});
+    map.addLayer({id:"drawn-area-line",type:"line",source:"drawn-area",
+      paint:{"line-color":"#e2ae54","line-width":2}});
+  };
+  if(map.isStyleLoaded())apply();else map.once("load",apply);
+}
+function setAreaMode(active:boolean):void {
+  drawingArea=active;
+  draftRing=[];
+  drawAreaButton.textContent=active?"Finish area":"Draw area";
+  clearAreaButton.hidden=!active&&!aoiRing;
+  renderAoi();
+}
+drawAreaButton.addEventListener("click",()=>{
+  if(!drawingArea){ aoiRing=null; setAreaMode(true); status.textContent="Click the map to add corners, then press Finish area (3 or more points)."; return; }
+  if(draftRing.length>=3){ aoiRing=[...draftRing]; setAreaMode(false); void runSearch(); }
+  else { setAreaMode(false); status.textContent="An area needs at least three corners; keeping point + radius."; }
+});
+clearAreaButton.addEventListener("click",()=>{
+  aoiRing=null; setAreaMode(false);
+  void runSearch();
+});
+
 let searchTimer=0;
 function scheduleSearch():void{ window.clearTimeout(searchTimer); searchTimer=window.setTimeout(()=>void runSearch(), 350); }
 let activeTab:"historical"|"upcoming"="historical";
 function scheduleForTab():void{ if(activeTab==="upcoming") scheduleUpcoming(); else scheduleSearch(); }
-map.on("click", (e) => { updateLocation(e.lngLat.lat, e.lngLat.lng); hideMapLabel(); scheduleForTab(); });
+map.on("click", (e) => {
+  if(drawingArea){ draftRing.push([e.lngLat.lng,e.lngLat.lat]); renderAoi(); return; }
+  updateLocation(e.lngLat.lat, e.lngLat.lng); hideMapLabel(); scheduleForTab();
+});
 for (const el of [lat,lon]) el.addEventListener("change", () => {
   if (Number.isFinite(lat.valueAsNumber) && Number.isFinite(lon.valueAsNumber)) {
     updateLocation(lat.valueAsNumber, lon.valueAsNumber, true);
@@ -693,6 +744,13 @@ function restoreSearchLink():void {
   if(wantedCollection)pendingCollectionFilter=wantedCollection;
   const sensor=params.get("sensor");
   if(sensor==="optical"||sensor==="radar"||sensor==="all")sensorFilter=sensor;
+  const wantedAoi=params.get("aoi");
+  if(wantedAoi){
+    const ring=wantedAoi.split(" ").map((pair)=>pair.split(",").map(Number))
+      .filter((pair)=>pair.length===2&&pair.every(Number.isFinite))
+      .map((pair)=>[pair[0],pair[1]] as [number,number]);
+    if(ring.length>=3){ aoiRing=ring; setAreaMode(false); }
+  }
   const wantedExtras=params.get("src");
   if(wantedExtras)
     for(const id of wantedExtras.split(","))
@@ -707,7 +765,7 @@ function restoreSearchLink():void {
   });
 }
 const MANAGED_PARAMS=["lat","lon","radius","from","to","day","zoom","tab","metric","sensor",
-  "mission","collection","cloudmin","cloudmax","hmin","hmax","maxgsd","preview","unknown","src"];
+  "mission","collection","cloudmin","cloudmax","hmin","hmax","maxgsd","preview","unknown","src","aoi"];
 function storeSearchLink():void {
   const url=new URL(window.location.href);
   for(const name of MANAGED_PARAMS)url.searchParams.delete(name);
@@ -730,6 +788,7 @@ function storeSearchLink():void {
   url.searchParams.set("preview",hasPreview.checked?"1":"0");
   url.searchParams.set("unknown",includeUnknown.checked?"1":"0");
   if(enabledExtraSources.size)url.searchParams.set("src",[...enabledExtraSources].sort().join(","));
+  if(aoiRing)url.searchParams.set("aoi",aoiRing.map(([lng,lat])=>lng.toFixed(5)+","+lat.toFixed(5)).join(" "));
   url.searchParams.set("zoom",map.getZoom().toFixed(2));
   window.history.replaceState(null,"",url);
 }
@@ -1087,11 +1146,18 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   for(const source of EXTRA_SOURCES)
     if(enabledExtraSources.has(source.id))providers.push(source.create());
   const catalog=new SatelliteCatalog(providers);
-  const base={
-    latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
-    maxPages:50,limit:75,signal:controller.signal,
-  };
-  updateLocation(base.latitude,base.longitude,true);
+  const closedAoi=aoiRing?[...aoiRing,aoiRing[0]]:null;
+  const base=closedAoi
+    ? {aoi:{type:"Polygon" as const,coordinates:[closedAoi]},maxPages:50,limit:75,signal:controller.signal}
+    : {latitude:Number(lat.value),longitude:Number(lon.value),radiusMeters:Number(radius.value),
+       maxPages:50,limit:75,signal:controller.signal};
+  if(closedAoi){
+    const [centerLng,centerLat]=aoiCentroid(aoiRing as [number,number][]);
+    updateLocation(centerLat,centerLng,true);
+    hideMapLabel();
+  }else{
+    updateLocation(base.latitude!,base.longitude!,true);
+  }
   const iterator=(async function*(){
     for(const chunk of chunks){
       if(controller.signal.aborted)return;

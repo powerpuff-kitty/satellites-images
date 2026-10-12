@@ -59,6 +59,9 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 .tab[aria-selected="true"] { background:#242b24; color:#f1efe8; box-shadow:inset 0 -2px 0 #e2ae54; }
 .tab:hover[aria-selected="false"] { background:#1c231e; }
 
+.area-controls { display:flex; align-items:center; gap:12px; }
+.area-controls .secondary-button { margin:0 0 10px; }
+.area-controls .text-button { margin:0 0 10px; }
 .secondary-button {background:transparent;color:#e5c083;border:1px solid #7c7157; margin:12px 0 10px;}
 .secondary-button:hover {background:#232a23;}
 .muted {color:#9ca79b;letter-spacing:.08em;font-size:10px;}
