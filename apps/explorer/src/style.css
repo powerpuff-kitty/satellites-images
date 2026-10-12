@@ -110,7 +110,8 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 /* Timeline scatter: x = date, y = time of day (UTC), colour = cloud cover, size = resolution. */
 .timeline { margin:12px 0 6px; }
 .timeline figcaption { font-size:11px; color:#8f998c; }
-.timeline svg { display:block; width:100%; height:auto; }
+.timeline svg { display:block; }
+.timeline-scroll { overflow-x:auto; padding-bottom:6px; scrollbar-width:thin; }
 .timeline .axis { stroke:#2f382f; stroke-width:1; }
 .timeline .grid { stroke:#242c24; stroke-width:1; }
 .timeline .tick { fill:#8f998c; font-size:9px; font-variant-numeric:tabular-nums; }

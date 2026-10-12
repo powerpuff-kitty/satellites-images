@@ -56,8 +56,10 @@ timeline and the calendar counts; the counter shows `filtered / total`.
 
 The sticky header shows **all timelines stacked** on one shared date axis: daily bars
 split **by cloud cover**, **by mission** and **by provider**, plus a **time-of-day**
-heatmap (00–06 / 06–12 / 12–18 / 18–24). Click a bar or cell to select that day. Cloud
-cover is scene-wide metadata, not per-AOI.
+heatmap (00–06 / 06–12 / 12–18 / 18–24). Click a bar or cell to select that day. Bars are a
+fixed **4 px wide** on the shared day scale, and the stacked charts sit in a pane that
+**scrolls horizontally** when the loaded period is wider than the panel. Cloud cover is
+scene-wide metadata, not per-AOI.
 
 ## Layout
 

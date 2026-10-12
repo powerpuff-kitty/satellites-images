@@ -120,6 +120,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   (Gantt)** strip. Optional plan fields bucket to *unknown* instead of being dropped.
 - Explorer: removed the footnote caveat paragraph (source link kept) and moved the
   timeline date labels **below** the axis line.
+- Explorer: timeline bars are a fixed **4 px wide** inside a **horizontally scrollable**
+  pane; dropped the calendar "N published items… / Empty cells…" status line.
 
 ## [0.2.0] - 2026-10-12
 

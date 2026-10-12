@@ -241,6 +241,12 @@ function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, day
     svg.append(label);
   }
 }
+function timelineScrollRoot(figure:HTMLElement):HTMLElement {
+  const scroll=document.createElement("div");
+  scroll.className="timeline-scroll";
+  figure.append(scroll);
+  return scroll;
+}
 function renderTimeline(): void {
   const scenes = loadedScenes.filter(passesFilters);
   timeline.replaceChildren();
@@ -250,16 +256,17 @@ function renderTimeline(): void {
     timeline.append(empty);
     return;
   }
-  renderTimelineBars(timeline, scenes, "cloud", "Cloud cover");
-  renderTimelineBars(timeline, scenes, "mission", "Mission");
-  renderTimelineBars(timeline, scenes, "provider", "Provider");
-  renderTimelineHeat(timeline, scenes, "Time of day (UTC)");
+  const scroll = timelineScrollRoot(timeline);
+  renderTimelineBars(scroll, scenes, "cloud", "Cloud cover");
+  renderTimelineBars(scroll, scenes, "mission", "Mission");
+  renderTimelineBars(scroll, scenes, "provider", "Provider");
+  renderTimelineHeat(scroll, scenes, "Time of day (UTC)");
 }
 function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|"mission"|"provider", title:string, opts:{keyOf?:(s:Scene)=>string; colourOf?:(k:string)=>string; interactive?:boolean} = {}): void {
   const NS = "http://www.w3.org/2000/svg";
-  const width = Math.max(240, container.clientWidth || 320);
   const height = 82, padL = 28, padR = 8, padT = 6, padB = 14;
-  const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000;
+  const H = height - padT - padB, dayMs = 86400000;
+  const dayPx = 6, barPx = 4;
   const byDay = new Map<string, Map<string, number>>();
   const totals = new Map<string, number>();
   for (const scene of scenes) {
@@ -275,7 +282,9 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
   const first = Date.parse(days[0] + "T00:00:00Z");
   const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
   const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
-  const colW = W / nDays;
+  const colW = dayPx;
+  const W = nDays * colW;
+  const width = padL + W + padR;
   const maxCount = Math.max(...[...byDay.values()].map((m) => [...m.values()].reduce((a, b) => a + b, 0)));
   const colourOf = (key:string):string => opts.colourOf ? opts.colourOf(key) :
     mode === "cloud" ? (CLOUD_FILL[key as CloudClass] ?? "#9aa0a2") : SPLIT_PALETTE[order.indexOf(key) % SPLIT_PALETTE.length];
@@ -285,6 +294,8 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
   container.append(caption);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", title + " by day");
   const axis = document.createElementNS(NS, "line");
@@ -303,8 +314,8 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
       if (!n) continue;
       const h = (n / maxCount) * H;
       const rect = document.createElementNS(NS, "rect");
-      rect.setAttribute("x", (x + colW * 0.15).toFixed(1));
-      rect.setAttribute("width", Math.max(1, colW * 0.7).toFixed(1));
+      rect.setAttribute("x", (x + (colW - barPx) / 2).toFixed(1));
+      rect.setAttribute("width", String(barPx));
       rect.setAttribute("y", (baseline - h).toFixed(1));
       rect.setAttribute("height", h.toFixed(1));
       rect.setAttribute("fill", colourOf(key));
@@ -323,9 +334,9 @@ function renderTimelineBars(container:HTMLElement, scenes:Scene[], mode:"cloud"|
 }
 function renderTimelineHeat(container:HTMLElement, scenes:Scene[], title:string): void {
   const NS = "http://www.w3.org/2000/svg";
-  const width = Math.max(240, container.clientWidth || 320);
   const height = 82, padL = 28, padR = 8, padT = 6, padB = 14;
-  const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000, rows = 4;
+  const H = height - padT - padB, dayMs = 86400000, rows = 4;
+  const dayPx = 6;
   const cells = new Map<string, number>();
   const daySet = new Set<string>();
   for (const scene of scenes) {
@@ -339,7 +350,9 @@ function renderTimelineHeat(container:HTMLElement, scenes:Scene[], title:string)
   const first = Date.parse(days[0] + "T00:00:00Z");
   const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
   const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
-  const colW = W / nDays, rowH = H / rows;
+  const colW = dayPx, rowH = H / rows;
+  const W = nDays * colW;
+  const width = padL + W + padR;
   const maxCell = Math.max(...[...cells.values()]);
   const caption = document.createElement("div");
   caption.className = "timeline-caption";
@@ -347,6 +360,8 @@ function renderTimelineHeat(container:HTMLElement, scenes:Scene[], title:string)
   container.append(caption);
   const svg = document.createElementNS(NS, "svg");
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
   svg.setAttribute("role", "img");
   svg.setAttribute("aria-label", title + " heatmap by day");
   for (const day of days) {
@@ -545,7 +560,6 @@ function redrawAvailability():void {
   const full=currentSummary;
   if(!full) return;
   const summary=summaryFromScenes(loadedScenes.filter(passesFilters));
-  const filtering=hasActiveFilters();
   renderMonthStrip(monthStrip,summary,from.value,to.value,activeMonth,(month)=>{
     activeMonth=month;calendarMonth.value=month;
     redrawAvailability();
@@ -558,12 +572,9 @@ function redrawAvailability():void {
     storeSearchLink();
   });
   allDaysButton.hidden=selectedDay===null;
-  const statusParts=[
-    summary.uniqueItems+" "+(filtering?"filtered ":"")+"published items from "+full.pagesScanned+" catalogue page(s)",
-  ];
+  const statusParts:string[]=[];
   if(!full.complete)statusParts.push("Additional pages may exist. Counts are partial.");
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
-  statusParts.push("Empty cells mean no observation in loaded results, not proof of missing imagery.");
   calendarStatus.textContent=statusParts.join(" ");
 }
 function searchMonth(month:string):void {
@@ -818,6 +829,8 @@ function renderDatatakeGantt(container:HTMLElement, items:AcquisitionOpportunity
   const xOf=(t:number)=>padL+((t-first)/span)*W;
   const svg=document.createElementNS(NS,"svg");
   svg.setAttribute("viewBox",`0 0 ${width} ${height}`);
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
   svg.setAttribute("role","img");
   svg.setAttribute("aria-label",title);
   missions.forEach((mission,row)=>{
@@ -877,13 +890,14 @@ function renderPublishedVsPlanned(container:HTMLElement, published:Scene[], plan
 function renderUpcomingCharts(items:AcquisitionOpportunity[]):void {
   upcomingTimeline.replaceChildren();
   if(!items.length){ const empty=document.createElement("figcaption"); empty.textContent="No planned datatakes to plot."; upcomingTimeline.append(empty); return; }
+  const scroll=timelineScrollRoot(upcomingTimeline);
   const scenes=plannedAsScenes(items);
-  renderPublishedVsPlanned(upcomingTimeline, loadedScenes, scenes, "Published so far vs planned");
-  renderTimelineBars(upcomingTimeline, scenes, "mission", "Mission");
-  renderTimelineBars(upcomingTimeline, scenes, "mission", "Acquisition mode", { keyOf:(s)=>(s as PlannedScene).mode ?? "unknown" });
-  renderTimelineBars(upcomingTimeline, scenes, "mission", "Relative orbit", { keyOf:(s)=>(s as PlannedScene).orbitRelative!=null ? "orbit "+(s as PlannedScene).orbitRelative : "unknown" });
-  renderDatatakeGantt(upcomingTimeline, items, "Datatake windows (UTC)");
-  renderTimelineHeat(upcomingTimeline, scenes, "Time of day (UTC)");
+  renderPublishedVsPlanned(scroll, loadedScenes, scenes, "Published so far vs planned");
+  renderTimelineBars(scroll, scenes, "mission", "Mission");
+  renderTimelineBars(scroll, scenes, "mission", "Acquisition mode", { keyOf:(s)=>(s as PlannedScene).mode ?? "unknown" });
+  renderTimelineBars(scroll, scenes, "mission", "Relative orbit", { keyOf:(s)=>(s as PlannedScene).orbitRelative!=null ? "orbit "+(s as PlannedScene).orbitRelative : "unknown" });
+  renderDatatakeGantt(scroll, items, "Datatake windows (UTC)");
+  renderTimelineHeat(scroll, scenes, "Time of day (UTC)");
 }
 async function runUpcoming():Promise<void>{
   const token=++currentPlanSearch;
