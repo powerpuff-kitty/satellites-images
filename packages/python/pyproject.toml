@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "satellites-images"
+version = "0.1.0"
+description = "Satellite imagery catalogue discovery and availability client"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "powerpuff-kitty" }]
+keywords = ["satellite", "imagery", "stac", "earth-observation", "geospatial"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Topic :: Scientific/Engineering :: GIS",
+  "Development Status :: 3 - Alpha",
+]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/powerpuff-kitty/satellites-images"
+Source = "https://github.com/powerpuff-kitty/satellites-images"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+satellites_images = ["sources.json", "py.typed"]
