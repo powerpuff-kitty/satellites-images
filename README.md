@@ -82,6 +82,10 @@ Read [sources/registry.json](sources/registry.json) and [docs/SOURCES.md](docs/S
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data contracts, pagination, limitations and future plans.
 
+## Explorer deployment
+
+A manual-only GitHub Pages workflow is available. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). It does not auto-publish. The expected public URL is not considered live until the workflow is explicitly run and succeeds.
+
 ## Development and quality
 
 ```sh

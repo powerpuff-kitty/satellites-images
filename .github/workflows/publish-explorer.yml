@@ -1,0 +1,53 @@
+name: Publish Explorer (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      esa_proxy_url:
+        description: 'Optional HTTPS URL of the restricted ESA proxy Worker'
+        required: false
+        type: string
+
+concurrency:
+  group: satellites-images-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm install --no-audit --no-fund
+      - name: Validate optional proxy origin
+        env:
+          ESA_PROXY_URL: ${{ inputs.esa_proxy_url }}
+        run: |
+          node -e 'const value=process.env.ESA_PROXY_URL;if(value&&new URL(value).protocol!=="https:")process.exit(1)'
+      - name: Build and typecheck explorer
+        env:
+          VITE_ESA_PROXY_URL: ${{ inputs.esa_proxy_url }}
+        run: npm run check
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/explorer/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish manually reviewed Explorer build
+        id: deployment
+        uses: actions/deploy-pages@v4
