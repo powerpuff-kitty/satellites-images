@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111512" />
+    <meta name="description" content="Explore public satellite observations by coordinate, mission and date." />
+    <title>Satellite Images — Explorer</title>
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel" aria-label="Satellite image search">
+        <div class="eyebrow">EARTH OBSERVATION / OPEN CATALOGUES</div>
+        <h1>Satellite Images<span class="accent">.</span></h1>
+        <p class="intro">Choose a location to discover available historical satellite scenes.</p>
+        <form id="search-form">
+          <div class="pair">
+            <label>Latitude<input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="-8.5833" required></label>
+            <label>Longitude<input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="116.1167" required></label>
+          </div>
+          <div class="pair">
+            <label>Radius<select id="radius"><option value="1000">1 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="25000">25 km</option></select></label>
+            <label>Catalog<select id="provider"><option value="earth-search">Earth Search</option><option value="planetary-computer">Planetary Computer</option></select></label>
+          </div>
+          <div class="pair">
+            <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
+            <label>To<input id="date-to" type="date" value="2025-03-31" required></label>
+          </div>
+          <button id="search-button" type="submit">Find observations <span aria-hidden="true">↗</span></button>
+        </form>
+        <div class="heading">
+          <h2>Published observations</h2>
+          <span id="counter">—</span>
+        </div>
+        <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
+        <ol id="results" class="results" aria-label="Satellite scenes"></ol>
+        <div class="footnote">
+          Actual acquisition dates only. Asset access may require registration or payment.
+          Future acquisition planning is <strong>not yet available</strong>.
+          <a href="https://github.com/powerpuff-kitty/satellites-images" target="_blank" rel="noopener noreferrer">Source code ↗</a>
+        </div>
+      </section>
+      <section class="map-container" aria-label="Interactive map">
+        <div id="map"></div>
+        <div class="map-label">SELECT ANY LOCATION ON THE MAP</div>
+      </section>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
