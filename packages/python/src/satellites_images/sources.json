@@ -1,0 +1,268 @@
+{
+  "schemaVersion": "1.0.0",
+  "updated": "2026-10-12",
+  "disclaimer": "Provider terms may change. API/search availability and free access to image bytes are different. This registry is descriptive and not a credential or a guaranteed access entitlement.",
+  "sources": [
+    {
+      "id": "earth-search",
+      "name": "Element 84 Earth Search",
+      "type": "stac",
+      "url": "https://earth-search.aws.element84.com/v1",
+      "docs": "https://element84.com/earth-search/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "mixed",
+      "scheduled": "no",
+      "collections": [
+        "sentinel-2-l2a",
+        "landsat-c2-l2"
+      ],
+      "implemented": {
+        "typescript": true,
+        "python": true,
+        "rust": true
+      },
+      "notes": "Public STAC catalogue; image asset links can have different cloud storage cost and access conditions."
+    },
+    {
+      "id": "planetary-computer",
+      "name": "Microsoft Planetary Computer",
+      "type": "stac",
+      "url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+      "docs": "https://planetarycomputer.microsoft.com/docs/quickstarts/reading-stac/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "signed-or-authenticated",
+      "scheduled": "no",
+      "collections": [
+        "sentinel-2-l2a",
+        "landsat-c2-l2"
+      ],
+      "implemented": {
+        "typescript": true,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Catalog search is public; actual assets often require a signed URL and access rules apply."
+    },
+    {
+      "id": "copernicus",
+      "name": "Copernicus Data Space",
+      "type": "stac",
+      "url": "https://stac.dataspace.copernicus.eu/v1/",
+      "docs": "https://documentation.dataspace.copernicus.eu/APIs/STAC.html",
+      "searchAccess": "anonymous",
+      "imageryAccess": "account",
+      "scheduled": "separate-official-plans",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Public discovery; downloads and other APIs may require registration and authentication."
+    },
+    {
+      "id": "usgs-landsatlook",
+      "name": "USGS LandsatLook",
+      "type": "stac",
+      "url": null,
+      "docs": "https://www.usgs.gov/landsat-missions/spatiotemporal-asset-catalog-stac",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "scheduled": "separate-calendar",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Historical Landsat imagery. Future collection calendar is a separate service, not a published STAC item."
+    },
+    {
+      "id": "nasa-cmr",
+      "name": "NASA Common Metadata Repository",
+      "type": "cmr",
+      "url": null,
+      "docs": "https://cmr.earthdata.nasa.gov/search/site/docs/search/api.html",
+      "searchAccess": "anonymous",
+      "imageryAccess": "mixed",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Earthdata authentication required for some downloads. Mission coverage varies."
+    },
+    {
+      "id": "nasa-gibs",
+      "name": "NASA GIBS",
+      "type": "tiles",
+      "url": null,
+      "docs": "https://nasa-gibs.github.io/gibs-api-docs/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Rendered time-enabled map tiles; not a generic individual-scene archive."
+    },
+    {
+      "id": "asf-vertex",
+      "name": "Alaska Satellite Facility",
+      "type": "custom",
+      "url": null,
+      "docs": "https://docs.asf.alaska.edu/api/basics/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "account",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Radar imagery metadata; Earthdata login required for many downloads."
+    },
+    {
+      "id": "jaxa-gportal",
+      "name": "JAXA G-Portal",
+      "type": "custom",
+      "url": null,
+      "docs": "https://www.gportal.jaxa.jp/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "account",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Product-specific access and reuse conditions; check terms for commercial usage."
+    },
+    {
+      "id": "noaa-goes",
+      "name": "NOAA GOES Open Data",
+      "type": "object-storage",
+      "url": null,
+      "docs": "https://registry.opendata.aws/noaa-goes/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Cloud object listings rather than a uniform STAC scene search."
+    },
+    {
+      "id": "eumetsat",
+      "name": "EUMETSAT Data Store",
+      "type": "custom",
+      "url": null,
+      "docs": "https://user.eumetsat.int/",
+      "searchAccess": "account",
+      "imageryAccess": "mixed",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Check registration, collection access, and licensing before download."
+    },
+    {
+      "id": "open-aerial-map",
+      "name": "OpenAerialMap",
+      "type": "custom",
+      "url": null,
+      "docs": "https://docs.openaerialmap.org/api/api/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "per-dataset",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Crowdsourced aerial imagery; per-scene licenses and coverage vary."
+    },
+    {
+      "id": "skyfi",
+      "name": "SkyFi",
+      "type": "commercial",
+      "url": null,
+      "docs": "https://app.skyfi.com/platform-api/docs",
+      "searchAccess": "free-account-key",
+      "imageryAccess": "paid-or-open",
+      "scheduled": "provider-dependent",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Free account API key for catalogue; commercial image purchase separate."
+    },
+    {
+      "id": "up42",
+      "name": "UP42",
+      "type": "commercial",
+      "url": null,
+      "docs": "https://docs.up42.com/developers/api-catalog",
+      "searchAccess": "organization-account",
+      "imageryAccess": "paid",
+      "scheduled": "provider-dependent",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Account/organization eligibility applies; never assume anonymous free queries."
+    },
+    {
+      "id": "planet",
+      "name": "Planet",
+      "type": "commercial",
+      "url": null,
+      "docs": "https://docs.planet.com/develop/apis/data/",
+      "searchAccess": "account-entitlement",
+      "imageryAccess": "paid-or-entitlement",
+      "scheduled": "provider-dependent",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Catalogue visibility and assets can depend on plan entitlements."
+    },
+    {
+      "id": "vantor",
+      "name": "Vantor (formerly Maxar Intelligence)",
+      "type": "commercial",
+      "url": null,
+      "docs": "https://developers.maxar.com/docs/discovery/",
+      "searchAccess": "authorized-account",
+      "imageryAccess": "paid-or-entitlement",
+      "scheduled": "provider-dependent",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Authorized hub credentials required. Public free search not assumed."
+    }
+  ]
+}
