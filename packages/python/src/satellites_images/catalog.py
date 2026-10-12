@@ -283,7 +283,7 @@ class SatelliteCatalog:
             if provider_ids is None or provider.id in provider_ids:
                 yield from provider.search(query)
 
-    def upcoming(self, query) -> list:
+    def upcoming(self, query=None) -> list:
         if not self.acquisition_providers:
             raise SatelliteError("UNSUPPORTED", "Configure an acquisition provider such as ESASentinelPlans()")
         results = []
