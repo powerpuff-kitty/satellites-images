@@ -1,6 +1,6 @@
 [package]
 name = "satellites-images"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 rust-version = "1.82"
 description = "Asynchronous STAC satellite imagery metadata discovery and availability client"

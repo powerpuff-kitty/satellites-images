@@ -2,7 +2,7 @@
 
 A cross-language, open-source satellite **catalogue discovery SDK**. Search existing imagery and inspect available assets, access conditions, and provider capabilities by location and date.
 
-**Status:** pre-release V0.2. TypeScript, Python and Rust packages are source implementations; **none are published to npm, PyPI or crates.io yet**.
+**Status:** pre-release V0.3. TypeScript, Python and Rust packages are source implementations; **none are published to npm, PyPI or crates.io yet**.
 
 ## What it does
 
@@ -12,6 +12,8 @@ A cross-language, open-source satellite **catalogue discovery SDK**. Search exis
 - Explicitly distinguish `published` imagery from `planned` acquisitions and `predicted` passes. Official ESA Sentinel-1C/1D/2A/2B/2C planned swath queries are implemented. Orbital prediction is not.
 - Search by centre/radius **or** a GeoJSON `Polygon`/`MultiPolygon`; antimeridian-crossing areas are split rather than rejected, and each scene reports an approximate `coveragePercent`.
 - Bound searches by date, area, number of result pages and providers; preserve raw provider metadata.
+- Summarize historical STAC search results into UTC month/day availability counts, with explicit complete/partial pagination signals.
+- Browse historical observations by day and satellite in a map explorer, with resumable page loading and shareable GPS/date URLs.
 
 This package does **not** process pixels, guarantee coverage, promise free downloads, price commercial imagery, or list every image ever taken.
 
@@ -42,6 +44,11 @@ for await (const page of catalog.search({
 const planned = await catalog.upcoming({ latitude: -8.5833, longitude: 116.1167,
   radiusMeters: 5000, days: 14 });
 console.log(planned);
+const history = await catalog.availability({
+  latitude:-8.5833,longitude:116.1167,radiusMeters:5000,
+  from:"2025-01-01",to:"2025-01-31",maxPages:10
+});
+console.log(history.days, history.complete, history.truncatedProviders);
 ```
 
 Python:
@@ -54,6 +61,11 @@ for page in catalog.search(SearchQuery(latitude=-8.5833, longitude=116.1167,
                                        end="2025-02-01", max_pages=2)):
     print(page.provider_id, len(page.items))
 print(catalog.upcoming(AcquisitionQuery(-8.5833, 116.1167, 5000, days=14)))
+history = catalog.availability(SearchQuery(
+    latitude=-8.5833, longitude=116.1167, radius_meters=5000,
+    start="2025-01-01", end="2025-01-31", max_pages=10,
+))
+print(history.days, history.complete, history.truncated_providers)
 ```
 
 Rust:
@@ -69,6 +81,10 @@ println!("{} scenes", scenes.len());
 let query = AcquisitionQuery::new(-8.5833, 116.1167, 5000.0, 14)?;
 let planned = ESAPlansProvider::default().upcoming(&query).await?;
 println!("{} planned datatakes", planned.len());
+let historical = provider.availability(&SearchQuery::new(
+    -8.5833,116.1167,5000.0,"2025-01-01","2025-01-31"
+)?).await?;
+println!("{} observed dates, complete: {}", historical.days.len(), historical.complete);
 # Ok(())
 # }
 ```

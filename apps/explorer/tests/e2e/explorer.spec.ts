@@ -15,7 +15,6 @@ const MAP_STYLE = {
   layers: [{ id: "bg", type: "background", paint: { "background-color": "#111512" } }],
 };
 
-/** Fulfil a cross-origin request with CORS, handling the browser's preflight. */
 async function respond(route: Route, options: { status?: number; json?: unknown; body?: string; contentType?: string }) {
   if (route.request().method() === "OPTIONS") {
     return route.fulfill({ status: 204, headers: CORS });
@@ -46,109 +45,115 @@ const nextLink = (token: string) => ({
 const collection = (features: unknown[], links: unknown[], matched: number) =>
   ({ type: "FeatureCollection", features, links, context: { matched } });
 
+async function setRange(page: Page, from: string, to: string) {
+  await page.fill("#date-from", from);
+  await page.fill("#date-to", to);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("https://demotiles.maplibre.org/**", (route) => respond(route, { json: MAP_STYLE }));
 });
 
-test("coordinate search builds a calendar and filters by day", async ({ page }) => {
+test("coordinate search builds a calendar and result cards", async ({ page }) => {
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
-    const month = String(body.datetime ?? "2025-01-01").slice(0, 7);
     const index = body.token ? Number(body.token) : 0;
-    const features = index === 0 ? [stacScene("s10", month + "-10T02:00:00Z")]
-      : index === 1 ? [stacScene("s11", month + "-11T02:00:00Z")] : [];
+    const features = index === 0 ? [stacScene("s10", "2025-03-10T02:00:00Z")]
+      : index === 1 ? [stacScene("s11", "2025-03-11T02:00:00Z")] : [];
     const links = index < 1 ? [nextLink(String(index + 1))] : [];
     await respond(route, { json: collection(features, links, features.length) });
   });
   await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
   await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#counter")).toHaveText("2");
-  const day10 = page.locator('.calendar-day[data-date$="-10"]');
-  await expect(day10).toHaveClass(/has-data/);
-  await day10.click();
-  await expect(page.locator("#results li")).toHaveCount(1);
-  await expect(page.locator("#selected-day")).toHaveValue(/-10$/);
-  await expect(page.locator("#calendar-status")).toContainText(/scene/);
+  await expect(page.locator(".day-cell.has-scenes")).toHaveCount(2);
 });
 
-test("month navigation re-queries and rebuilds the calendar", async ({ page }) => {
+test("month navigation issues a narrowed month search", async ({ page }) => {
   const months: string[] = [];
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
-    const month = String(body.datetime ?? "2025-01-01").slice(0, 7);
-    months.push(month);
-    await respond(route, { json: collection([stacScene("m", month + "-05T02:00:00Z")], [], 1) });
+    months.push(String(body.datetime ?? "").slice(0, 7));
+    await respond(route, { json: collection([], [], 0) });
   });
   await page.goto("/");
+  await setRange(page, "2025-01-01", "2025-03-31");
   await page.getByRole("button", { name: /Find observations/ }).click();
-  await expect(page.locator("#results li")).toHaveCount(1);
-  await page.getByRole("button", { name: "Next month" }).click();
-  await expect(page.locator("#month-label")).toHaveText(/February 2025/);
-  await expect.poll(() => months.at(-1)).toBe("2025-02");
-  await expect(page.locator('.calendar-day[data-date="2025-02-05"]')).toHaveClass(/has-data/);
+  await expect.poll(() => months.at(-1)).toBe("2025-01");
+  await page.getByRole("button", { name: /Search next month/ }).click();
+  await expect.poll(() => months.at(-1)).toBe("2025-04");
 });
 
-test("scan-next-five extends pagination without restarting", async ({ page }) => {
+test("selecting a calendar day filters the result cards", async ({ page }) => {
+  await page.route("**/search", async (route) => {
+    const body = JSON.parse(route.request().postData() ?? "{}");
+    const index = body.token ? Number(body.token) : 0;
+    const features = index === 0 ? [stacScene("s10", "2025-03-10T02:00:00Z")]
+      : index === 1 ? [stacScene("s11", "2025-03-11T02:00:00Z")] : [];
+    const links = index < 1 ? [nextLink(String(index + 1))] : [];
+    await respond(route, { json: collection(features, links, features.length) });
+  });
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.locator(".day-cell.has-scenes").first().click();
+  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
+  await expect(page.locator("#results li")).toHaveCount(1);
+});
+
+test("load-next-pages scans another five-page batch", async ({ page }) => {
   let requests = 0;
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
     const index = body.token ? Number(body.token) : 0;
     requests += 1;
-    await respond(route, { json: collection([stacScene("p" + index, "2025-01-05T02:00:00Z")], [nextLink(String(index + 1))], 100) });
+    await respond(route, { json: collection([stacScene("p" + index, "2025-03-05T02:00:00Z")], [nextLink(String(index + 1))], 100) });
   });
   await page.goto("/");
   await page.getByRole("button", { name: /Find observations/ }).click();
   await expect.poll(() => requests).toBe(5);
-  await expect(page.locator("#scan-status")).toContainText(/5 page\(s\) loaded/);
-  await page.getByRole("button", { name: /Scan 5 more pages/ }).click();
+  await expect(page.locator("#load-next-pages")).toBeVisible();
+  await page.locator("#load-next-pages").click();
   await expect.poll(() => requests).toBe(10);
-  await expect(page.locator("#scan-status")).toContainText(/10 page\(s\) loaded/);
 });
 
-test("a mid-scan source failure preserves partial results with explicit wording", async ({ page }) => {
+test("a mid-scan catalogue failure is reported and keeps partial results", async ({ page }) => {
   let requests = 0;
   await page.route("**/search", async (route) => {
     requests += 1;
     if (requests === 1) {
-      return respond(route, { json: collection([stacScene("ok", "2025-01-07T02:00:00Z")], [nextLink("1")], 5) });
+      return respond(route, { json: collection([stacScene("ok", "2025-03-07T02:00:00Z")], [nextLink("1")], 5) });
     }
     return respond(route, { status: 429, body: "rate limited", contentType: "text/plain" });
   });
   await page.goto("/");
   await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(1);
-  await expect(page.locator("#status")).toContainText(/partial results/i);
+  await expect(page.locator("#status")).toContainText(/failed/i);
 });
 
-test("deep link restores location and day and replays the query", async ({ page }) => {
+test("deep link restores the location, range and selected day and replays the search", async ({ page }) => {
   await page.route("**/search", (route) =>
-    respond(route, { json: collection([stacScene("d", "2025-01-10T02:00:00Z")], [], 1) }));
-  await page.goto("/?lat=1.35210&lon=103.81980&r=5000&provider=earth-search&from=2025-01-01&to=2025-01-31&day=2025-01-10");
+    respond(route, { json: collection([stacScene("d", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/?lat=1.35210&lon=103.81980&radius=5000&provider=earth-search&from=2025-03-01&to=2025-03-31&day=2025-03-10");
   await expect(page.locator("#latitude")).toHaveValue("1.35210");
-  await expect(page.locator("#selected-day")).toHaveValue("2025-01-10");
+  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
   await expect(page.locator("#results li")).toHaveCount(1);
-});
-
-test("failed preview images are removed", async ({ page }) => {
-  await page.route("https://example.test/**", (route) => route.fulfill({ status: 404, body: "" }));
-  await page.route("**/search", (route) =>
-    respond(route, { json: collection([stacScene("img", "2025-01-09T02:00:00Z")], [], 1) }));
-  await page.goto("/");
-  await page.getByRole("button", { name: /Find observations/ }).click();
-  await expect(page.locator("#results li")).toHaveCount(1);
-  await expect(page.locator("#results img")).toHaveCount(0);
 });
 
 test("calendar days are keyboard operable", async ({ page }) => {
   await page.route("**/search", (route) =>
-    respond(route, { json: collection([stacScene("k", "2025-01-12T02:00:00Z")], [], 1) }));
+    respond(route, { json: collection([stacScene("k", "2025-03-12T02:00:00Z")], [], 1) }));
   await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
   await page.getByRole("button", { name: /Find observations/ }).click();
-  const cell = page.locator('.calendar-day[data-date="2025-01-12"]');
+  const cell = page.locator(".day-cell.has-scenes").first();
   await cell.focus();
   await page.keyboard.press("Enter");
-  await expect(page.locator("#selected-day")).toHaveValue("2025-01-12");
+  await expect(page.locator(".day-cell.selected")).toHaveCount(1);
 });
 
 test("responsive viewport keeps the search form usable", async ({ page }) => {

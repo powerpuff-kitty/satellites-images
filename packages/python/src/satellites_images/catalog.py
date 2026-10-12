@@ -101,91 +101,6 @@ class SearchPage:
     matched: int | None
 
 
-@dataclass(frozen=True)
-class DayAvailability:
-    date: str
-    count: int
-    providers: tuple[str, ...]
-    missions: tuple[str, ...]
-    collections: tuple[str, ...]
-
-
-@dataclass(frozen=True)
-class MonthAvailability:
-    month: str
-    count: int
-
-
-@dataclass(frozen=True)
-class AvailabilitySummary:
-    days: tuple[DayAvailability, ...]
-    months: tuple[MonthAvailability, ...]
-    total_scenes: int
-    #: False when any collected page still advertised a next link (truncated search).
-    complete: bool
-    truncated_providers: tuple[str, ...]
-    providers: dict[str, int]
-    missions: dict[str, int]
-    collections: dict[str, int]
-
-
-def availability_summary(pages: Any) -> AvailabilitySummary:
-    """Summarize collected search pages into UTC day/month availability.
-
-    De-duplicates by provider-native item id while retaining cross-provider
-    provenance, and marks the summary incomplete when any page was truncated.
-    It never asserts that absent days have no imagery.
-    """
-    seen: set[str] = set()
-    days: dict[str, dict[str, Any]] = {}
-    months: dict[str, int] = {}
-    providers: dict[str, int] = {}
-    missions: dict[str, int] = {}
-    collections: dict[str, int] = {}
-    truncated: set[str] = set()
-    total = 0
-    complete = True
-    for page in pages:
-        if page.has_next:
-            complete = False
-            truncated.add(page.provider_id)
-        for scene in page.items:
-            key = page.provider_id + ":" + scene.id
-            if key in seen:
-                continue
-            seen.add(key)
-            total += 1
-            date = scene.acquired_at[:10]
-            bucket = days.setdefault(
-                date, {"count": 0, "providers": set(), "missions": set(), "collections": set()})
-            bucket["count"] += 1
-            bucket["providers"].add(page.provider_id)
-            if scene.mission:
-                bucket["missions"].add(scene.mission)
-            if scene.collection:
-                bucket["collections"].add(scene.collection)
-            months[date[:7]] = months.get(date[:7], 0) + 1
-            providers[page.provider_id] = providers.get(page.provider_id, 0) + 1
-            if scene.mission:
-                missions[scene.mission] = missions.get(scene.mission, 0) + 1
-            if scene.collection:
-                collections[scene.collection] = collections.get(scene.collection, 0) + 1
-    return AvailabilitySummary(
-        days=tuple(
-            DayAvailability(date, bucket["count"], tuple(sorted(bucket["providers"])),
-                            tuple(sorted(bucket["missions"])), tuple(sorted(bucket["collections"])))
-            for date, bucket in sorted(days.items())
-        ),
-        months=tuple(MonthAvailability(month, months[month]) for month in sorted(months)),
-        total_scenes=total,
-        complete=complete,
-        truncated_providers=tuple(sorted(truncated)),
-        providers=providers,
-        missions=missions,
-        collections=collections,
-    )
-
-
 def list_sources() -> list[dict[str, Any]]:
     """Return detached registry entries; this does not imply implemented adapters."""
     return json.loads(files("satellites_images").joinpath("sources.json").read_text(encoding="utf-8"))["sources"]
@@ -671,6 +586,10 @@ class SatelliteCatalog:
         for provider in self.providers:
             if provider_ids is None or provider.id in provider_ids:
                 yield from provider.search(query)
+
+    def availability(self, query: SearchQuery, provider_ids: list[str] | None = None):
+        from .availability import summarize_availability
+        return summarize_availability(self.search(query, provider_ids))
 
     def upcoming(self, query=None) -> list:
         if not self.acquisition_providers:

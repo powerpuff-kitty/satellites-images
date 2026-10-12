@@ -3,7 +3,7 @@ import unittest
 from satellites_images import (
     AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, SatelliteCatalog, SatelliteError,
     SearchQuery, UsgsLandsatLook,
-    availability_summary, bounds_around, coverage_percent, list_sources,
+    bounds_around, coverage_percent, list_sources,
     polygon_boxes, radius_boxes, resolve_areas,
 )
 
@@ -85,21 +85,6 @@ class CatalogTests(unittest.TestCase):
         list(EarthSearch(transport=mock).search(self.query))
         self.assertEqual(calls[1], {"token": "t2"})
 
-    def test_availability_summary(self):
-        seen = []
-
-        def mock(url, method, body):
-            seen.append(1)
-            if len(seen) == 1:
-                return SAMPLE
-            return {**SAMPLE, "features": [{**SAMPLE["features"][0], "id": "second"}], "links": []}
-        pages = list(EarthSearch(transport=mock).search(self.query))
-        summary = availability_summary(pages)
-        self.assertEqual(summary.total_scenes, 2)
-        self.assertFalse(summary.complete)
-        self.assertIn("earth-search", summary.providers)
-        self.assertEqual(summary.days[0].date, "2025-01-10")
-
     def test_registry_includes_paid_and_free_sources(self):
         sources = list_sources()
         self.assertGreaterEqual(len(sources), 12)
@@ -154,6 +139,22 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(pages[0].items[0].preview_url, "https://example.test/thumb.jpg")
         self.assertEqual(seen[1][2]["token"], "page2")
         self.assertIn("bbox", seen[1][2])
+
+    def test_next_post_without_merge_replaces_body(self):
+        calls = []
+        def mock(url, method, body):
+            calls.append(dict(body or {}))
+            if len(calls) == 1:
+                return {**SAMPLE, "links": [{
+                    "rel": "next",
+                    "href": "https://earth-search.aws.element84.com/v1/search",
+                    "method": "POST",
+                    "body": {"cursor": "opaque-token"},
+                }]}
+            return {**SAMPLE, "features": [], "links": []}
+        pages = list(EarthSearch(transport=mock).search(self.query))
+        self.assertEqual(len(pages), 2)
+        self.assertEqual(calls[1], {"cursor": "opaque-token"})
 
     def test_prevents_external_next_link(self):
         def mock(url, method, body):

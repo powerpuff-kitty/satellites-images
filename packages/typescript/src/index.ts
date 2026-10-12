@@ -23,6 +23,7 @@ export interface SearchQuery {
   collections?: string[];
   limit?: number;
   maxPages?: number;
+  signal?: AbortSignal;
 }
 export interface SceneAsset {
   key: string;
@@ -58,25 +59,6 @@ export interface SearchPage {
   pageNumber: number;
   hasNext: boolean;
   matched: number | null;
-}
-export interface DayAvailability {
-  date: string;
-  count: number;
-  providers: string[];
-  missions: string[];
-  collections: string[];
-}
-export interface MonthAvailability { month: string; count: number }
-export interface AvailabilitySummary {
-  days: DayAvailability[];
-  months: MonthAvailability[];
-  totalScenes: number;
-  /** False when any collected page still advertised a `next` link (truncated search). */
-  complete: boolean;
-  truncatedProviders: string[];
-  providers: Record<string, number>;
-  missions: Record<string, number>;
-  collections: Record<string, number>;
 }
 export interface AcquisitionOpportunity {
   providerId: string;
@@ -265,58 +247,6 @@ export function coveragePercent(sceneBbox: number[] | null, boxes: BoundingBox[]
   return Math.max(0, Math.min(100, (covered / total) * 100));
 }
 
-/**
- * Summarize collected search pages into UTC day/month availability.
- *
- * De-duplicates by provider-native item id while retaining cross-provider
- * provenance, and marks the summary incomplete when any page was truncated
- * (still advertising a `next` link). It never asserts that absent days have no
- * imagery — only what the collected pages contained.
- */
-export function availabilitySummary(pages: Iterable<SearchPage>): AvailabilitySummary {
-  const seen = new Set<string>();
-  const days = new Map<string, { count: number; providers: Set<string>; missions: Set<string>; collections: Set<string> }>();
-  const months = new Map<string, number>();
-  const providers: Record<string, number> = {};
-  const missions: Record<string, number> = {};
-  const collections: Record<string, number> = {};
-  const truncated = new Set<string>();
-  let totalScenes = 0;
-  let complete = true;
-  for (const page of pages) {
-    if (page.hasNext) { complete = false; truncated.add(page.providerId); }
-    for (const scene of page.items) {
-      const key = page.providerId + ":" + scene.id;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      totalScenes += 1;
-      const date = scene.acquiredAt.slice(0, 10);
-      const day = days.get(date) ?? { count: 0, providers: new Set<string>(), missions: new Set<string>(), collections: new Set<string>() };
-      day.count += 1;
-      day.providers.add(page.providerId);
-      if (scene.mission) day.missions.add(scene.mission);
-      if (scene.collection) day.collections.add(scene.collection);
-      days.set(date, day);
-      months.set(date.slice(0, 7), (months.get(date.slice(0, 7)) ?? 0) + 1);
-      providers[page.providerId] = (providers[page.providerId] ?? 0) + 1;
-      if (scene.mission) missions[scene.mission] = (missions[scene.mission] ?? 0) + 1;
-      if (scene.collection) collections[scene.collection] = (collections[scene.collection] ?? 0) + 1;
-    }
-  }
-  return {
-    days: [...days.entries()]
-      .map(([date, value]) => ({ date, count: value.count, providers: [...value.providers].sort(), missions: [...value.missions].sort(), collections: [...value.collections].sort() }))
-      .sort((a, b) => a.date.localeCompare(b.date)),
-    months: [...months.entries()].map(([month, count]) => ({ month, count })).sort((a, b) => a.month.localeCompare(b.month)),
-    totalScenes,
-    complete,
-    truncatedProviders: [...truncated].sort(),
-    providers,
-    missions,
-    collections,
-  };
-}
-
 function makeBody(query: SearchQuery, defaults: string[], box: BoundingBox, polygon: AoiGeometry | null): Record<string, unknown> {
   checkDate(query.from, "from");
   checkDate(query.to, "to");
@@ -434,7 +364,9 @@ export class StacProvider {
             method,
             headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
             body: method === "POST" ? JSON.stringify(body) : undefined,
-            signal: AbortSignal.timeout(20000),
+            signal: query.signal
+              ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)])
+              : AbortSignal.timeout(20000),
           });
         } catch (error) {
           throw new SatelliteError("NETWORK", "STAC request failed: " + String(error), this.id);
@@ -619,6 +551,8 @@ export interface AcquisitionProvider {
   readonly id: string;
   upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;
 }
+export { AvailabilityAccumulator, summarizeAvailability } from "./availability.js";
+export type { AvailabilitySummary, AvailabilityMonth, AvailabilityDay, ProviderAvailability } from "./availability.js";
 export { ESAPlansProvider, esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml } from "./acquisitions.js";
 export type { ESAPlan, ESAPlansOptions, AcquisitionQuery, ESAPlanDiagnostic, ESAUpcomingResult } from "./acquisitions.js";
 
@@ -643,6 +577,12 @@ export class SatelliteCatalog {
       if (wanted && !wanted.has(provider.id)) continue;
       yield* provider.search(query);
     }
+  }
+  async availability(query: SearchQuery, providerIds?: string[]): Promise<import("./availability.js").AvailabilitySummary> {
+    const { AvailabilityAccumulator } = await import("./availability.js");
+    const accumulator=new AvailabilityAccumulator();
+    for await (const page of this.search(query,providerIds)) accumulator.addPage(page);
+    return accumulator.summary();
   }
   async upcoming(query: import("./acquisitions.js").AcquisitionQuery,
     providerIds?: string[]): Promise<AcquisitionOpportunity[]> {

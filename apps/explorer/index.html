@@ -28,31 +28,36 @@
           </div>
           <button id="search-button" type="submit">Find observations <span aria-hidden="true">↗</span></button>
         </form>
-        <div class="heading">
-          <h2>Availability calendar</h2>
-          <div class="month-nav">
-            <button id="month-prev" class="icon-button" type="button" aria-label="Previous month">‹</button>
-            <span id="month-label" class="muted">—</span>
-            <button id="month-next" class="icon-button" type="button" aria-label="Next month">›</button>
+        <section class="history-calendar" aria-label="Historical observation availability">
+          <div class="heading">
+            <h2>Historical availability</h2>
+            <span class="muted">UTC / LOADED SCENES</span>
           </div>
-        </div>
-        <div id="calendar" class="calendar" role="grid" aria-label="Observation count per day"></div>
-        <p class="status" id="calendar-status" role="status">Search a location to build a calendar of the scenes found in the loaded pages.</p>
-        <div class="pair">
-          <label>Mission filter<select id="mission-filter"><option value="all">All missions</option></select></label>
-          <label>Selected day<input id="selected-day" type="text" readonly aria-readonly="true" placeholder="any day" /></label>
-        </div>
+          <div class="month-navigation">
+            <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month">←</button>
+            <label class="month-field">Browse month
+              <input id="calendar-month" type="month" value="2025-03" aria-label="Search a specific month">
+            </label>
+            <button class="month-arrow" id="next-month" type="button" aria-label="Search next month">→</button>
+          </div>
+          <label class="mission-field">Satellite
+            <select id="mission-filter" aria-label="Filter observations by satellite">
+              <option value="">All satellites</option>
+            </select>
+          </label>
+          <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
+          <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
+          <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
+          <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages ↓</button>
+          <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
+        </section>
         <div class="heading">
           <h2>Published observations</h2>
           <span id="counter">—</span>
         </div>
         <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
-        <div class="inline-actions">
-          <button id="scan-more" class="secondary-button" type="button" disabled>Scan 5 more pages <span aria-hidden="true">↗</span></button>
-          <button id="copy-link" class="secondary-button" type="button">Copy shareable link</button>
-        </div>
-        <p class="status" id="scan-status" role="status">Scans are limited to 5 pages at a time and 50 pages in total.</p>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
+        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes ↓</button>
         <div class="planning-area">
           <div class="heading">
             <h2>Upcoming planned acquisitions</h2>

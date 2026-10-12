@@ -18,3 +18,19 @@ Return values preserve provider ids, collection ids, acquisition timestamps, ori
 Custom providers can use `new StacProvider({ id, baseUrl, collections, fetchImpl })` and return pages via `search()`.
 
 `upcoming()` uses official ESA KML plans when `esaSentinelPlans()` is configured. Without an acquisition provider it throws `UNSUPPORTED`. Predicted orbital passes and guarantees about published future images are not supported.
+
+## Date-availability summaries
+
+```ts
+import { SatelliteCatalog, earthSearch } from "@powerpuff-kitty/satellites-images";
+
+const sdk = new SatelliteCatalog([earthSearch()]);
+const summary = await sdk.availability({
+  latitude: -8.5833, longitude: 116.1167, radiusMeters: 5000,
+  from: "2025-01-01", to: "2025-01-31", maxPages: 10
+});
+console.log(summary.days, summary.months);
+console.log(summary.complete, summary.truncatedProviders);
+```
+
+`AvailabilityAccumulator.addPage(page)` enables streaming summaries without rerequesting any page. Date grouping uses actual UTC acquisition timestamps. `complete` only means that the requested provider's pagination was exhausted, not that every satellite image in existence was discovered.

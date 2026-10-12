@@ -4,14 +4,15 @@ from .acquisitions import (
     ESAPlan, ESAPlanDiagnostic, ESAUpcomingResult,
     parse_esa_plan_index, parse_esa_plan_kml,
 )
+from .availability import (
+    AvailabilityAccumulator, AvailabilitySummary, AvailabilityDay,
+    AvailabilityMonth, ProviderAvailability, summarize_availability,
+)
 from .catalog import (
-    AvailabilitySummary,
     AsfSearch,
     CmrStac,
     CopernicusDataSpace,
-    DayAvailability,
     EarthSearch,
-    MonthAvailability,
     PlanetaryComputer,
     SatelliteCatalog,
     SatelliteError,
@@ -21,7 +22,6 @@ from .catalog import (
     SceneAsset,
     StacProvider,
     UsgsLandsatLook,
-    availability_summary,
     bounds_around,
     coverage_percent,
     list_sources,
@@ -33,13 +33,13 @@ from .catalog import (
 
 __all__ = [
     "EarthSearch", "CopernicusDataSpace", "UsgsLandsatLook", "CmrStac", "AsfSearch",
-    "normalize_asf_feature",
-    "PlanetaryComputer", "availability_summary", "AvailabilitySummary",
-    "DayAvailability", "MonthAvailability",
+    "normalize_asf_feature", "PlanetaryComputer",
     "SatelliteCatalog", "SatelliteError", "SearchPage",
     "SearchQuery", "Scene", "SceneAsset", "StacProvider", "bounds_around",
     "radius_boxes", "polygon_boxes", "resolve_areas", "coverage_percent",
     "list_sources",
+    "AvailabilityAccumulator", "AvailabilitySummary", "AvailabilityDay",
+    "AvailabilityMonth", "ProviderAvailability", "summarize_availability",
     "ESASentinelPlans", "AcquisitionQuery", "AcquisitionOpportunity",
     "ESAPlan", "ESAPlanDiagnostic", "ESAUpcomingResult",
     "parse_esa_plan_index", "parse_esa_plan_kml",

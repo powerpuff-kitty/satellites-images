@@ -24,3 +24,20 @@ for observation in planned:
 ```
 
 The client raises `SatelliteError` on network errors and malformed catalogue results, instead of silently presenting an empty availability list. Asset rights are unknown until separately verified. Only official ESA Sentinel-1/-2 acquisition plans are implemented; orbital predictions are not.
+
+## Historical availability by month and UTC date
+
+```python
+from satellites_images import SatelliteCatalog, EarthSearch, SearchQuery
+
+catalog = SatelliteCatalog([EarthSearch()])
+summary = catalog.availability(SearchQuery(
+    latitude=-8.5833, longitude=116.1167, radius_meters=5000,
+    start="2025-01-01", end="2025-01-31", max_pages=10,
+))
+for day in summary.days:
+    print(day.date, day.count, day.missions)
+print("Fully paginated:", summary.complete)
+```
+
+Counts are of *unique provider-native STAC items actually scanned*. If `complete` is false, the scan ended while a provider still advertised a next page.

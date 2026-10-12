@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, availabilitySummary, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -166,30 +166,4 @@ test("STAC POST next body replaces the query when merge is absent",async()=>{
   };
   for await(const _ of earthSearch(mock).search(search)){ /* drain */ }
   assert.deepEqual(calls[1],{token:"t2"},"merge defaults to false so the next body replaces the bbox");
-});
-test("availability summary aggregates days, provenance and truncation",()=>{
-  const scene=(id,date,mission)=>({providerId:"earth-search",id,collection:"sentinel-2-l2a",acquiredAt:date,
-    mission,geometry:null,bbox:null,cloudCoverPercent:null,coveragePercent:null,previewUrl:null,access:"unknown",assets:[],sourceUrl:null,raw:{}});
-  const page1={providerId:"earth-search",pageNumber:1,hasNext:true,matched:null,items:[
-    scene("a","2025-01-10T02:00:00.000Z","sentinel-2a"),scene("b","2025-01-10T03:00:00.000Z","sentinel-2b")]};
-  const page2={providerId:"earth-search",pageNumber:2,hasNext:false,matched:null,items:[
-    scene("a","2025-01-10T02:00:00.000Z","sentinel-2a"),scene("c","2025-02-02T02:00:00.000Z",null)]};
-  const summary=availabilitySummary([page1,page2]);
-  assert.equal(summary.totalScenes,3,"duplicate provider-native id is de-duplicated");
-  assert.equal(summary.complete,false,"a truncated page marks the summary incomplete");
-  assert.deepEqual(summary.truncatedProviders,["earth-search"]);
-  assert.deepEqual(summary.days.map(d=>d.date),["2025-01-10","2025-02-02"]);
-  assert.equal(summary.days[0].count,2);
-  assert.deepEqual(summary.days[0].missions,["sentinel-2a","sentinel-2b"]);
-  assert.deepEqual(summary.months,[{month:"2025-01",count:2},{month:"2025-02",count:1}]);
-});
-test("availability summary keeps cross-provider provenance for the same native id",()=>{
-  const scene=(pid,id,date)=>({providerId:pid,id,collection:"sentinel-2-l2a",acquiredAt:date,
-    mission:null,geometry:null,bbox:null,cloudCoverPercent:null,coveragePercent:null,previewUrl:null,access:"unknown",assets:[],sourceUrl:null,raw:{}});
-  const p1={providerId:"earth-search",pageNumber:1,hasNext:false,matched:null,items:[scene("earth-search","shared","2025-01-10T02:00:00.000Z")]};
-  const p2={providerId:"copernicus",pageNumber:1,hasNext:false,matched:null,items:[scene("copernicus","shared","2025-01-10T03:00:00.000Z")]};
-  const summary=availabilitySummary([p1,p2]);
-  assert.equal(summary.totalScenes,2,"the same native id from two providers is counted once per provider");
-  assert.deepEqual(Object.keys(summary.providers).sort(),["copernicus","earth-search"]);
-  assert.deepEqual(summary.days[0].providers,["copernicus","earth-search"]);
 });

@@ -3,6 +3,11 @@
 //! Initial scope: bounded Earth Search STAC queries and metadata normalization.
 //! Published observations are distinct from planned or predicted acquisitions.
 
+pub mod availability;
+pub use availability::{
+    AvailabilityAccumulator, AvailabilitySummary, AvailabilityDay, AvailabilityMonth,
+    ProviderAvailability, summarize_availability,
+};
 pub mod acquisitions;
 pub use acquisitions::{AcquisitionOpportunity, AcquisitionQuery, ESAPlansProvider, ESAPlan,
     ESAPlanDiagnostic, ESAUpcomingResult, parse_esa_plan_index, parse_esa_plan_kml};
@@ -11,7 +16,7 @@ use chrono::{DateTime, NaiveDate, SecondsFormat, Utc};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::{collections::{BTreeMap, BTreeSet, HashSet}, time::Duration};
+use std::{collections::HashSet, time::Duration};
 
 const EARTH_SEARCH: &str = "https://earth-search.aws.element84.com/v1/";
 const PLANETARY_COMPUTER: &str = "https://planetarycomputer.microsoft.com/api/stac/v1";
@@ -344,76 +349,6 @@ pub struct SearchPage {
     pub has_next: bool,
     pub matched: Option<u64>,
 }
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DayAvailability {
-    pub date: String,
-    pub count: usize,
-    pub providers: Vec<String>,
-    pub missions: Vec<String>,
-    pub collections: Vec<String>,
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MonthAvailability { pub month: String, pub count: usize }
-type DailyBucket = (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AvailabilitySummary {
-    pub days: Vec<DayAvailability>,
-    pub months: Vec<MonthAvailability>,
-    pub total_scenes: usize,
-    /// False when any collected page still advertised a `next` link (truncated search).
-    pub complete: bool,
-    pub truncated_providers: Vec<String>,
-    pub providers: BTreeMap<String, usize>,
-    pub missions: BTreeMap<String, usize>,
-    pub collections: BTreeMap<String, usize>,
-}
-
-/// Summarize collected search pages into UTC day/month availability.
-///
-/// De-duplicates by provider-native item id while retaining cross-provider
-/// provenance, and marks the summary incomplete when any page was truncated.
-/// It never asserts that absent days have no imagery.
-pub fn availability_summary(pages: &[SearchPage]) -> AvailabilitySummary {
-    let mut seen: HashSet<String> = HashSet::new();
-    let mut days: BTreeMap<String, DailyBucket> = BTreeMap::new();
-    let mut months: BTreeMap<String, usize> = BTreeMap::new();
-    let mut providers: BTreeMap<String, usize> = BTreeMap::new();
-    let mut missions: BTreeMap<String, usize> = BTreeMap::new();
-    let mut collections: BTreeMap<String, usize> = BTreeMap::new();
-    let mut truncated: BTreeSet<String> = BTreeSet::new();
-    let mut total_scenes = 0usize;
-    let mut complete = true;
-    for page in pages {
-        if page.has_next { complete = false; truncated.insert(page.provider_id.clone()); }
-        for scene in &page.items {
-            if !seen.insert(format!("{}:{}", page.provider_id, scene.id)) { continue; }
-            total_scenes += 1;
-            let date = scene.acquired_at.get(0..10).unwrap_or("").to_owned();
-            let day = days.entry(date.clone()).or_insert_with(|| (0, BTreeSet::new(), BTreeSet::new(), BTreeSet::new()));
-            day.0 += 1;
-            day.1.insert(page.provider_id.clone());
-            if let Some(mission) = &scene.mission { day.2.insert(mission.clone()); }
-            if !scene.collection.is_empty() { day.3.insert(scene.collection.clone()); }
-            *months.entry(scene.acquired_at.get(0..7).unwrap_or("").to_owned()).or_insert(0) += 1;
-            *providers.entry(page.provider_id.clone()).or_insert(0) += 1;
-            if let Some(mission) = &scene.mission { *missions.entry(mission.clone()).or_insert(0) += 1; }
-            if !scene.collection.is_empty() { *collections.entry(scene.collection.clone()).or_insert(0) += 1; }
-        }
-    }
-    AvailabilitySummary {
-        days: days.into_iter().map(|(date, (count, providers, missions, collections))| DayAvailability {
-            date, count,
-            providers: providers.into_iter().collect(),
-            missions: missions.into_iter().collect(),
-            collections: collections.into_iter().collect(),
-        }).collect(),
-        months: months.into_iter().map(|(month, count)| MonthAvailability { month, count }).collect(),
-        total_scenes,
-        complete,
-        truncated_providers: truncated.into_iter().collect(),
-        providers, missions, collections,
-    }
-}
 
 pub fn list_sources() -> Result<Value, Error> {
     serde_json::from_str(include_str!("sources.json"))
@@ -521,6 +456,10 @@ impl StacProvider {
         Self::new("nasa-cmr", &format!("https://cmr.earthdata.nasa.gov/stac/{provider}"))
     }
     pub fn id(&self) -> &str { &self.id }
+    pub async fn availability(&self, query: &SearchQuery) -> Result<AvailabilitySummary, Error> {
+        let pages=self.search_pages(query).await?;
+        summarize_availability(&pages)
+    }
     pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
         Ok(self.search_pages(query).await?.into_iter().flat_map(|p| p.items).collect())
     }
@@ -798,24 +737,6 @@ mod tests {
     fn rejects_malformed_multipolygon() {
         let bad = json!({"type":"MultiPolygon","coordinates":[[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,0.0]]],5]});
         assert!(matches!(polygon_boxes(&bad), Err(Error::InvalidQuery(_))));
-    }
-    #[test]
-    fn availability_summary_dedup_and_truncation() {
-        let first = normalize_stac_item(json!({"id":"a","collection":"sentinel-2-l2a",
-            "properties":{"datetime":"2025-01-10T02:00:00Z","platform":"sentinel-2a"},"bbox":[1.0,2.0,3.0,4.0]}),
-            "earth-search", &[]).unwrap();
-        let later = normalize_stac_item(json!({"id":"c","collection":"sentinel-2-l2a",
-            "properties":{"datetime":"2025-02-02T02:00:00Z"}}), "earth-search", &[]).unwrap();
-        let p1 = SearchPage{provider_id:"earth-search".into(),items:vec![first.clone(),first.clone()],page_number:1,has_next:true,matched:None};
-        let p2 = SearchPage{provider_id:"earth-search".into(),items:vec![first,later],page_number:2,has_next:false,matched:None};
-        let summary = availability_summary(&[p1,p2]);
-        assert_eq!(summary.total_scenes,2);
-        assert!(!summary.complete);
-        assert_eq!(summary.truncated_providers,vec!["earth-search"]);
-        assert_eq!(summary.days.len(),2);
-        assert_eq!(summary.days[0].date,"2025-01-10");
-        assert_eq!(summary.days[0].count,1);
-        assert_eq!(summary.months.len(),2);
     }
     #[test]
     fn parse_stac_scene() {
