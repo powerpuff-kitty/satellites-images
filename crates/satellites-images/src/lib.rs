@@ -1,11 +1,11 @@
-pub mod acquisitions;
-pub use acquisitions::{AcquisitionOpportunity, AcquisitionQuery, ESAPlansProvider, ESAPlan,
-    parse_esa_plan_index, parse_esa_plan_kml};
-
 //! Open, provider-aware satellite imagery catalogue discovery.
 //!
 //! Initial scope: bounded Earth Search STAC queries and metadata normalization.
 //! Published observations are distinct from planned or predicted acquisitions.
+
+pub mod acquisitions;
+pub use acquisitions::{AcquisitionOpportunity, AcquisitionQuery, ESAPlansProvider, ESAPlan,
+    parse_esa_plan_index, parse_esa_plan_kml};
 
 use chrono::{DateTime, NaiveDate, SecondsFormat, Utc};
 use reqwest::{Client, Method, Url};
