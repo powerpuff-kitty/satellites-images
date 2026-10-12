@@ -105,6 +105,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: clicking a timeline bar now **selects** the clicked day (it no longer
   deselects), zooms the map to that day's footprints, and the redundant "pagination
   exhausted" status line was removed.
+- Explorer: UI glyphs replaced with bundled **Font Awesome** icons, and the left-column
+  top spacing reduced.
 
 ## [0.2.0] - 2026-10-12
 

@@ -25,7 +25,7 @@
             <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
             <label>To<input id="date-to" type="date" value="2025-03-31" required></label>
           </div>
-          <button id="search-button" type="submit">Find observations <span aria-hidden="true">↗</span></button>
+          <button id="search-button" type="submit">Find observations <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
         </form>
         <section class="history-calendar" aria-label="Historical observation availability">
           <div class="heading">
@@ -33,15 +33,15 @@
             <span class="muted">UTC / LOADED SCENES</span>
           </div>
           <div class="month-navigation">
-            <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month">←</button>
+            <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
             <label class="month-field">Browse month
               <input id="calendar-month" type="month" value="2025-03" aria-label="Search a specific month">
             </label>
-            <button class="month-arrow" id="next-month" type="button" aria-label="Search next month">→</button>
+            <button class="month-arrow" id="next-month" type="button" aria-label="Search next month"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </div>
           <div class="heading">
             <h2>Filters</h2>
-            <button id="clear-filters" type="button" class="text-button">Reset</button>
+            <button id="clear-filters" type="button" class="text-button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Reset</button>
           </div>
           <label class="mission-field">Satellite<select id="mission-filter" aria-label="Filter observations by satellite"><option value="">All satellites</option></select></label>
           <label class="mission-field">Collection<select id="collection-filter" aria-label="Filter observations by collection"><option value="">All collections</option></select></label>
@@ -61,7 +61,7 @@
           <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
           <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
           <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
-          <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages ↓</button>
+          <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
           <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
         </section>
         <div class="planning-area">
@@ -70,7 +70,7 @@
             <span class="muted">ESA / 14 DAYS</span>
           </div>
           <p class="status">Sentinel-1 radar and Sentinel-2 optical mission plans. These are intended datatakes, not images that already exist.</p>
-          <button id="plans-button" class="secondary-button" type="button">Find upcoming observations <span aria-hidden="true">↗</span></button>
+          <button id="plans-button" class="secondary-button" type="button">Find upcoming observations <i class="fa-solid fa-satellite" aria-hidden="true"></i></button>
           <p class="status" id="plans-status" role="status">Select a location, then search current published ESA plans.</p>
           <ol id="plans-results" class="results" aria-label="Planned satellite acquisitions"></ol>
         </div>
@@ -91,9 +91,9 @@
             <span id="counter">—</span>
           </div>
           <div class="timeline-nav">
-            <button id="window-back" type="button" aria-label="Search an earlier period">◀ earlier</button>
+            <button id="window-back" type="button" aria-label="Search an earlier period"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> earlier</button>
             <span id="window-label" class="muted">—</span>
-            <button id="window-forward" type="button" aria-label="Search a later period">later ▶</button>
+            <button id="window-forward" type="button" aria-label="Search a later period">later <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
           <figure class="timeline" id="timeline" aria-label="Stacked timelines: cloud cover, mission, provider and time of day, by day">
@@ -108,11 +108,11 @@
           </div>
         </header>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
-        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes ↓</button>
+        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
       </aside>
     </main>
     <div id="lightbox" class="lightbox" hidden role="dialog" aria-modal="true" aria-label="Full-screen preview">
-      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close preview">✕</button>
+      <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close preview"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       <img id="lightbox-image" alt="" />
     </div>
     <script type="module" src="/src/main.ts"></script>

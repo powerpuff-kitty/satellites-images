@@ -2,18 +2,18 @@
 html, body { height:100%; margin:0; background:#111512; color:#edece6; font: 14px/1.45 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
 a { color:#e0b86d; text-underline-offset:3px; }
 .layout { height:100vh; min-height:600px; display:grid; grid-template-columns:360px minmax(0,1fr) minmax(320px,420px); }
-.panel { display:flex; flex-direction:column; overflow-y:auto; padding:28px 24px 24px; border-right:1px solid #353c35; }
+.panel { display:flex; flex-direction:column; overflow-y:auto; padding:16px 24px 24px; border-right:1px solid #353c35; }
 .map-label { font-size:10px; letter-spacing:.15em; font-weight:600; color:#b1b5aa; }
-h1 { margin:24px 0 4px; font-size:30px; letter-spacing:-.055em; font-weight:570; }
+h1 { margin:6px 0 4px; font-size:30px; letter-spacing:-.055em; font-weight:570; }
 .accent { color:#e2ae54; }
-.intro { color:#aeb4aa; max-width:320px; margin:0 0 26px; }
+.intro { color:#aeb4aa; max-width:320px; margin:0 0 18px; }
 .pair { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
 label { display:flex; flex-direction:column; gap:7px; color:#b2b7ae; font-size:11px; letter-spacing:.02em; }
 input, select { width:100%; min-width:0; border:1px solid #3b443b; background:#1c231e; color:#f1efe8; padding:10px; border-radius:0; font:inherit; color-scheme:dark; }
 input:focus-visible, select:focus-visible, button:focus-visible { outline:2px solid #e2ae54; outline-offset:2px; }
 button { display:flex; justify-content:space-between; align-items:center; width:100%; background:#e2ae54; color:#191b17; border:0; padding:13px 14px; cursor:pointer; border-radius:0; font-size:13px; font-weight:650; margin-top:6px; }
 button:disabled { opacity:.5; cursor:progress; }
-.heading {display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:26px; border-top:1px solid #394037; padding-top:18px;}
+.heading {display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:18px; border-top:1px solid #394037; padding-top:14px;}
 h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 .status, .footnote {font-size:12px; color:#a0a99f;}
 .status { margin:12px 0; }
@@ -67,7 +67,7 @@ button.day-cell {margin:0; padding:5px 3px; border:1px solid #313b33; background
 button.day-cell.has-scenes {color:#e8e9df; background:#294238; border-color:#456856;}
 .day-cell.has-scenes small {color:#c3e3d0;}
 button.day-cell.selected {border-color:#efbe62; outline:1px solid #efbe62; background:#574425;}
-button.text-button {background:none; border:none; text-decoration:underline; color:#e0b86d; font-weight:400; padding:4px 0; margin:0 0 10px; width:auto; font-size:12px; text-underline-offset:3px;}
+button.text-button {background:none; border:none; text-decoration:underline; color:#e0b86d; font-weight:400; padding:4px 0; margin:0 0 10px; width:auto; font-size:12px; text-underline-offset:3px; justify-content:flex-start; gap:6px;}
 [hidden] {display:none !important;}
 .results .scene-inspect {margin:12px 0 2px; width:auto; padding:7px 10px; border:1px solid #596557; color:#d7dcce; background:transparent; font-size:11px; }
 .results .scene-inspect:hover {border-color:#e0ae54;}
@@ -113,7 +113,7 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .timeline-legend .sw.clear { background:#4fbf7a; } .timeline-legend .sw.part { background:#e0ae54; }
 .timeline-legend .sw.cloud { background:#9aa0a2; } .timeline-legend .sw.unknown { background:#5b665b; }
 .timeline-nav { display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; margin:10px 0 2px; }
-.timeline-nav button { width:auto; margin:0; padding:6px 10px; font-size:11px; background:#252c25; border:1px solid #434d42; color:#edece6; justify-content:center; }
+.timeline-nav button { display:inline-flex; align-items:center; justify-content:center; gap:6px; width:auto; margin:0; padding:6px 10px; font-size:11px; background:#252c25; border:1px solid #434d42; color:#edece6; }
 .timeline-nav button:hover:not(:disabled) { background:#2c352c; border-color:#5a6558; }
 .timeline-nav #window-label { text-align:center; }
 

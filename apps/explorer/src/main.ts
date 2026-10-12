@@ -1,6 +1,7 @@
 import maplibregl from "maplibre-gl";
 import type { FeatureCollection, Geometry } from "geojson";
 import "maplibre-gl/dist/maplibre-gl.css";
+import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, esaSentinelPlans,
   AvailabilityAccumulator, type AvailabilitySummary,
@@ -101,6 +102,12 @@ for (const el of [lat,lon]) el.addEventListener("change", () => {
     updateLocation(lat.valueAsNumber, lon.valueAsNumber, true);
 });
 
+function icon(cls:string):HTMLElement {
+  const node=document.createElement("i");
+  node.className="fa-solid "+cls;
+  node.setAttribute("aria-hidden","true");
+  return node;
+}
 function line(label: string, value: string): HTMLElement {
   const wrapper = document.createElement("div");
   wrapper.className = "meta-line";
@@ -129,7 +136,8 @@ function makeScene(scene: Scene): HTMLLIElement {
     const inspect = document.createElement("button");
     inspect.type = "button";
     inspect.className = "scene-inspect";
-    inspect.textContent = "Show scene footprint ↗";
+    inspect.textContent = "Show scene footprint";
+    inspect.append(icon("fa-expand"));
     inspect.addEventListener("click",()=>highlightScene(scene));
     item.append(inspect);
   }
@@ -156,7 +164,8 @@ function makeScene(scene: Scene): HTMLLIElement {
         link.href = source.toString();
         link.rel = "noopener noreferrer";
         link.target = "_blank";
-        link.textContent = "View source metadata ↗";
+        link.textContent = "View source metadata";
+        link.append(icon("fa-arrow-up-right-from-square"));
         item.append(link);
       }
     } catch { /* Invalid source link */ }
@@ -766,7 +775,8 @@ function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
       link.href = source.toString();
       link.target = "_blank";
       link.rel = "noopener noreferrer";
-      link.textContent = "Official ESA plan ↗";
+      link.textContent = "Official ESA plan";
+      link.append(icon("fa-arrow-up-right-from-square"));
       li.append(link);
     }
   } catch { /* invalid source URL: omit link */ }
