@@ -705,6 +705,19 @@ loadNextPagesButton.addEventListener("click",()=>{
   if(activeScan)void scanNextBatch(activeScan);
 });
 
+// A search loads its whole window up front — every chunk and page, within the
+// page safety cap — instead of stopping after a single five-page batch.
+async function loadWholeWindow(session:HistoryScan):Promise<void> {
+  await scanNextBatch(session);
+  let previous=currentSummary?.pagesScanned ?? 0;
+  for(let step=0; step<80 && activeScan===session && !session.ended; step++){
+    await scanNextBatch(session);
+    const pages=currentSummary?.pagesScanned ?? 0;
+    if(pages===previous)return;
+    previous=pages;
+  }
+}
+
 form.addEventListener("submit",(event)=>{
   event.preventDefault();
   void runSearch();
@@ -764,7 +777,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   };
   activeScan=session;
   storeSearchLink();
-  await scanNextBatch(session);
+  await loadWholeWindow(session);
 }
 restoreSearchLink();
 

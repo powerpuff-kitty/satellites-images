@@ -122,20 +122,20 @@ test("selecting a calendar day filters the result cards", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(1);
 });
 
-test("load-next-pages scans another five-page batch", async ({ page }) => {
+test("a search loads every page of its window up front", async ({ page }) => {
   let requests = 0;
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
     const index = body.token ? Number(body.token) : 0;
     requests += 1;
-    await respond(route, { json: collection([stacScene("p" + index, "2025-03-05T02:00:00Z")], [nextLink(String(index + 1))], 100) });
+    const links = index < 11 ? [nextLink(String(index + 1))] : [];
+    await respond(route, { json: collection([stacScene("p" + index, "2025-03-05T02:00:00Z")], links, 12) });
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await expect.poll(() => requests).toBe(5);
-  await expect(page.locator("#load-next-pages")).toBeVisible();
-  await page.locator("#load-next-pages").click();
-  await expect.poll(() => requests).toBe(10);
+  await expect.poll(() => requests).toBe(12);
+  await expect(page.locator("#results li")).toHaveCount(12);
+  await expect(page.locator("#load-next-pages")).toBeHidden();
 });
 
 test("a mid-scan catalogue failure is reported and keeps partial results", async ({ page }) => {

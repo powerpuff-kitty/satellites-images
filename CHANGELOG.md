@@ -131,6 +131,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Explorer: the stacked **timelines are replaced** by a GitHub-style **day matrix** at the
   bottom of the map — one **8×8 px** cell per day across the loaded year, with small links
   to switch the metric (observations / cloud / mission / provider).
+- Explorer: a search now loads its **whole window up front** (all chunks and provider pages,
+  in five-page batches, up to the page safety cap) instead of stopping after one batch.
 
 ## [0.2.0] - 2026-10-12
 

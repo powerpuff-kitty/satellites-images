@@ -40,16 +40,15 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 3. Browse the UTC month/date calendar (numbers show unique scenes **in the loaded results**).
 4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
 5. Use the previous/next month arrows to move the calendar; stepping past the loaded year
-   fetches the next three-month chunk. Press **Load next 5 catalogue pages** to continue the
-   current search without restarting it.
+   fetches the next three-month chunk. Searches load their whole window up front, so the
+   **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the selected coordinates, provider, period and selected calendar day.
 
 The explorer loads **one year at a time** (the last twelve months by default), fetched as
-**four three-month chunks**. Within each chunk it scans up to five pages of 75 items and can
-continue in further five-page batches until all provider pages are exhausted or a 50-page
-maximum is reached. If more pages are still advertised, the UI says **partial**, and
-zero-count dates are not proof that no imagery exists. Changing the location/dates starts a
-new search.
+**four three-month chunks**. A search loads its **whole window up front** — every provider
+page, in five-page batches, up to a 50-page safety cap — so the day matrix covers the full
+year without manual paging. If the cap is reached, the UI says **partial**, and zero-count
+dates are not proof that no imagery exists. Changing the location/dates starts a new search.
 
 The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
 
