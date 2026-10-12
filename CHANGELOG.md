@@ -179,10 +179,12 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   location is chosen.
 - Explorer: new **Data sources** panel built from the registry (`listSources()`) — every
   catalogue with its search/imagery access terms, SDK support and docs, plus opt-in extra
-  catalogues (**Copernicus Data Space**, **ASF Vertex** radar) queried alongside the defaults.
-- Explorer: the day matrix **follows the active tab** — the historical range on Historical,
-  the forecast window on Upcoming — and is cleared on a failed plan lookup, so it never shows
-  the other tab's data.
+  catalogues (**Copernicus Data Space**, **ASF Vertex** radar, **NASA CMR-STAC (ASF)**,
+  **JAXA G-Portal** ALOS — the latter two using the ids the repo's live smoke test verifies)
+  queried alongside the defaults.
+- Explorer: the day matrix always spans the loaded range so **its size never changes**; the
+  data behind it follows the active tab (published on Historical, planned on Upcoming), and
+  it is cleared on a failed plan lookup so it never shows the other tab's data.
 - Explorer: day-matrix cells are **keyboard operable** — focus a day, arrow keys step between
   days with observations, Enter/Space selects — restoring the access the removed calendar had.
 - SDKs: the Planetary Computer provider now also queries **`sentinel-1-rtc`** (radar) and

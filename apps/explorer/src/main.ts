@@ -4,7 +4,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, asfSearch,
-  esaSentinelPlans, listSources, AvailabilityAccumulator, type AvailabilitySummary,
+  cmrStac, jaxaGPortal, esaSentinelPlans, listSources, AvailabilityAccumulator,
+  type AvailabilitySummary,
   type Scene, type SceneAsset, type AcquisitionOpportunity, type SearchProvider } from "@powerpuff-kitty/satellites-images";
 import { renderDayCalendar, renderMonthStrip, shiftMonth, monthDates, asMonthLabel } from "./calendar.js";
 
@@ -489,10 +490,6 @@ function matrixColourOf(list:Scene[], metric:MatrixMetric, max:number, order:str
   const index=Math.max(0,order.indexOf(top));
   return SPLIT_PALETTE[index%SPLIT_PALETTE.length];
 }
-let matrixWindow:{from:string;to:string}|null=null;
-function todayIso(offsetDays=0):string {
-  return new Date(Date.now()+offsetDays*86400000).toISOString().slice(0,10);
-}
 let matrixDays:string[]=[];
 let matrixHasData=new Set<string>();
 function focusMatrixCell(day:string):void {
@@ -520,8 +517,8 @@ function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
   matrixSvg.replaceChildren();
   const scenes=matrixItems, metric=matrixMetric;
-  const windowStart=matrixWindow?matrixWindow.from:from.value;
-  const windowEnd=matrixWindow?matrixWindow.to:to.value;
+  const windowStart=from.value;
+  const windowEnd=to.value;
   const windowFrom=Date.parse(windowStart+"T00:00:00Z");
   const windowTo=Date.parse(windowEnd+"T00:00:00Z");
   // Always draw the window's grid, even when nothing was returned, so the year never
@@ -531,13 +528,7 @@ function renderMatrix():void {
   }
   matrixPanel.hidden=false;
   const dayMs=86400000, cell=12, step=cell+1;
-  const dates=scenes.map((scene)=>scene.acquiredAt.slice(0,10))
-    .filter((date)=>/^\d{4}-\d{2}-\d{2}$/.test(date)).sort();
-  const dataFirst=dates.length?Date.parse(dates[0]+"T00:00:00Z"):NaN;
-  const dataLast=dates.length?Date.parse(dates[dates.length-1]+"T00:00:00Z"):NaN;
-  let first=windowFrom, last=windowTo;
-  if(Number.isFinite(dataFirst))first=Math.min(first,dataFirst);
-  if(Number.isFinite(dataLast))last=Math.max(last,dataLast);
+  const first=windowFrom, last=windowTo;
   const startDow=(new Date(first).getUTCDay()+6)%7;
   const start=first-startDow*dayMs;
   const endDow=(new Date(last).getUTCDay()+6)%7;
@@ -1179,6 +1170,10 @@ type ExtraSource={id:string;label:string;create:()=>SearchProvider};
 const EXTRA_SOURCES:ExtraSource[]=[
   {id:"copernicus",label:"Copernicus Data Space",create:()=>copernicusDataSpace()},
   {id:"asf-vertex",label:"ASF Vertex (radar)",create:()=>asfSearch()},
+  // Provider-scoped NASA CMR-STAC and a numeric JAXA G-Portal dataset (ALOS/PALSAR) — the
+  // same ids the repo's live smoke test uses, so both are operator-verifiable.
+  {id:"nasa-cmr",label:"NASA CMR-STAC (ASF)",create:()=>cmrStac("ASF",["sentinel-1-rtc"])},
+  {id:"jaxa-gportal",label:"JAXA G-Portal (ALOS)",create:()=>jaxaGPortal({datasetId:"10002002"})},
 ];
 const enabledExtraSources=new Set<string>();
 function renderSources():void {
@@ -1315,7 +1310,6 @@ async function runUpcoming():Promise<void>{
     const mission=upcomingMission.value;
     const filtered=mission?planned.filter(p=>p.mission.startsWith(mission)):planned;
     displaySwaths(filtered);
-    matrixWindow={from:todayIso(),to:todayIso(Number(daysAhead.value)||14)};
     matrixItems=plannedAsScenes(filtered);
     renderMatrix();
     const list=document.createDocumentFragment();
@@ -1327,7 +1321,6 @@ async function runUpcoming():Promise<void>{
       : "No matching planned datatakes in the latest ESA plans for this location and window.";
   } catch(error) {
     if(token===currentPlanSearch){
-      matrixWindow={from:todayIso(),to:todayIso(Number(daysAhead.value)||14)};
       matrixItems=[];
       renderMatrix();   // never leave the previous tab's data on the grid
       upcomingStatus.textContent=
@@ -1346,17 +1339,11 @@ function setTab(tab:"historical"|"upcoming"):void{
   plansResults.hidden = tab!=="upcoming";
   if(tab!=="historical") showMoreButton.hidden=true;
   obsTitle.textContent = tab==="upcoming" ? "Upcoming planned acquisitions" : "Published observations";
-  if(tab==="upcoming"){
-    // The matrix follows the forecast window rather than the historical search range.
-    matrixWindow={from:todayIso(),to:todayIso(Number(daysAhead.value)||14)};
-    matrixItems=[];
-    renderMatrix();
-    void runUpcoming();
-  }else{
-    matrixWindow=null;
-    matrixItems=loadedScenes.filter(passesFilters);
-    renderMatrix();
-  }
+  // The window (and therefore the grid's size) is the same on both tabs; only the data
+  // behind it changes.
+  matrixItems=tab==="upcoming"?[]:loadedScenes.filter(passesFilters);
+  renderMatrix();
+  if(tab==="upcoming")void runUpcoming();
 }
 tabHistorical.addEventListener("click",()=>setTab("historical"));
 tabUpcoming.addEventListener("click",()=>setTab("upcoming"));

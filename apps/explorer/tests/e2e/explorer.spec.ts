@@ -93,6 +93,21 @@ test("a drawn area is searched as a polygon and can be cleared", async ({ page }
   await expect.poll(() => bodies.some((body) => JSON.stringify(body).includes("bbox"))).toBe(true);
 });
 
+test("the matrix keeps its size when switching tabs", async ({ page }) => {
+  await page.route("**/acquisition-plans", (route) => respond(route, { contentType: "text/html", body: "<html></html>" }));
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("s1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-01-01", "2025-12-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  const width = await page.locator("#matrix-svg").getAttribute("width");
+  const height = await page.locator("#matrix-svg").getAttribute("height");
+  await page.locator("#tab-upcoming").click();
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(0);
+  expect(await page.locator("#matrix-svg").getAttribute("width")).toBe(width);
+  expect(await page.locator("#matrix-svg").getAttribute("height")).toBe(height);
+});
+
 test("the map prompt disappears once a location is chosen", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("l1", "2025-03-10T02:00:00Z")], [], 1) }));
@@ -513,9 +528,13 @@ test("the Data sources panel lists the registry and enables extra catalogues", a
   await expect(page.locator("#source-list")).toContainText(/Earth Search/);
   await expect(page.locator("#source-list")).toContainText(/Planetary Computer/);
   await expect(page.locator("#source-list")).toContainText(/Copernicus Data Space/);
+  await expect(page.locator("#source-list")).toContainText(/JAXA G-Portal/);
+  await expect(page.locator('#source-list input[data-source="jaxa-gportal"]')).toHaveCount(1);
   // Extra catalogues are opt-in: ticking one queries that catalogue too.
   await page.locator('#source-list input[data-source="copernicus"]').check();
   await expect.poll(() => requests.some((url) => url.includes("dataspace.copernicus.eu"))).toBe(true);
+  await page.locator('#source-list input[data-source="nasa-cmr"]').check();
+  await expect.poll(() => requests.some((url) => url.includes("cmr.earthdata.nasa.gov"))).toBe(true);
 });
 
 test("the More dropdown picks an extra metric", async ({ page }) => {

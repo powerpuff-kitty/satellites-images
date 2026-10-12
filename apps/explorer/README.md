@@ -67,10 +67,10 @@ Client-side filters over the **loaded** results (instant, no new queries): **sat
 unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result cards, the
 day matrix and the calendar counts; the counter shows `filtered / total`.
 
-The **day matrix** at the bottom of the map follows the active tab: the historical search range
-on **Historical**, and the **forecast window** (today → today + days-ahead) on **Upcoming** —
-so it never shows the other tab's data (including when a plan lookup fails). It is a
-GitHub-style grid of **12×12 px** cells — one
+The **day matrix** at the bottom of the map always spans the loaded range, so **its size never
+changes**, while the data behind it follows the active tab — published scenes on
+**Historical**, planned datatakes on **Upcoming** — and it never shows the other tab's data
+(including when a plan lookup fails). It is a GitHub-style grid of **12×12 px** cells — one
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
 still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
 the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
@@ -90,8 +90,9 @@ The "select any location" prompt disappears once a location is chosen, and scene
 
 A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
 knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which
-SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex**
-radar) are opt-in there and are queried in addition to Earth Search and Planetary Computer.
+SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex** radar, **NASA CMR-STAC (ASF)**,
+**JAXA G-Portal** ALOS) are opt-in there and are queried in addition to Earth Search and
+Planetary Computer.
 
 ## Layout
 
