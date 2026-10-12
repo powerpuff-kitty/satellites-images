@@ -12,6 +12,7 @@ jobs:
           node-version: "22"
       - run: npm install --no-audit --no-fund
       - run: npm run check
+      - run: npm pack --dry-run -w @powerpuff-kitty/satellites-images
       - run: git diff --exit-code -- packages/typescript/src/sources.json packages/python/src/satellites_images/sources.json crates/satellites-images/src/sources.json
   python:
     runs-on: ubuntu-latest
@@ -22,9 +23,11 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install -e packages/python
       - run: python -m unittest discover -s packages/python/tests -v
+      - run: python -m pip wheel --no-deps --wheel-dir /tmp/satellites-wheels packages/python
   rust:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --manifest-path crates/satellites-images/Cargo.toml
+      - run: cargo package --manifest-path crates/satellites-images/Cargo.toml --list
