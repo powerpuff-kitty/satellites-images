@@ -34,7 +34,32 @@
       "type": [
         "object",
         "null"
+      ],
+      "description": "Approximate KML swath footprint, GeoJSON geometry"
+    },
+    "id": {
+      "type": "string",
+      "description": "Stable identifier for a planned datatake within the plan"
+    },
+    "endAt": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    },
+    "mode": {
+      "type": [
+        "string",
+        "null"
       ]
+    },
+    "orbitRelative": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
     }
   }
 }

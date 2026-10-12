@@ -14,4 +14,13 @@ for page in catalog.search(q):
         print(scene.id, scene.acquired_at, scene.preview_url)
 ```
 
-The client raises `SatelliteError` on network errors and malformed catalogue results, instead of silently presenting an empty availability list. Asset rights are unknown until separately verified. Future acquisition plans are not implemented.
+Official ESA future acquisition search:
+
+```python
+from satellites_images import ESASentinelPlans, AcquisitionQuery
+planned = ESASentinelPlans().upcoming(AcquisitionQuery(-8.5833,116.1167,5000,days=14))
+for observation in planned:
+    print(observation.mission, observation.expected_at, observation.source_url)
+```
+
+The client raises `SatelliteError` on network errors and malformed catalogue results, instead of silently presenting an empty availability list. Asset rights are unknown until separately verified. Only official ESA Sentinel-1/-2 acquisition plans are implemented; orbital predictions are not.

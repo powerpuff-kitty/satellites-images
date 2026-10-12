@@ -7,7 +7,7 @@
 - `searchAccess`: how to query metadata, e.g. anonymous, free account key, organization account, or entitlement.
 - `imageryAccess`: whether source **image bytes** are open, paid, authenticated or a mixture. An open index does not mean an open raster.
 - `implemented`: which language packages have a tested adapter. The registry has entries for future work as well.
-- `scheduled`: separate planned/predicted acquisitions are **not** published images and are unimplemented at V0.1.
+- `scheduled`: official ESA Sentinel-1/2 planned acquisitions are implemented; *orbit predictions* and other provider schedules remain unimplemented. Neither represents a published image.
 
 Earth Search can expose links to AWS-hosted data whose access or transfer cost depends on the method used. Planetary Computer returns catalogue metadata publicly but raster access may require signed URLs. We never label every asset as free just because it has a link.
 
@@ -18,7 +18,7 @@ See the machine-readable [source registry](../sources/registry.json) for source 
 - [Earth Search v1](https://earth-search.aws.element84.com/v1): public STAC search for `sentinel-2-l2a` and `landsat-c2-l2`.
 - [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/api/stac/v1): public STAC search; asset signing separate.
 - [Copernicus STAC](https://documentation.dataspace.copernicus.eu/APIs/STAC.html): open catalogue with separate auth rules for downloads.
-- [ESA mission planning](https://sentinels.copernicus.eu/copernicus-operations/mission-planning): independently published Sentinel-1/Sentinel-2 acquisition plans (planned integration).
+- [ESA mission planning](https://sentinels.copernicus.eu/copernicus-operations/mission-planning): official Sentinel-1/Sentinel-2 KML acquisition plan adapter in all three SDKs. Sentinel-2 nominal strips only. Direct browser requests may require an origin-restricted proxy.
 
 ## Operational and licensing notes
 

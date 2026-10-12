@@ -22,4 +22,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-Read-only catalogue client. Assets have unknown download entitlements until separately verified. `upcoming()` intentionally fails because future planning is not yet implemented.
+Future Sentinel-1/2 acquisition plans:
+
+```rust
+use satellites_images::{ESAPlansProvider, AcquisitionQuery};
+# async fn check() -> Result<(), Box<dyn std::error::Error>> {
+let query = AcquisitionQuery::new(-8.5833,116.1167,5000.0,14)?;
+let planned = ESAPlansProvider::default().upcoming(&query).await?;
+println!("{} planned datatakes", planned.len());
+# Ok(())
+# }
+```
+
+Read-only catalogue client. Assets have unknown download entitlements until separately verified. The ESA provider retrieves official KML planned swaths. Predictions, image guarantees, and non-ESA plans are not implemented.

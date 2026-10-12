@@ -1,6 +1,6 @@
 # Roadmap
 
-## Delivered foundation (0.1.x)
+## Delivered foundation (0.1–0.2.x)
 
 - [x] Registry covering open and commercial imagery sources with explicit access and adapter status
 - [x] JSON contracts for scenes and future acquisition opportunities
@@ -9,10 +9,11 @@
 - [x] Bounded search pagination, coordinate validation and image metadata normalization
 - [x] Deterministic fixtures/tests, license, README and CI
 - [x] Basic coordinate explorer with historical scene list (not a raster comparison viewer)
+- [x] Official ESA Sentinel-1C/1D/2A/2B/2C current acquisition plan adapters in TypeScript, Python and Rust
+- [x] KML swath/AOI intersection, UTC times, nominal-only S2 filter, strict provider and size checks
 
 ## Next (not delivered)
 
-- [ ] Official ESA Sentinel-1/-2 acquisition plan ingestion with footprint intersection
 - [ ] Polygon AOI, antimeridian-safe search and improved geodesy
 - [ ] Duplicate observation grouping across providers without losing provenance
 - [ ] Copernicus STAC authenticated/unauthenticated adapter with tested download handling

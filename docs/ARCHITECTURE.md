@@ -2,7 +2,7 @@
 
 ## Design
 
-Three native language packages implement a small common scene-discovery contract; no custom satellite orbit calculations or raster processing is shipped yet. All packages are usable independently and search directly against an external public STAC API.
+Three native language packages implement a small common scene-discovery contract and official ESA Sentinel-1/-2 KML acquisition plan parsing. No satellite orbit prediction or raster processing is shipped yet. All packages are usable independently and search directly against an external public STAC API.
 
 - TypeScript: browser/Node/Worker fetch transport and ESM library. Earth Search and Planetary Computer providers.
 - Python: standard-library urllib transport; Earth Search first.
@@ -15,7 +15,7 @@ The *registry* is the canonical source of provider metadata. Run `npm run genera
 
 - A scene is a **published** STAC item. `acquiredAt` is sourced from `properties.datetime` (or fallback start datetime), never from indexing time.
 - Assets are references. The presence of `href` never guarantees download permission.
-- Future `planned` / `predicted` acquisition opportunities have separate contracts. V0.1 returns an explicit unsupported error instead of fabricated dates.
+- Future `planned` / `predicted` acquisition opportunities have separate contracts. V0.2 returns actual ESA `planned` KML swaths where supported, never fabricated orbital `predicted` passes. Configure the ESA plan adapter explicitly and use its independent upcoming query.
 - The same physical observation can appear through multiple providers. Do not de-duplicate by approximate timestamps; preserve provider-native item identity.
 - Cloud cover is scene metadata, not guaranteed AOI cloud coverage.
 - Search is bounded and returns provider pages. A provider outage raises a typed failure rather than an empty success.
@@ -24,8 +24,22 @@ The *registry* is the canonical source of provider metadata. Run `npm run genera
 
 ## Not included
 
-Pixel downloads/reprojection, NDVI analysis, paywall purchases, ESA KML plan ingestion, predicted passes, account management and a serverless tile backend are future work. A production use should add request throttling, durable caching and a provider-specific backoff policy.
+Pixel downloads/reprojection, NDVI analysis, paywall purchases, predicted orbital passes, account management and an always-on tile backend are future work. A production use should add request throttling, durable caching and a provider-specific backoff policy.
 
 ## Package compatibility
 
 Cross-language APIs follow their host-language conventions rather than trying to marshal Python/Rust through JavaScript. Shared JSON examples and schemas define the on-wire semantics. Tests are deterministic and never bill a commercial API.
+
+## Official future plans (V0.2)
+
+- Sentinel-1C/-1D and Sentinel-2A/-2B/-2C acquisition indices are sourced from ESA's current public plan pages, using official KML links.
+- One current (most recently starting) relevant plan is selected per satellite to prevent duplicates across superseded plans; this is a current-plan query, not a complete archive.
+- Parses `ObservationTimeStart`, `ObservationTimeStop`, swath polygon and optional relative orbit. ESA timestamps lacking a timezone are interpreted as UTC.
+- Only Sentinel-2 `NOMINAL` style datatakes are included; calibration/VIC/non-user acquisitions are excluded. It does not guarantee actual image products or optical cloud-free observations.
+- An upcoming query is anchored to the actual current UTC time and limited to 31 days; older dates aren't mislabeled future.
+- Per-datatake footprints are matched to a bounded rectangle around user GPS coordinates with polygon/edge intersection, not simply the centroid of a swath.
+- Each item includes the original plan URL and `status=planned`; no `status=published` image is generated from planning data.
+- KML/HTML responses have size ceilings, timeouts and allowlisted ESA hosts; provider outages raise errors.
+- ESA pages may not allow browser CORS. Run the SDK from Node/Python/Rust or use the optional narrowly scoped Cloudflare Worker. The browser explorer uses a Vite development proxy locally, with configurable Cloudflare proxy for production.
+
+Reference: https://sentinels.copernicus.eu/copernicus-operations/mission-planning

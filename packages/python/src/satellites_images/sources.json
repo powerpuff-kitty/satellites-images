@@ -4,6 +4,40 @@
   "disclaimer": "Provider terms may change. API/search availability and free access to image bytes are different. This registry is descriptive and not a credential or a guaranteed access entitlement.",
   "sources": [
     {
+      "id": "asf-vertex",
+      "name": "Alaska Satellite Facility",
+      "type": "custom",
+      "url": null,
+      "docs": "https://docs.asf.alaska.edu/api/basics/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "account",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Radar imagery metadata; Earthdata login required for many downloads."
+    },
+    {
+      "id": "copernicus",
+      "name": "Copernicus Data Space",
+      "type": "stac",
+      "url": "https://stac.dataspace.copernicus.eu/v1/",
+      "docs": "https://documentation.dataspace.copernicus.eu/APIs/STAC.html",
+      "searchAccess": "anonymous",
+      "imageryAccess": "account",
+      "scheduled": "separate-official-plans",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Public discovery; downloads and other APIs may require registration and authentication."
+    },
+    {
       "id": "earth-search",
       "name": "Element 84 Earth Search",
       "type": "stac",
@@ -24,58 +58,55 @@
       "notes": "Public STAC catalogue; image asset links can have different cloud storage cost and access conditions."
     },
     {
-      "id": "planetary-computer",
-      "name": "Microsoft Planetary Computer",
-      "type": "stac",
-      "url": "https://planetarycomputer.microsoft.com/api/stac/v1",
-      "docs": "https://planetarycomputer.microsoft.com/docs/quickstarts/reading-stac/",
+      "id": "esa-sentinel-plans",
+      "name": "ESA Sentinel-1/-2 Acquisition Plans",
+      "type": "acquisition-plan",
+      "url": "https://sentinels.copernicus.eu/copernicus-operations/mission-planning",
+      "docs": "https://sentinels.copernicus.eu/copernicus/sentinel-2/acquisition-plans",
       "searchAccess": "anonymous",
-      "imageryAccess": "signed-or-authenticated",
-      "scheduled": "no",
-      "collections": [
-        "sentinel-2-l2a",
-        "landsat-c2-l2"
-      ],
+      "imageryAccess": "not-applicable",
+      "scheduled": "official-kml",
+      "collections": [],
       "implemented": {
         "typescript": true,
+        "python": true,
+        "rust": true
+      },
+      "notes": "Plans are published as KML for S1C/S1D and S2A/S2B/S2C. Future datatakes are planned, not acquired images; Sentinel-2 nominal swaths only. Direct ESA requests from web browsers may require a same-origin proxy."
+    },
+    {
+      "id": "eumetsat",
+      "name": "EUMETSAT Data Store",
+      "type": "custom",
+      "url": null,
+      "docs": "https://user.eumetsat.int/",
+      "searchAccess": "account",
+      "imageryAccess": "mixed",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
         "python": false,
         "rust": false
       },
-      "notes": "Catalog search is public; actual assets often require a signed URL and access rules apply."
+      "notes": "Check registration, collection access, and licensing before download."
     },
     {
-      "id": "copernicus",
-      "name": "Copernicus Data Space",
-      "type": "stac",
-      "url": "https://stac.dataspace.copernicus.eu/v1/",
-      "docs": "https://documentation.dataspace.copernicus.eu/APIs/STAC.html",
+      "id": "jaxa-gportal",
+      "name": "JAXA G-Portal",
+      "type": "custom",
+      "url": null,
+      "docs": "https://www.gportal.jaxa.jp/",
       "searchAccess": "anonymous",
       "imageryAccess": "account",
-      "scheduled": "separate-official-plans",
+      "scheduled": "no",
       "collections": [],
       "implemented": {
         "typescript": false,
         "python": false,
         "rust": false
       },
-      "notes": "Public discovery; downloads and other APIs may require registration and authentication."
-    },
-    {
-      "id": "usgs-landsatlook",
-      "name": "USGS LandsatLook",
-      "type": "stac",
-      "url": null,
-      "docs": "https://www.usgs.gov/landsat-missions/spatiotemporal-asset-catalog-stac",
-      "searchAccess": "anonymous",
-      "imageryAccess": "open",
-      "scheduled": "separate-calendar",
-      "collections": [],
-      "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
-      },
-      "notes": "Historical Landsat imagery. Future collection calendar is a separate service, not a published STAC item."
+      "notes": "Product-specific access and reuse conditions; check terms for commercial usage."
     },
     {
       "id": "nasa-cmr",
@@ -112,40 +143,6 @@
       "notes": "Rendered time-enabled map tiles; not a generic individual-scene archive."
     },
     {
-      "id": "asf-vertex",
-      "name": "Alaska Satellite Facility",
-      "type": "custom",
-      "url": null,
-      "docs": "https://docs.asf.alaska.edu/api/basics/",
-      "searchAccess": "anonymous",
-      "imageryAccess": "account",
-      "scheduled": "no",
-      "collections": [],
-      "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
-      },
-      "notes": "Radar imagery metadata; Earthdata login required for many downloads."
-    },
-    {
-      "id": "jaxa-gportal",
-      "name": "JAXA G-Portal",
-      "type": "custom",
-      "url": null,
-      "docs": "https://www.gportal.jaxa.jp/",
-      "searchAccess": "anonymous",
-      "imageryAccess": "account",
-      "scheduled": "no",
-      "collections": [],
-      "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
-      },
-      "notes": "Product-specific access and reuse conditions; check terms for commercial usage."
-    },
-    {
       "id": "noaa-goes",
       "name": "NOAA GOES Open Data",
       "type": "object-storage",
@@ -163,23 +160,6 @@
       "notes": "Cloud object listings rather than a uniform STAC scene search."
     },
     {
-      "id": "eumetsat",
-      "name": "EUMETSAT Data Store",
-      "type": "custom",
-      "url": null,
-      "docs": "https://user.eumetsat.int/",
-      "searchAccess": "account",
-      "imageryAccess": "mixed",
-      "scheduled": "no",
-      "collections": [],
-      "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
-      },
-      "notes": "Check registration, collection access, and licensing before download."
-    },
-    {
       "id": "open-aerial-map",
       "name": "OpenAerialMap",
       "type": "custom",
@@ -195,6 +175,43 @@
         "rust": false
       },
       "notes": "Crowdsourced aerial imagery; per-scene licenses and coverage vary."
+    },
+    {
+      "id": "planet",
+      "name": "Planet",
+      "type": "commercial",
+      "url": null,
+      "docs": "https://docs.planet.com/develop/apis/data/",
+      "searchAccess": "account-entitlement",
+      "imageryAccess": "paid-or-entitlement",
+      "scheduled": "provider-dependent",
+      "collections": [],
+      "implemented": {
+        "typescript": false,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Catalogue visibility and assets can depend on plan entitlements."
+    },
+    {
+      "id": "planetary-computer",
+      "name": "Microsoft Planetary Computer",
+      "type": "stac",
+      "url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+      "docs": "https://planetarycomputer.microsoft.com/docs/quickstarts/reading-stac/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "signed-or-authenticated",
+      "scheduled": "no",
+      "collections": [
+        "sentinel-2-l2a",
+        "landsat-c2-l2"
+      ],
+      "implemented": {
+        "typescript": true,
+        "python": false,
+        "rust": false
+      },
+      "notes": "Catalog search is public; actual assets often require a signed URL and access rules apply."
     },
     {
       "id": "skyfi",
@@ -231,21 +248,21 @@
       "notes": "Account/organization eligibility applies; never assume anonymous free queries."
     },
     {
-      "id": "planet",
-      "name": "Planet",
-      "type": "commercial",
+      "id": "usgs-landsatlook",
+      "name": "USGS LandsatLook",
+      "type": "stac",
       "url": null,
-      "docs": "https://docs.planet.com/develop/apis/data/",
-      "searchAccess": "account-entitlement",
-      "imageryAccess": "paid-or-entitlement",
-      "scheduled": "provider-dependent",
+      "docs": "https://www.usgs.gov/landsat-missions/spatiotemporal-asset-catalog-stac",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "scheduled": "separate-calendar",
       "collections": [],
       "implemented": {
         "typescript": false,
         "python": false,
         "rust": false
       },
-      "notes": "Catalogue visibility and assets can depend on plan entitlements."
+      "notes": "Historical Landsat imagery. Future collection calendar is a separate service, not a published STAC item."
     },
     {
       "id": "vantor",
