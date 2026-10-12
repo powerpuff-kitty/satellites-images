@@ -6,6 +6,7 @@ from .acquisitions import (
 )
 from .catalog import (
     AvailabilitySummary,
+    AsfSearch,
     CmrStac,
     CopernicusDataSpace,
     DayAvailability,
@@ -24,13 +25,15 @@ from .catalog import (
     bounds_around,
     coverage_percent,
     list_sources,
+    normalize_asf_feature,
     polygon_boxes,
     radius_boxes,
     resolve_areas,
 )
 
 __all__ = [
-    "EarthSearch", "CopernicusDataSpace", "UsgsLandsatLook", "CmrStac",
+    "EarthSearch", "CopernicusDataSpace", "UsgsLandsatLook", "CmrStac", "AsfSearch",
+    "normalize_asf_feature",
     "PlanetaryComputer", "availability_summary", "AvailabilitySummary",
     "DayAvailability", "MonthAvailability",
     "SatelliteCatalog", "SatelliteError", "SearchPage",

@@ -14,11 +14,11 @@
       "scheduled": "no",
       "collections": [],
       "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
+        "typescript": true,
+        "python": true,
+        "rust": true
       },
-      "notes": "Radar imagery metadata; Earthdata login required for many downloads."
+      "notes": "Radar imagery metadata; Earthdata login required for many downloads. ASF Search API adapter in all three SDKs (recorded-shape contract tests; live smoke is operator-triggered)."
     },
     {
       "id": "copernicus",

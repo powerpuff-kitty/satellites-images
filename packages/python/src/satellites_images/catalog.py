@@ -9,7 +9,7 @@ from datetime import date, datetime, timezone
 from importlib.resources import files
 from typing import Any, Callable, Iterator
 from urllib.error import HTTPError, URLError
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
 
 
@@ -487,6 +487,115 @@ class StacProvider:
                     # STAC pagination: merge defaults to false, so the next body replaces the query.
                     body = {**body, **next_body} if next_link.get("merge") is True else next_body
                 href = next_url
+
+
+ASF_ENDPOINT = "https://api.daac.asf.alaska.edu/services/search/param"
+
+
+def normalize_asf_feature(raw: Any, provider_id: str = "asf-vertex") -> Scene:
+    """Map one ASF Search API GeoJSON feature to a normalized scene."""
+    obj = _dictionary(raw)
+    props = _dictionary(obj.get("properties"))
+    identifier = props.get("granuleName") or props.get("sceneName") or obj.get("id")
+    date = props.get("startTime") or props.get("stopTime")
+    if not isinstance(identifier, str) or not isinstance(date, str):
+        raise SatelliteError("INVALID_RESPONSE", "ASF feature lacks a granule name or start time", provider_id)
+    try:
+        when = datetime.fromisoformat(date.replace("Z", "+00:00"))
+        if when.tzinfo is None:
+            raise ValueError("Missing timezone")
+        acquired = when.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    except ValueError:
+        raise SatelliteError("INVALID_RESPONSE", "Invalid ASF start time", provider_id) from None
+    browse = [b for b in props.get("browse", []) if isinstance(b, str)] if isinstance(props.get("browse"), list) else []
+    download = props.get("downloadUrl") if isinstance(props.get("downloadUrl"), str) else None
+    assets: list[SceneAsset] = []
+    if download:
+        assets.append(SceneAsset("data", download, None, ("data",)))
+    for index, href in enumerate(browse):
+        assets.append(SceneAsset("browse_" + str(index), href, None, ("thumbnail",)))
+    return Scene(
+        provider_id=provider_id,
+        id=identifier,
+        collection=props.get("processingLevel") if isinstance(props.get("processingLevel"), str) else "asf",
+        acquired_at=acquired,
+        mission=props.get("platform") if isinstance(props.get("platform"), str) else None,
+        geometry=obj.get("geometry") if isinstance(obj.get("geometry"), dict) else None,
+        bbox=None,
+        cloud_cover_percent=None,
+        preview_url=browse[0] if browse else None,
+        access="unknown",
+        assets=tuple(assets),
+        source_url=download,
+        raw=obj,
+    )
+
+
+def _asf_features(data: Any) -> list[Any]:
+    if isinstance(data, dict):
+        if isinstance(data.get("features"), list):
+            return list(data["features"])
+        collected: list[Any] = []
+        for value in data.values():
+            if isinstance(value, (list, dict)):
+                collected.extend(_asf_features(value))
+        return collected
+    if isinstance(data, list):
+        collected = []
+        for value in data:
+            collected.extend(_asf_features(value))
+        return collected
+    return []
+
+
+class AsfSearch:
+    """Alaska Satellite Facility (ASF) Search API adapter (keyword query, GeoJSON output).
+
+    SAR metadata search is anonymous; downloading products needs Earthdata authentication.
+    """
+
+    id = "asf-vertex"
+
+    def __init__(self, platforms: tuple[str, ...] = ("SENTINEL-1",),
+                 transport: Transport | None = None):
+        if not platforms or any(not re.fullmatch(r"[A-Za-z0-9-]+", p) for p in platforms):
+            raise SatelliteError("INVALID_PROVIDER", "ASF platform must be alphanumeric", self.id)
+        self.platforms = platforms
+        self._transport = transport or _http_json
+
+    def search(self, query: SearchQuery) -> Iterator[SearchPage]:
+        boxes, _ = resolve_areas(query)
+        seen: set[str] = set()
+        page = 0
+        for box in boxes:
+            params = urlencode({
+                "platform": ",".join(self.platforms),
+                "start": query.start,
+                "end": query.end,
+                "bbox": ",".join(f"{value:.6f}" for value in box),
+                "maxResults": query.limit,
+                "output": "geojson",
+            })
+            url = ASF_ENDPOINT + "?" + params
+            try:
+                result = self._transport(url, "GET", None)
+            except SatelliteError as exc:
+                if exc.provider_id is None:
+                    exc.provider_id = self.id
+                raise
+            except Exception as exc:
+                raise SatelliteError("NETWORK", "ASF request failed: " + str(exc), self.id) from exc
+            if not isinstance(result, (dict, list)):
+                raise SatelliteError("INVALID_RESPONSE", "ASF response must be JSON", self.id)
+            items: list[Scene] = []
+            for feature in _asf_features(result):
+                scene = normalize_asf_feature(feature, self.id)
+                if scene.id in seen:
+                    continue
+                seen.add(scene.id)
+                items.append(scene)
+            page += 1
+            yield SearchPage(self.id, tuple(items), page, False, len(items))
 
 
 class EarthSearch(StacProvider):

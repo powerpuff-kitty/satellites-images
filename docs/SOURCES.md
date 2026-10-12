@@ -20,6 +20,7 @@ See the machine-readable [source registry](../sources/registry.json) for source 
 - [Copernicus Data Space Ecosystem STAC](https://stac.dataspace.copernicus.eu/v1): anonymous STAC search; downloads require registration. Adapter in all three SDKs (assets stay `unknown`/gated).
 - [USGS LandsatLook STAC](https://landsatlook.usgs.gov/stac-server): anonymous STAC search. Adapter in all three SDKs; its CORS policy blocks arbitrary browser origins, so browser use needs the optional proxy.
 - [NASA CMR-STAC](https://cmr.earthdata.nasa.gov/stac): provider-scoped STAC search (e.g. `ASF`, `USGS_LTA`). Adapter in all three SDKs.
+- [Alaska Satellite Facility Search API](https://api.daac.asf.alaska.edu/services/search/param): keyword SAR metadata search returning GeoJSON. Adapter in all three SDKs; product downloads require Earthdata authentication.
 - [ESA mission planning](https://sentinels.copernicus.eu/copernicus-operations/mission-planning): official Sentinel-1/Sentinel-2 KML acquisition plan adapter in all three SDKs. Sentinel-2 nominal strips only. Direct browser requests may require an origin-restricted proxy.
 
 ## Operational and licensing notes

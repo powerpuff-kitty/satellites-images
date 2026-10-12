@@ -354,6 +354,7 @@ pub struct DayAvailability {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MonthAvailability { pub month: String, pub count: usize }
+type DailyBucket = (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AvailabilitySummary {
     pub days: Vec<DayAvailability>,
@@ -374,7 +375,7 @@ pub struct AvailabilitySummary {
 /// It never asserts that absent days have no imagery.
 pub fn availability_summary(pages: &[SearchPage]) -> AvailabilitySummary {
     let mut seen: HashSet<String> = HashSet::new();
-    let mut days: BTreeMap<String, (usize, BTreeSet<String>, BTreeSet<String>, BTreeSet<String>)> = BTreeMap::new();
+    let mut days: BTreeMap<String, DailyBucket> = BTreeMap::new();
     let mut months: BTreeMap<String, usize> = BTreeMap::new();
     let mut providers: BTreeMap<String, usize> = BTreeMap::new();
     let mut missions: BTreeMap<String, usize> = BTreeMap::new();
@@ -613,6 +614,122 @@ impl StacProvider {
     }
 }
 
+const ASF_ENDPOINT: &str = "https://api.daac.asf.alaska.edu/services/search/param";
+
+/// Map one ASF Search API GeoJSON feature to a normalized scene.
+pub fn normalize_asf_feature(item: &Value, provider_id: &str) -> Result<Scene, Error> {
+    let props = item.get("properties").cloned().unwrap_or(Value::Null);
+    let id = props.get("granuleName").and_then(Value::as_str)
+        .or_else(|| props.get("sceneName").and_then(Value::as_str))
+        .or_else(|| item.get("id").and_then(Value::as_str))
+        .ok_or_else(|| Error::InvalidResponse("ASF feature lacks a granule name".into()))?;
+    let raw_date = props.get("startTime").and_then(Value::as_str)
+        .or_else(|| props.get("stopTime").and_then(Value::as_str))
+        .ok_or_else(|| Error::InvalidResponse("ASF feature lacks a start time".into()))?;
+    let acquired = DateTime::parse_from_rfc3339(raw_date)
+        .map_err(|_| Error::InvalidResponse("Invalid ASF start time".into()))?
+        .with_timezone(&Utc).to_rfc3339_opts(SecondsFormat::Millis, true);
+    let mut assets: Vec<SceneAsset> = Vec::new();
+    let download = props.get("downloadUrl").and_then(Value::as_str);
+    if let Some(href) = download {
+        assets.push(SceneAsset { key: "data".into(), href: href.into(), media_type: None,
+            roles: vec!["data".into()], access: "unknown".into() });
+    }
+    let mut preview = None;
+    if let Some(browse) = props.get("browse").and_then(Value::as_array) {
+        for (index, value) in browse.iter().enumerate() {
+            if let Some(href) = value.as_str() {
+                if preview.is_none() { preview = Some(href.to_owned()); }
+                assets.push(SceneAsset { key: format!("browse_{index}"), href: href.into(), media_type: None,
+                    roles: vec!["thumbnail".into()], access: "unknown".into() });
+            }
+        }
+    }
+    Ok(Scene {
+        provider_id: provider_id.into(), id: id.into(),
+        collection: props.get("processingLevel").and_then(Value::as_str).unwrap_or("asf").into(),
+        acquired_at: acquired,
+        mission: props.get("platform").and_then(Value::as_str).map(str::to_owned),
+        geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
+        bbox: None, cloud_cover_percent: None, coverage_percent: None,
+        preview_url: preview,
+        access: "unknown".into(), assets,
+        source_url: download.map(str::to_owned),
+        raw: item.clone(),
+    })
+}
+
+fn asf_features(data: &Value) -> Vec<Value> {
+    if let Some(features) = data.get("features").and_then(Value::as_array) {
+        return features.clone();
+    }
+    if let Some(array) = data.as_array() {
+        return array.iter().flat_map(asf_features).collect();
+    }
+    if let Some(object) = data.as_object() {
+        return object.values().flat_map(asf_features).collect();
+    }
+    Vec::new()
+}
+
+/// Alaska Satellite Facility (ASF) Search API adapter (keyword query, GeoJSON output).
+///
+/// SAR metadata search is anonymous; downloading products needs Earthdata authentication.
+#[derive(Clone)]
+pub struct AsfProvider {
+    id: String,
+    client: Client,
+    platforms: Vec<String>,
+}
+impl AsfProvider {
+    pub fn new(platforms: &[&str]) -> Result<Self, Error> {
+        if platforms.is_empty()
+            || platforms.iter().any(|p| p.is_empty() || !p.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'-'))
+        {
+            return Err(Error::InvalidProvider("ASF platform must be alphanumeric".into()));
+        }
+        Ok(Self {
+            id: "asf-vertex".into(),
+            client: Client::builder().timeout(Duration::from_secs(20)).build()?,
+            platforms: platforms.iter().map(|s| (*s).to_owned()).collect(),
+        })
+    }
+    pub fn sentinel1() -> Result<Self, Error> { Self::new(&["SENTINEL-1"]) }
+    pub fn id(&self) -> &str { &self.id }
+    pub async fn search_pages(&self, query: &SearchQuery) -> Result<Vec<SearchPage>, Error> {
+        let (boxes, _) = resolve_areas(query)?;
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut pages = Vec::new();
+        for (index, box_) in boxes.iter().enumerate() {
+            let bbox = box_.iter().map(|value| format!("{value:.6}")).collect::<Vec<_>>().join(",");
+            let response = self.client.get(ASF_ENDPOINT)
+                .query(&[
+                    ("platform", self.platforms.join(",")),
+                    ("start", query.start.clone()),
+                    ("end", query.end.clone()),
+                    ("bbox", bbox),
+                    ("maxResults", query.limit.to_string()),
+                    ("output", "geojson".to_string()),
+                ])
+                .header("Accept", "application/geo+json, application/json")
+                .send().await?;
+            if !response.status().is_success() {
+                return Err(Error::Http(response.status().as_u16()));
+            }
+            let data: Value = response.json().await?;
+            let mut items = Vec::new();
+            for feature in asf_features(&data) {
+                let scene = normalize_asf_feature(&feature, &self.id)?;
+                if seen.insert(scene.id.clone()) { items.push(scene); }
+            }
+            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched: None });        }
+        Ok(pages)
+    }
+    pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
+        Ok(self.search_pages(query).await?.into_iter().flat_map(|page| page.items).collect())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -662,6 +779,20 @@ mod tests {
         assert!(matches!(StacProvider::new("x", "http://example.com"), Err(Error::InvalidProvider(_))));
         assert!(StacProvider::new("y", "http://localhost:8080").is_ok());
         assert!(StacProvider::new("z", "https://example.com").is_ok());
+    }
+    #[test]
+    fn asf_feature_normalizes() {
+        let feature = json!({"type":"Feature","geometry":{"type":"Point","coordinates":[116.1,-8.6]},
+            "properties":{"granuleName":"S1A_example","startTime":"2025-01-10T02:00:00Z",
+                "platform":"Sentinel-1","processingLevel":"GRD_HD",
+                "browse":["https://example.test/b.png"],"downloadUrl":"https://x/y.zip"}});
+        let scene = normalize_asf_feature(&feature, "asf-vertex").unwrap();
+        assert_eq!(scene.provider_id, "asf-vertex");
+        assert_eq!(scene.mission.as_deref(), Some("Sentinel-1"));
+        assert_eq!(scene.acquired_at, "2025-01-10T02:00:00.000Z");
+        assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/b.png"));
+        assert_eq!(scene.access, "unknown");
+        assert_eq!(AsfProvider::sentinel1().unwrap().id(), "asf-vertex");
     }
     #[test]
     fn rejects_malformed_multipolygon() {

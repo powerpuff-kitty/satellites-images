@@ -14,6 +14,7 @@
 - [x] Polygon AOI, antimeridian-safe search splitting and approximate coverage scoring in all three SDKs
 - [x] ESA plan conditional requests (ETag/Last-Modified) and coverage/freshness diagnostics in all three SDKs
 - [x] Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC adapters in all three SDKs
+- [x] ASF SAR Search API adapter (keyword query, GeoJSON) in all three SDKs
 - [x] Historical availability calendar: day/month summaries with provenance and truncation status in all three SDKs, plus explorer calendar, month navigation, mission filter, permalinks and resumable scans
 - [x] Browser E2E tests (Playwright) with fully offline fixtures in CI
 

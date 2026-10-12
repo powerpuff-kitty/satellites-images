@@ -513,6 +513,108 @@ export function cmrStac(providerId: string, collections: string[], fetchImpl?: t
   });
 }
 
+export const ASF_SEARCH_ENDPOINT = "https://api.daac.asf.alaska.edu/services/search/param";
+
+/** Map one ASF Search API GeoJSON feature to a normalized scene. */
+export function normalizeAsfFeature(item: unknown, providerId = "asf-vertex"): Scene {
+  const raw = object(item);
+  const properties = object(raw.properties);
+  const id = stringOrNull(properties.granuleName) ?? stringOrNull(properties.sceneName) ?? stringOrNull(raw.id);
+  const date = stringOrNull(properties.startTime) ?? stringOrNull(properties.stopTime);
+  if (!id || !date || Number.isNaN(Date.parse(date))) {
+    throw new SatelliteError("INVALID_RESPONSE", "ASF feature lacks a valid granule name or start time", providerId);
+  }
+  const browse = Array.isArray(properties.browse) ? properties.browse.filter((x): x is string => typeof x === "string") : [];
+  const download = stringOrNull(properties.downloadUrl);
+  const assets: SceneAsset[] = [];
+  if (download) assets.push({ key:"data", href:download, type:null, roles:["data"], access:"unknown" });
+  browse.forEach((href, index) => assets.push({ key:"browse_"+index, href, type:null, roles:["thumbnail"], access:"unknown" }));
+  const geometry = object(raw.geometry);
+  return {
+    providerId,
+    id,
+    collection: stringOrNull(properties.processingLevel) ?? "asf",
+    acquiredAt: new Date(date).toISOString(),
+    mission: stringOrNull(properties.platform),
+    geometry: Object.keys(geometry).length ? geometry : null,
+    bbox: null,
+    cloudCoverPercent: null,
+    coveragePercent: null,
+    previewUrl: browse[0] ?? null,
+    access: "unknown",
+    assets,
+    sourceUrl: download,
+    raw,
+  };
+}
+
+function asfFeatures(data: unknown): unknown[] {
+  const obj = object(data);
+  if (Array.isArray(obj.features)) return obj.features;
+  return Object.values(obj).flatMap((value) => Array.isArray(value) ? asfFeatures(value) : []);
+}
+
+export interface AsfProviderOptions { platforms?: string[]; fetchImpl?: typeof fetch }
+/**
+ * Alaska Satellite Facility (ASF) Search API adapter.
+ *
+ * The SAR catalogue is keyword-based (not STAC); results are requested as GeoJSON.
+ * Metadata search is anonymous; downloading products needs Earthdata authentication.
+ */
+export class AsfProvider {
+  readonly id = "asf-vertex";
+  private readonly platforms: string[];
+  private readonly fetchImpl: typeof fetch;
+  constructor(options: AsfProviderOptions = {}) {
+    this.platforms = options.platforms ?? ["SENTINEL-1"];
+    if (!this.platforms.length || this.platforms.some((p) => !/^[A-Za-z0-9-]+$/.test(p))) {
+      throw new SatelliteError("INVALID_PROVIDER", "ASF platform must be alphanumeric", this.id);
+    }
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
+  }
+  async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
+    checkDate(query.from, "from");
+    checkDate(query.to, "to");
+    if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
+    if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
+      throw new SatelliteError("INVALID_QUERY", "limit must be an integer between 1 and 100");
+    }
+    const { boxes } = resolveAreas(query);
+    const seen = new Set<string>();
+    let pageNumber = 0;
+    for (const box of boxes) {
+      const params = new URLSearchParams({
+        platform: this.platforms.join(","),
+        start: query.from,
+        end: query.to,
+        bbox: box.map((value) => value.toFixed(6)).join(","),
+        maxResults: String(query.limit ?? 50),
+        output: "geojson",
+      });
+      let response: Response;
+      try {
+        response = await this.fetchImpl(ASF_SEARCH_ENDPOINT + "?" + params.toString(), {
+          headers: { "Accept": "application/geo+json, application/json" },
+          signal: AbortSignal.timeout(20000),
+        });
+      } catch (error) {
+        throw new SatelliteError("NETWORK", "ASF request failed: " + String(error), this.id);
+      }
+      if (!response.ok) throw new SatelliteError("HTTP_ERROR", "ASF returned HTTP " + response.status, this.id);
+      let data: unknown;
+      try { data = await response.json(); }
+      catch { throw new SatelliteError("INVALID_RESPONSE", "ASF response was not valid JSON", this.id); }
+      const scenes = asfFeatures(data).map((feature) => normalizeAsfFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
+      scenes.forEach((scene) => seen.add(scene.id));
+      pageNumber += 1;
+      yield { providerId:this.id, items:scenes, pageNumber, hasNext:false, matched:scenes.length };
+    }
+  }
+}
+export function asfSearch(options: AsfProviderOptions = {}): AsfProvider {
+  return new AsfProvider(options);
+}
+
 export interface AcquisitionProvider {
   readonly id: string;
   upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;

@@ -4,9 +4,9 @@
 
 Three native language packages implement a small common scene-discovery contract and official ESA Sentinel-1/-2 KML acquisition plan parsing. No satellite orbit prediction or raster processing is shipped yet. All packages are usable independently and search directly against an external public STAC API.
 
-- TypeScript: browser/Node/Worker fetch transport and ESM library. Earth Search, Planetary Computer, Copernicus Data Space Ecosystem, USGS LandsatLook and NASA CMR-STAC providers.
-- Python: standard-library urllib transport; Earth Search, Copernicus, USGS LandsatLook and CMR-STAC.
-- Rust: serde + reqwest async transport; Earth Search, Copernicus, USGS LandsatLook and CMR-STAC.
+- TypeScript: browser/Node/Worker fetch transport and ESM library. Earth Search, Planetary Computer, Copernicus Data Space Ecosystem, USGS LandsatLook, NASA CMR-STAC and ASF SAR providers.
+- Python: standard-library urllib transport; Earth Search, Copernicus, USGS LandsatLook, CMR-STAC and ASF.
+- Rust: serde + reqwest async transport; Earth Search, Copernicus, USGS LandsatLook, CMR-STAC and ASF.
 - Shared: a versioned registry, normalized response schemas and recorded synthetic STAC fixtures.
 
 The *registry* is the canonical source of provider metadata. Run `npm run generate:registry` to copy it into package-local resources. The generator is deterministic and CI checks the outputs are committed.

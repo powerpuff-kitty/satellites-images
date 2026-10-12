@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, availabilitySummary, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, availabilitySummary, earthSearch, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -89,6 +89,29 @@ test("STAC-reuse adapters target verified endpoints and normalize provider items
     {latitude:-8.5,longitude:116.1,radiusMeters:5000,from:"2025-01-01",to:"2025-01-31"})) pages.push(page);
   assert.equal(pages[0].items[0].providerId,"copernicus");
   assert.equal(pages[0].items[0].mission,"sentinel-2c");
+});
+test("ASF Search API adapter requests GeoJSON and normalizes SAR granules",async()=>{
+  const calls=[];
+  const mock=async(url)=>{
+    calls.push(String(url));
+    return new Response(JSON.stringify({ type:"FeatureCollection", features:[{
+      type:"Feature", geometry:{type:"Point",coordinates:[116.1,-8.6]},
+      properties:{granuleName:"S1A_EW_GRDM_1SDH_example", startTime:"2025-01-10T02:00:00Z",
+        stopTime:"2025-01-10T02:00:30Z", platform:"Sentinel-1", processingLevel:"GRD_HD",
+        browse:["https://example.test/asf-browse.png"],
+        downloadUrl:"https://datapool.asf.alaska.edu/GRD_HD/example.zip"},
+    }]}),{status:200});
+  };
+  const pages=[];
+  for await(const page of asfSearch({fetchImpl:mock}).search(
+    {latitude:-8.5833,longitude:116.1167,radiusMeters:5000,from:"2025-01-01",to:"2025-01-31"})) pages.push(page);
+  assert.ok(calls[0].startsWith("https://api.daac.asf.alaska.edu/services/search/param?"));
+  assert.ok(calls[0].includes("output=geojson"));
+  assert.equal(pages[0].items[0].providerId,"asf-vertex");
+  assert.equal(pages[0].items[0].mission,"Sentinel-1");
+  assert.equal(pages[0].items[0].acquiredAt,"2025-01-10T02:00:00.000Z");
+  assert.equal(pages[0].items[0].previewUrl,"https://example.test/asf-browse.png");
+  assert.equal(pages[0].items[0].access,"unknown");
 });
 test("STAC pagination, normalization, and precise acquisition times",async()=>{
   const calls=[];

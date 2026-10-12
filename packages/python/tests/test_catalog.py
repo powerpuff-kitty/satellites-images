@@ -1,7 +1,7 @@
 import unittest
 
 from satellites_images import (
-    CmrStac, CopernicusDataSpace, EarthSearch, SatelliteCatalog, SatelliteError,
+    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, SatelliteCatalog, SatelliteError,
     SearchQuery, UsgsLandsatLook,
     availability_summary, bounds_around, coverage_percent, list_sources,
     polygon_boxes, radius_boxes, resolve_areas,
@@ -117,6 +117,27 @@ class CatalogTests(unittest.TestCase):
             return {**SAMPLE, "features": [{**SAMPLE["features"][0], "id": "S2C_x"}], "links": []}
         pages = list(SatelliteCatalog([CopernicusDataSpace(transport=mock)]).search(self.query))
         self.assertEqual(pages[0].items[0].provider_id, "copernicus")
+
+    def test_asf_search_adapter(self):
+        requests = []
+
+        def mock(url, method, body):
+            requests.append(url)
+            return {"type": "FeatureCollection", "features": [{
+                "type": "Feature", "geometry": {"type": "Point", "coordinates": [116.1, -8.6]},
+                "properties": {"granuleName": "S1A_EW_GRDM_1SDH_example",
+                               "startTime": "2025-01-10T02:00:00Z", "stopTime": "2025-01-10T02:00:30Z",
+                               "platform": "Sentinel-1", "processingLevel": "GRD_HD",
+                               "browse": ["https://example.test/asf-browse.png"],
+                               "downloadUrl": "https://datapool.asf.alaska.edu/GRD_HD/example.zip"},
+            }]}
+        pages = list(SatelliteCatalog([AsfSearch(transport=mock)]).search(self.query))
+        self.assertTrue(requests[0].startswith("https://api.daac.asf.alaska.edu/services/search/param?"))
+        self.assertIn("output=geojson", requests[0])
+        self.assertEqual(pages[0].items[0].provider_id, "asf-vertex")
+        self.assertEqual(pages[0].items[0].mission, "Sentinel-1")
+        self.assertEqual(pages[0].items[0].acquired_at, "2025-01-10T02:00:00.000Z")
+        self.assertEqual(pages[0].items[0].preview_url, "https://example.test/asf-browse.png")
 
     def test_pagination_and_metadata(self):
         seen = []

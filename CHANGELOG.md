@@ -17,6 +17,7 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   `upcoming_with_diagnostics`) and HTTP `ETag`/`Last-Modified` conditional requests.
 - Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC STAC adapters, and
   Planetary Computer parity, in all three SDKs.
+- ASF SAR Search API adapter (keyword query, GeoJSON output) in all three SDKs.
 - Historical availability summaries (UTC day/month counts with provenance and
   truncation status) in all three SDKs.
 - Explorer: availability calendar, month navigation, per-mission filter, shareable
