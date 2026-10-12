@@ -348,6 +348,24 @@ mod tests {
         assert_eq!(res[0].orbit_relative,Some(47));
     }
     #[test]
+    fn real_esa_kml_observation_fixture(){
+        let xml=include_str!("../tests/fixtures/esa-s2-sample.kml");
+        let plan=ESAPlan {
+            mission:"S2A".into(),
+            url:"https://sentinels.copernicus.eu/copernicus/sentinel-2/acquisition-plans".into(),
+            starts_at:"2024-11-28T00:00:00Z".into(),
+            ends_at:"2024-12-14T00:00:00Z".into(),
+        };
+        let results=parse_esa_plan_kml(xml,&plan,
+            bounds_around(40.97507,-27.63923,1000.0).unwrap(),
+            utc("2024-11-28T00:00:00").unwrap(),
+            utc("2024-12-01T00:00:00").unwrap()).unwrap();
+        assert_eq!(results.len(),1);
+        assert_eq!(results[0].expected_at,"2024-11-28T12:50:30.621Z");
+        assert_eq!(results[0].orbit_relative,Some(95));
+        assert_eq!(results[0].mode.as_deref(),Some("NOBS"));
+    }
+    #[test]
     fn reject_doctype_and_bad_query(){
         let p=ESAPlan{mission:"S2B".into(),url:NEW.into(),starts_at:"".into(),ends_at:"".into()};
         let start=Utc::now();

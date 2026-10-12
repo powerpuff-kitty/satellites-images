@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml, boundsAround,
@@ -73,4 +74,16 @@ test("transport failures are explicit, not an empty upcoming result",async()=>{
   const mock=async()=>new Response("bad",{status:503});
   await assert.rejects(()=>esaSentinelPlans({fetchImpl:mock}).upcoming({
     latitude:0,longitude:0,radiusMeters:1000,days:2}),e=>e.code==="HTTP_ERROR");
+});
+
+test("real ESA S2A 2024 KML datatake can be parsed with its original metadata",()=>{
+  const fixture=readFileSync(new URL("../../../tests/fixtures/esa-s2-sample.kml",import.meta.url),"utf8");
+  const plan={mission:"S2A",url:"https://sentinels.copernicus.eu/copernicus/sentinel-2/acquisition-plans",
+    startsAt:"2024-11-28T00:00:00Z",endsAt:"2024-12-14T00:00:00Z"};
+  const result=parseESAPlanKml(fixture,plan,boundsAround(40.97507,-27.63923,1000),
+    Date.parse("2024-11-28"),Date.parse("2024-12-01"));
+  assert.equal(result.length,1);
+  assert.equal(result[0].expectedAt,"2024-11-28T12:50:30.621Z");
+  assert.equal(result[0].orbitRelative,95);
+  assert.equal(result[0].mode,"NOBS");
 });

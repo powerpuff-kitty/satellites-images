@@ -68,6 +68,22 @@ class ESAPlanTests(unittest.TestCase):
         self.assertNotIn(OLD, seen)
         self.assertEqual(len(seen), 4)
 
+
+    def test_real_esa_kml_fixture(self):
+        from pathlib import Path
+        fixture = (Path(__file__).resolve().parents[3] / "tests/fixtures/esa-s2-sample.kml").read_text()
+        plan = next(p for p in parse_esa_plan_index(
+            '<a href="https://sentinels.copernicus.eu/documents/d/sentinel/s2a_mp_acq__kml_20241128t120000_20241214t150000">plan</a>'
+        ) if p.mission == "S2A")
+        start = datetime(2024, 11, 28, tzinfo=timezone.utc)
+        end = datetime(2024, 12, 1, tzinfo=timezone.utc)
+        results = parse_esa_plan_kml(fixture, plan, bounds_around(40.97507, -27.63923, 1000),
+                                     start, end)
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].expected_at, "2024-11-28T12:50:30.621Z")
+        self.assertEqual(results[0].orbit_relative, 95)
+        self.assertEqual(results[0].mode, "NOBS")
+
     def test_reject_doctype_and_bad_request(self):
         plan = next(p for p in parse_esa_plan_index(INDEX) if p.url == S2)
         with self.assertRaises(SatelliteError):

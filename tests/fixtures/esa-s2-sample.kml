@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+<Placemark>
+                  <name>49284-1</name>
+                  <visibility>0</visibility>
+                  <TimeSpan>
+                     <begin>2024-11-28T12:50:30.621</begin>
+                     <end>2024-11-28T12:51:42.781</end>
+                  </TimeSpan>
+                  <styleUrl>S2A_NOBS_NOMINAL</styleUrl>
+                  <ExtendedData>
+                     <Data name="ID">
+                        <value>49284-1</value>
+                     </Data>
+                     <Data name="Timeliness">
+                        <value>NOMINAL</value>
+                     </Data>
+                     <Data name="Station">
+                        <value>SGS_</value>
+                     </Data>
+                     <Data name="Mode">
+                        <value>NOBS</value>
+                     </Data>
+                     <Data name="ObservationTimeStart">
+                        <value>2024-11-28T12:50:30.621</value>
+                     </Data>
+                     <Data name="ObservationTimeStop">
+                        <value>2024-11-28T12:51:42.781</value>
+                     </Data>
+                     <Data name="ObservationDuration">
+                        <value>72160</value>
+                     </Data>
+                     <Data name="OrbitAbsolute">
+                        <value>49284</value>
+                     </Data>
+                     <Data name="OrbitRelative">
+                        <value>95</value>
+                     </Data>
+                     <Data name="Scenes">
+                        <value>20</value>
+                     </Data>
+                  </ExtendedData>
+                  <Polygon>
+                     <outerBoundaryIs>
+                        <LinearRing>
+                           <coordinates>-27.639233363884927,40.975070468748065,0 -29.3129961635401,41.28465634064331,0 -30.367231662467976,37.75854622947303,0 -30.557041059252015,37.09659925175124,0 -28.978257962029634,36.79579803572156,0 -27.412630715216718,36.474379877710824,0 -27.195785339387054,37.13337532982346,0 -25.982139528313336,40.64160065507272,0 -27.639233363884927,40.975070468748065,0</coordinates>
+                        </LinearRing>
+                     </outerBoundaryIs>
+                  </Polygon>
+               </Placemark>
+  </Document>
+</kml>
