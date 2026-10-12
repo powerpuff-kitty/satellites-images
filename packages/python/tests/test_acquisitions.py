@@ -67,6 +67,8 @@ class ESAPlanTests(unittest.TestCase):
         self.assertEqual([r.mission for r in results], ["S1C", "S2B"])
         self.assertNotIn(OLD, seen)
         self.assertEqual(len(seen), 4)
+        self.assertEqual(len(catalog.upcoming(AcquisitionQuery(-8.5833, 116.1167, 5000, days=10))), 2)
+        self.assertEqual(len(seen), 4, "Second query should read from ESA plan cache")
 
 
     def test_real_esa_kml_fixture(self):

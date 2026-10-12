@@ -64,6 +64,11 @@ test("future adapter selects newest plan per satellite with bounded queries",asy
   assert.deepEqual(results.map(r=>r.mission),["S1C","S2B"]);
   assert.ok(!calls.includes(oldS2));
   assert.equal(calls.length,4); // 2 index pages, 2 KML files
+  const cached=await catalog.upcoming({latitude:-8.5833,longitude:116.1167,
+    radiusMeters:5000,days:10});
+  assert.equal(cached.length,2);
+  assert.equal(calls.length,4,"Second search should use bounded in-memory plan cache");
+
 });
 test("reject malicious XML and invalid window without relying on network",()=>{
   const plan=parseESAPlanIndex(index).find(p=>p.url===s2);

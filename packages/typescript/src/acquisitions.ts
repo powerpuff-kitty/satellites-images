@@ -239,6 +239,7 @@ export class ESAPlansProvider {
   private readonly clock:()=>Date;
   private readonly missions:string[];
   private readonly maxKmlBytes:number;
+  private readonly cache=new Map<string,{until:number;text:string}>();
   constructor(options:ESAPlansOptions={}) {
     this.transport=options.fetchImpl??fetch;
     this.clock=options.clock??(()=>new Date());
@@ -254,6 +255,10 @@ export class ESAPlansProvider {
     if(parsed.origin!==ESA_ORIGIN || !(INDEXES.includes(url as typeof INDEXES[number]) ||
         parsed.pathname.startsWith("/documents/")))
       throw new SatelliteError("INVALID_PROVIDER","Unexpected ESA URL",this.id);
+    const now=this.clock().getTime();
+    const cached=this.cache.get(url);
+    if(cached && cached.until>now && cached.text.length<=maxBytes) return cached.text;
+    if(cached) this.cache.delete(url);
     let response:Response;
     try { response=await this.transport(url,{signal:AbortSignal.timeout(25000),headers:{"Accept":"text/html, application/xml, application/vnd.google-earth.kml+xml"}}); }
     catch(e){throw new SatelliteError("NETWORK","Failed to request ESA plans: "+String(e),this.id);}
@@ -262,8 +267,11 @@ export class ESAPlansProvider {
     if(length>maxBytes) throw new SatelliteError("INVALID_RESPONSE","ESA document exceeds size limit",this.id);
     const value=await response.text();
     if(value.length>maxBytes) throw new SatelliteError("INVALID_RESPONSE","ESA document exceeds size limit",this.id);
+    if(this.cache.size>=12) this.cache.delete(this.cache.keys().next().value!);
+    this.cache.set(url,{until:now+(INDEXES.includes(url as typeof INDEXES[number])?15*60_000:60*60_000),text:value});
     return value;
   }
+  clearCache():void { this.cache.clear(); }
   async upcoming(query:AcquisitionQuery):Promise<AcquisitionOpportunity[]> {
     const {start,end,bounds}=queryWindow(query,this.clock);
     const missions=new Set(query.missions??this.missions);

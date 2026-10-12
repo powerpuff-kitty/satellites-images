@@ -295,6 +295,7 @@ class ESASentinelPlans:
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self.missions = missions
         self.max_kml_bytes = max_kml_bytes
+        self._cache: dict[str, tuple[float, str]] = {}
 
     def _load(self, url: str, maximum: int) -> str:
         parts = urlsplit(url)
@@ -302,12 +303,23 @@ class ESASentinelPlans:
             url not in INDEXES.values() and not parts.path.startswith("/documents/")
         ):
             raise SatelliteError("INVALID_PROVIDER", "Unexpected ESA URL")
-        if self._transport:
-            value = self._transport(url)
-            if len(value) > maximum:
-                raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
-            return value
-        return _http_text(url, maximum)
+        now = self._clock().timestamp()
+        cached = self._cache.get(url)
+        if cached and cached[0] > now and len(cached[1]) <= maximum:
+            return cached[1]
+        if cached:
+            del self._cache[url]
+        value = self._transport(url) if self._transport else _http_text(url, maximum)
+        if len(value) > maximum:
+            raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
+        if len(self._cache) >= 12:
+            self._cache.pop(next(iter(self._cache)))
+        ttl = 900 if url in INDEXES.values() else 3600
+        self._cache[url] = (now + ttl, value)
+        return value
+
+    def clear_cache(self) -> None:
+        self._cache.clear()
 
     def upcoming(self, query: AcquisitionQuery) -> list[AcquisitionOpportunity]:
         start, end, bounds = _window(query, self._clock)

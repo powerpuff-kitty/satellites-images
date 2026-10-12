@@ -43,3 +43,7 @@ Cross-language APIs follow their host-language conventions rather than trying to
 - ESA pages may not allow browser CORS. Run the SDK from Node/Python/Rust or use the optional narrowly scoped Cloudflare Worker. The browser explorer uses a Vite development proxy locally, with configurable Cloudflare proxy for production.
 
 Reference: https://sentinels.copernicus.eu/copernicus-operations/mission-planning
+
+### ESA request caching
+
+The ESA plan adapters now keep a bounded in-memory cache per provider instance: index pages for 15 minutes and official KML files for 60 minutes (at most 12 URLs). Cached content preserves official source URLs; cache hits do not imply that an old plan remains valid. Every query filters observations against the current UTC time and each file's own coverage window. All SDKs expose a `clearCache` / `clear_cache` method. Cache misses and provider errors remain explicit; for always-on public services, use a shared cache and source-health monitoring as additional layers.

@@ -6,7 +6,7 @@ use reqwest::{Client, Url};
 use roxmltree::{Document, Node};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::{HashMap, HashSet}, time::Duration as StdDuration};
+use std::{collections::{HashMap, HashSet}, sync::Mutex, time::{Duration as StdDuration, Instant}};
 
 use crate::{bounds_around, Error};
 
@@ -247,6 +247,7 @@ pub fn parse_esa_plan_kml(kml:&str,plan:&ESAPlan,bbox:[f64;4],
 pub struct ESAPlansProvider {
     client: Client,
     missions: Vec<String>,
+    cache: Mutex<HashMap<String, (Instant, String)>>,
 }
 impl Default for ESAPlansProvider {
     fn default()->Self {Self::new().expect("ESA provider client")}
@@ -257,6 +258,7 @@ impl ESAPlansProvider {
         Ok(Self{
             client:Client::builder().timeout(StdDuration::from_secs(25)).build()?,
             missions:MISSIONS.iter().map(|m|(*m).to_owned()).collect(),
+            cache:Mutex::new(HashMap::new()),
         })
     }
     async fn fetch_text(&self,url:&str,max_bytes:usize)->Result<String,Error> {
@@ -264,6 +266,15 @@ impl ESAPlansProvider {
         if parsed.scheme()!="https"||parsed.host_str()!=Some("sentinels.copernicus.eu")||
           (url!=S1_INDEX&&url!=S2_INDEX&&!parsed.path().starts_with("/documents/")){
             return Err(Error::InvalidResponse("Unexpected ESA URL".into()));
+        }
+        {
+            let cache=self.cache.lock().map_err(|_|Error::InvalidResponse("Cache lock poisoned".into()))?;
+            if let Some((created,value))=cache.get(url) {
+                let ttl=if url==S1_INDEX||url==S2_INDEX {900} else {3600};
+                if created.elapsed()<StdDuration::from_secs(ttl) && value.len()<=max_bytes {
+                    return Ok(value.clone());
+                }
+            }
         }
         let mut response=self.client.get(parsed)
             .header("Accept","text/html, application/xml, application/vnd.google-earth.kml+xml")
@@ -279,7 +290,13 @@ impl ESAPlansProvider {
             }
             bytes.extend_from_slice(&chunk);
         }
-        Ok(String::from_utf8_lossy(&bytes).into_owned())
+        let text=String::from_utf8_lossy(&bytes).into_owned();
+        {
+            let mut cache=self.cache.lock().map_err(|_|Error::InvalidResponse("Cache lock poisoned".into()))?;
+            if cache.len()>=12 {cache.clear();}
+            cache.insert(url.to_owned(),(Instant::now(),text.clone()));
+        }
+        Ok(text)
     }
     pub async fn upcoming(&self,query:&AcquisitionQuery)->Result<Vec<AcquisitionOpportunity>,Error>{
         let (start,stop,bbox)=query.window(Utc::now())?;
@@ -310,6 +327,9 @@ impl ESAPlansProvider {
         Ok(items)
     }
     pub fn missions(&self)->&[String] {&self.missions}
+    pub fn clear_cache(&self) {
+        if let Ok(mut cache)=self.cache.lock(){cache.clear();}
+    }
 }
 
 #[cfg(test)]
