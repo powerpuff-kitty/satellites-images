@@ -72,6 +72,16 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   scopes can coexist; JAXA `count` is validated; `Invalid baseUrl` is a typed error.
 - Pinned all GitHub Actions to commit SHAs, added Dependabot, and moved the npm publish
   workflow to OIDC trusted publishing (no long-lived token).
+- Malformed provider items are now skipped (with a `skipped` count on `SearchPage`)
+  instead of failing their whole page, in all three SDKs.
+- The aggregator accepts any `SearchProvider` (TypeScript interface / Python Protocol),
+  so ASF and JAXA adapters can be registered alongside STAC providers; Rust remains
+  per-provider (documented).
+- JSON contracts corrected and extended: `scene.schema.json` now matches emitted fields,
+  `searchpage.schema.json`/`availability.schema.json` added, the Rust asset field
+  serializes as `type`, and the TypeScript suite validates output against the schemas.
+- ASF/JAXA providers honour the caller's `signal` (TypeScript); provider redirects are
+  documented as fail-closed; the dev Vite proxy mirrors the production allowlist.
 
 ## [0.2.0] - 2026-10-12
 

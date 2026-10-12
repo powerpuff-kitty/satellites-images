@@ -47,7 +47,7 @@ fn main() {
                 "properties":{"datetime":format!("{day}T02:00:00Z"),"platform":"sentinel-2a"}});
             items.push(normalize_stac_item(item, "earth-search", &[]).unwrap());
         }
-        pages.push(SearchPage { provider_id: "earth-search".into(), items, page_number: (p + 1) as usize, has_next: p < 49, matched: None });
+        pages.push(SearchPage { provider_id: "earth-search".into(), items, page_number: (p + 1) as usize, has_next: p < 49, matched: None, skipped: 0 });
     }
     bench("summarize_availability 50x100", 200, || {
         let _ = summarize_availability(&pages).unwrap();

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/powerpuff-kitty/satellites-images/blob/main/specs/searchpage.schema.json",
+  "title": "A bounded page of normalized scenes",
+  "$comment": "Canonical JSON uses camelCase (TypeScript contract). See specs/README.md.",
+  "type": "object",
+  "required": ["providerId", "items", "pageNumber", "hasNext"],
+  "properties": {
+    "providerId": { "type": "string", "minLength": 1 },
+    "items": { "type": "array", "items": { "$ref": "scene.schema.json" } },
+    "pageNumber": { "type": "integer", "minimum": 1 },
+    "hasNext": { "type": "boolean" },
+    "matched": { "type": ["integer", "null"], "minimum": 0 },
+    "skipped": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Provider items skipped because they failed normalization"
+    }
+  }
+}

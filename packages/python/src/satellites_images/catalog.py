@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from importlib.resources import files
-from typing import Any, Callable, Iterator
+from typing import Any, Callable, Iterator, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlsplit
 from urllib.request import Request, urlopen
@@ -104,6 +104,16 @@ class SearchPage:
     page_number: int
     has_next: bool
     matched: int | None
+    #: Count of provider items skipped because they failed normalization.
+    skipped: int = 0
+
+
+class SearchProvider(Protocol):
+    """The minimal contract the aggregator requires of any search provider (STAC or bespoke)."""
+
+    id: str
+
+    def search(self, query: SearchQuery) -> Iterator[SearchPage]: ...
 
 
 def list_sources() -> list[dict[str, Any]]:
@@ -411,8 +421,13 @@ class StacProvider:
                 context = _dictionary(result.get("context"))
                 matched = context.get("matched", result.get("numberMatched"))
                 items: list[Scene] = []
+                skipped = 0
                 for item in result["features"]:
-                    scene = _normalized_scene(item, self.id, boxes)
+                    try:
+                        scene = _normalized_scene(item, self.id, boxes)
+                    except SatelliteError:
+                        skipped += 1
+                        continue
                     if scene.id in seen:
                         continue
                     seen.add(scene.id)
@@ -426,6 +441,7 @@ class StacProvider:
                     page_number,
                     next_link is not None or (last_box and truncated_earlier),
                     matched if isinstance(matched, int) and not isinstance(matched, bool) else None,
+                    skipped,
                 )
                 if next_link is None:
                     break
@@ -737,7 +753,7 @@ class CmrStac(StacProvider):
 
 
 class SatelliteCatalog:
-    def __init__(self, providers: list[StacProvider], acquisition_providers=None):
+    def __init__(self, providers: list[SearchProvider], acquisition_providers=None):
         if not providers or len({p.id for p in providers}) != len(providers):
             raise SatelliteError("INVALID_PROVIDER", "Provide unique implemented providers")
         self.providers = providers

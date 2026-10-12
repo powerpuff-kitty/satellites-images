@@ -59,6 +59,8 @@ export interface SearchPage {
   pageNumber: number;
   hasNext: boolean;
   matched: number | null;
+  /** Count of provider items skipped in this page because they failed normalization. */
+  skipped?: number;
 }
 export interface AcquisitionOpportunity {
   providerId: string;
@@ -352,6 +354,11 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
 }
 
 interface NextLink { rel: string; href: string; method?: string; body?: Record<string, unknown>; merge?: boolean }
+/** The minimal contract the aggregator requires of any search provider (STAC or bespoke). */
+export interface SearchProvider {
+  readonly id: string;
+  search(query: SearchQuery): AsyncGenerator<SearchPage>;
+}
 export interface StacProviderOptions {
   id: string;
   baseUrl: string;
@@ -461,14 +468,20 @@ export class StacProvider {
         const links = (Array.isArray(page.links) ? page.links : []).map(object);
         const next = links.find((link) => link.rel === "next") as unknown as NextLink | undefined;
         const matched = object(page.context).matched ?? object(page.numberMatched).value;
-        const scenes = page.features
-          .map((feature) => normalise(feature, this.id, boxes))
-          .filter((scene) => !seen.has(scene.id));
-        scenes.forEach((scene) => seen.add(scene.id));
+        const scenes: Scene[] = [];
+        let skipped = 0;
+        for (const feature of page.features) {
+          let scene: Scene;
+          try { scene = normalise(feature, this.id, boxes); }
+          catch { skipped += 1; continue; }
+          if (seen.has(scene.id)) continue;
+          seen.add(scene.id);
+          scenes.push(scene);
+        }
         boxPages += 1;
         pageNumber += 1;
         lastHadNext = Boolean(next);
-        yield { providerId:this.id, items:scenes, pageNumber, hasNext:Boolean(next) || (lastBox && truncatedEarlier), matched: typeof matched === "number" ? matched : (typeof page.numberMatched === "number" ? page.numberMatched : null) };
+        yield { providerId:this.id, items:scenes, pageNumber, hasNext:Boolean(next) || (lastBox && truncatedEarlier), matched: typeof matched === "number" ? matched : (typeof page.numberMatched === "number" ? page.numberMatched : null), skipped };
         if (!next) break;
         if (typeof next.href !== "string") throw new SatelliteError("INVALID_RESPONSE", "STAC next link has no URL", this.id);
         const resolved = new URL(next.href, href);
@@ -611,9 +624,10 @@ export class AsfProvider {
         response = await this.fetchImpl(ASF_SEARCH_ENDPOINT + "?" + params.toString(), {
           headers: { "Accept": "application/geo+json, application/json" },
           redirect: "error",
-          signal: AbortSignal.timeout(20000),
+          signal: query.signal ? AbortSignal.any([query.signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000),
         });
       } catch (error) {
+        if ((error as { name?: string })?.name === "AbortError") throw new SatelliteError("ABORTED", "ASF request aborted", this.id);
         throw new SatelliteError("NETWORK", "ASF request failed: " + String(error), this.id);
       }
       if (!response.ok) throw new SatelliteError("HTTP_ERROR", "ASF returned HTTP " + response.status, this.id);
@@ -725,9 +739,10 @@ export class JaxaProvider {
         response = await this.fetchImpl(JAXA_CSW_ENDPOINT + "?" + params.toString(), {
           headers: { "Accept": "application/json" },
           redirect: "error",
-          signal: AbortSignal.timeout(25000),
+          signal: query.signal ? AbortSignal.any([query.signal, AbortSignal.timeout(25000)]) : AbortSignal.timeout(25000),
         });
       } catch (error) {
+        if ((error as { name?: string })?.name === "AbortError") throw new SatelliteError("ABORTED", "JAXA request aborted", this.id);
         throw new SatelliteError("NETWORK", "JAXA request failed: " + String(error), this.id);
       }
       if (!response.ok) throw new SatelliteError("HTTP_ERROR", "JAXA returned HTTP " + response.status, this.id);
@@ -757,7 +772,7 @@ export { ESAPlansProvider, esaSentinelPlans, parseESAPlanIndex, parseESAPlanKml 
 export type { ESAPlan, ESAPlansOptions, AcquisitionQuery, ESAPlanDiagnostic, ESAUpcomingResult } from "./acquisitions.js";
 
 export class SatelliteCatalog {
-  constructor(private readonly providers: StacProvider[],
+  constructor(private readonly providers: SearchProvider[],
     private readonly acquisitionProviders: AcquisitionProvider[] = []) {
     if (!providers.length) throw new SatelliteError("INVALID_PROVIDER", "Add at least one implemented provider");
     const ids = new Set(providers.map((p) => p.id));

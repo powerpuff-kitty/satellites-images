@@ -23,6 +23,7 @@ The *registry* is the canonical source of provider metadata. Run `npm run genera
 - Each scene carries an approximate `coveragePercent` (0-100) computed as bounding-box overlap with the requested area. It is a bbox heuristic, not an exact geometric intersection area.
 - `availabilitySummary` / `availability_summary` aggregates collected pages into UTC day and month counts, de-duplicated by provider-native item id with cross-provider provenance, and reports `complete=false` plus `truncatedProviders` when any page was truncated. It never asserts that absent days have no imagery.
 - STAC `next` links may specify HTTP GET or POST and JSON bodies; `merge` defaults to **false**, so a `next` POST body replaces the query unless it explicitly sets `merge: true`. Follow only same-origin HTTPS links for production endpoints to avoid SSRF and credential exfiltration.
+- Provider HTTP **redirects are refused (fail-closed)** in all three SDKs so a same-origin redirect cannot carry a request off-origin past the pagination guard. A legitimate provider redirect is therefore surfaced as an error; validate each provider's live behavior before relying on redirects.
 
 ## Not included
 

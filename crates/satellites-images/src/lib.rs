@@ -319,6 +319,7 @@ pub fn bounds_around(lat: f64, lon: f64, radius: f64) -> Result<[f64; 4], Error>
 pub struct SceneAsset {
     pub key: String,
     pub href: String,
+    #[serde(rename = "type")]
     pub media_type: Option<String>,
     pub roles: Vec<String>,
     pub access: String,
@@ -348,6 +349,9 @@ pub struct SearchPage {
     pub page_number: usize,
     pub has_next: bool,
     pub matched: Option<u64>,
+    /// Count of provider items skipped because they failed normalization.
+    #[serde(default)]
+    pub skipped: usize,
 }
 
 pub fn list_sources() -> Result<Value, Error> {
@@ -573,10 +577,11 @@ impl StacProvider {
                     .ok_or_else(|| Error::InvalidResponse("STAC response has no features".into()))?;
                 if features.len() > 10000 { return Err(Error::InvalidResponse("Provider page exceeds the 10000-feature limit".into())); }
                 let mut items: Vec<Scene> = Vec::new();
+                let mut skipped = 0usize;
                 for item in features.iter().cloned() {
-                    let scene = normalize_stac_item(item, &self.id, &boxes)?;
-                    if seen_items.insert(scene.id.clone()) {
-                        items.push(scene);
+                    match normalize_stac_item(item, &self.id, &boxes) {
+                        Ok(scene) => { if seen_items.insert(scene.id.clone()) { items.push(scene); } }
+                        Err(_) => skipped += 1,
                     }
                 }
                 let next_link = data.get("links").and_then(Value::as_array)
@@ -591,6 +596,7 @@ impl StacProvider {
                     items, page_number,
                     has_next: next_link.is_some() || (last_box && truncated_earlier),
                     matched,
+                    skipped,
                 });
                 let Some(next) = next_link else { break; };
                 let link_href = next.get("href").and_then(Value::as_str)
@@ -742,7 +748,7 @@ impl AsfProvider {
                 if seen.insert(scene.id.clone()) { items.push(scene); }
             }
             let items_len = items.len() as u64;
-            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched: Some(items_len) });
+            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched: Some(items_len), skipped: 0 });
         }
         Ok(pages)
     }
@@ -851,7 +857,7 @@ impl JaxaProvider {
                 if seen.insert(scene.id.clone()) { items.push(scene); }
             }
             let matched = data.get("properties").and_then(|p| p.get("numberOfRecordsMatched")).and_then(Value::as_u64);
-            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched });
+            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched, skipped: 0 });
         }
         Ok(pages)
     }

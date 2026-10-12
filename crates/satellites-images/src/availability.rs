@@ -149,7 +149,7 @@ mod tests {
     }
     fn page(provider:&str,items:Vec<Scene>,number:usize,has_next:bool)->SearchPage {
         SearchPage{
-            provider_id:provider.into(),items,page_number:number,has_next,matched:None,
+            provider_id:provider.into(),items,page_number:number,has_next,matched:None,skipped:0,
         }
     }
     #[test]
