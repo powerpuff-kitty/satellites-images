@@ -1,6 +1,6 @@
 # @powerpuff-kitty/satellites-images
 
-Native TypeScript satellite observation discovery SDK. Version 0.2 adds ESA Sentinel-1/2 official planned-acquisition KML on top of Earth Search and Planetary Computer historical STAC search.
+Native TypeScript satellite observation discovery SDK. Version 0.3 adds a historical UTC availability calendar, polygon AOI with antimeridian-safe search, ESA Sentinel-1/2 planned-acquisition KML with conditional caching and diagnostics, and STAC adapters for Earth Search, Planetary Computer, Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC plus bespoke ASF and JAXA G-Portal adapters, with an opt-in retry/backoff policy.
 
 This package is **not yet published**. Run `npm install` and `npm run build` in the repository root, or install the local workspace package.
 

@@ -243,6 +243,12 @@ def _dictionary(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _port_or_default(parts: Any) -> tuple[str, str | None, int]:
+    """(scheme, hostname, effective-port) so an explicit default port equals an omitted one."""
+    default = 443 if parts.scheme == "https" else 80
+    return (parts.scheme, parts.hostname, parts.port or default)
+
+
 def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | None = None) -> Scene:
     obj = _dictionary(raw)
     props = _dictionary(obj.get("properties"))
@@ -302,6 +308,8 @@ def _http_json(url: str, method: str, body: dict[str, Any] | None) -> dict[str, 
     req = Request(url, data=encoded, headers=headers, method=method)
     try:
         with urlopen(req, timeout=20) as response:
+            if urlsplit(response.geturl()).netloc != urlsplit(url).netloc:
+                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing a cross-origin redirect")
             content = response.read()
     except HTTPError as exc:
         retry_after = exc.headers.get("Retry-After") if exc.headers else None
@@ -412,7 +420,7 @@ class StacProvider:
                 next_url = urljoin(href, next_link["href"])
                 requested = urlsplit(next_url)
                 allowed = urlsplit(self.base_url)
-                if (requested.scheme, requested.netloc) != (allowed.scheme, allowed.netloc):
+                if _port_or_default(requested) != _port_or_default(allowed):
                     raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing cross-origin next link", self.id)
                 method = str(next_link.get("method", "GET")).upper()
                 if method not in ("GET", "POST"):

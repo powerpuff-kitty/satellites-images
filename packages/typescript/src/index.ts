@@ -373,6 +373,7 @@ export class StacProvider {
             method,
             headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
             body: method === "POST" ? JSON.stringify(body) : undefined,
+            redirect: "error",
             signal: query.signal
               ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)])
               : AbortSignal.timeout(20000),
@@ -387,6 +388,7 @@ export class StacProvider {
               method,
               headers: { "Accept": "application/geo+json, application/json", ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
               body: method === "POST" ? JSON.stringify(body) : undefined,
+              redirect: "error",
               signal: query.signal
                 ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)])
                 : AbortSignal.timeout(20000),
@@ -401,6 +403,7 @@ export class StacProvider {
         catch { throw new SatelliteError("INVALID_RESPONSE", "STAC response was not valid JSON", this.id); }
         const page = object(data);
         if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "STAC response lacks a features array", this.id);
+        if (page.features.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "STAC page exceeds the 10000-feature limit", this.id);
         const links = (Array.isArray(page.links) ? page.links : []).map(object);
         const next = links.find((link) => link.rel === "next") as unknown as NextLink | undefined;
         const matched = object(page.context).matched ?? object(page.numberMatched).value;
@@ -551,6 +554,7 @@ export class AsfProvider {
       try {
         response = await this.fetchImpl(ASF_SEARCH_ENDPOINT + "?" + params.toString(), {
           headers: { "Accept": "application/geo+json, application/json" },
+          redirect: "error",
           signal: AbortSignal.timeout(20000),
         });
       } catch (error) {
@@ -653,13 +657,14 @@ export class JaxaProvider {
         service: "CSW", version: "3.0.0", request: "GetRecords", outputFormat: "application/json",
         datasetId: this.datasetId,
         startTime: query.from + "T00:00:00Z", endTime: query.to + "T23:59:59Z",
-        bbox: box.join(","), count: String(this.count), startIndex: "1",
+        bbox: box.map((value) => value.toFixed(6)).join(","), count: String(this.count), startIndex: "1",
       });
       if (this.resolution) params.set("resolution", this.resolution);
       let response: Response;
       try {
         response = await this.fetchImpl(JAXA_CSW_ENDPOINT + "?" + params.toString(), {
           headers: { "Accept": "application/json" },
+          redirect: "error",
           signal: AbortSignal.timeout(25000),
         });
       } catch (error) {

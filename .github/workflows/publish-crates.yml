@@ -34,7 +34,7 @@ jobs:
           fi
       - name: Package (dry run)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
-        run: cargo package --manifest-path crates/satellites-images/Cargo.toml --allow-dirty
+        run: cargo package --manifest-path crates/satellites-images/Cargo.toml
       - name: Publish
         if: ${{ startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && !inputs.dry_run) }}
         env:

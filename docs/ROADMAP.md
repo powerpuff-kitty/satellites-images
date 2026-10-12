@@ -25,7 +25,7 @@
 ## Next (not delivered)
 
 - [ ] Duplicate observation grouping across providers without losing provenance
-- [ ] Copernicus STAC authenticated download handling and recorded 403/429 contract tests
+- [ ] Copernicus STAC authenticated download handling
 - [ ] Shared cross-language conformance fixtures for availability JSON serialization and unknown sources
 - [ ] More provider-specific calendar pagination and summary optimization for multi-year queries
 - [ ] Optional browser-safe proxy for API keys and provider CORS limits

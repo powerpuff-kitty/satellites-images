@@ -212,6 +212,8 @@ export function parseESAPlanKml(kml:string, plan:ESAPlan, bbox:BoundingBox,
   fromMs:number, toMs:number):AcquisitionOpportunity[] {
   if(kml.length>DEFAULT_MAX_KML_BYTES || /<!DOCTYPE/i.test(kml))
     throw new SatelliteError("INVALID_RESPONSE","KML exceeds size limit or contains a DOCTYPE");
+  if(!/xmlns[^>]*opengis\.net\/kml\/2\.2/i.test(kml))
+    throw new SatelliteError("INVALID_RESPONSE","ESA KML lacks the KML 2.2 namespace");
   let root:unknown;
   try {
     root=new XMLParser({ignoreAttributes:false,parseTagValue:false,
@@ -223,7 +225,10 @@ export function parseESAPlanKml(kml:string, plan:ESAPlan, bbox:BoundingBox,
   if(!doc?.kml) throw new SatelliteError("INVALID_RESPONSE","ESA KML missing root");
   const results:AcquisitionOpportunity[]=[];
   const seen=new Set<string>();
-  for(const pm of allPlacemarks(doc.kml)) {
+  let placemarks:AnyNode[];
+  try { placemarks=allPlacemarks(doc.kml); }
+  catch(error) { throw new SatelliteError("INVALID_RESPONSE","Malformed ESA KML structure: "+String(error)); }
+  for(const pm of placemarks) {
     const style=asString(pm.styleUrl);
     if(plan.mission.startsWith("S2") && !/NOMINAL/i.test(style)) continue;
     const extra=metadata(pm);
@@ -232,7 +237,9 @@ export function parseESAPlanKml(kml:string, plan:ESAPlan, bbox:BoundingBox,
     if(!time) continue;
     const ms=Date.parse(time);
     if(ms<fromMs || ms>toMs) continue;
-    const rings=polygonsInPlacemark(pm);
+    let rings:Point[][];
+    try { rings=polygonsInPlacemark(pm); }
+    catch { continue; }
     if(!rings.length || !rings.some(ring=>ringHitsBox(ring,bbox))) continue;
     const name=asString(extra.ID||extra.DatatakeId||pm.name)||time;
     const id=plan.mission+":"+name+":"+time;
@@ -286,7 +293,7 @@ export class ESAPlansProvider {
     if(cached?.etag) headers["If-None-Match"]=cached.etag;
     if(cached?.lastModified) headers["If-Modified-Since"]=cached.lastModified;
     let response:Response;
-    try { response=await this.transport(url,{signal:AbortSignal.timeout(25000),headers}); }
+    try { response=await this.transport(url,{redirect:"error",signal:AbortSignal.timeout(25000),headers}); }
     catch(e){throw new SatelliteError("NETWORK","Failed to request ESA plans: "+String(e),this.id);}
     if(response.status===304 && cached) {
       // Not modified: keep the body, refresh the TTL and reuse validators.

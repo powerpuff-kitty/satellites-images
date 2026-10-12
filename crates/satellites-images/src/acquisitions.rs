@@ -126,6 +126,7 @@ pub fn parse_esa_plan_index(html:&str)->Result<Vec<ESAPlan>,Error>{
         let Some(raw)=item.get(1) else {continue};
         let Ok(url)=origin.join(&raw.as_str().replace("&amp;","&")) else {continue};
         if url.scheme()!="https"||url.host_str()!=Some("sentinels.copernicus.eu")
+            || url.port_or_known_default()!=Some(443)
             || !url.path().starts_with("/documents/") {continue;}
         let Some(parts)=slug.captures(url.path()) else {continue};
         let stem=parts.get(1).unwrap().as_str().to_lowercase();
@@ -279,7 +280,7 @@ impl ESAPlansProvider {
     pub const ID:&'static str="esa-sentinel-plans";
     pub fn new()->Result<Self,Error> {
         Ok(Self{
-            client:Client::builder().timeout(StdDuration::from_secs(25)).build()?,
+            client:Client::builder().timeout(StdDuration::from_secs(25)).redirect(reqwest::redirect::Policy::none()).build()?,
             missions:MISSIONS.iter().map(|m|(*m).to_owned()).collect(),
             cache:Mutex::new(HashMap::new()),
         })
@@ -288,6 +289,7 @@ impl ESAPlansProvider {
     async fn fetch_text(&self,url:&str,max_bytes:usize)->Result<(String,bool),Error> {
         let parsed=Url::parse(url).map_err(|e|Error::InvalidResponse(e.to_string()))?;
         if parsed.scheme()!="https"||parsed.host_str()!=Some("sentinels.copernicus.eu")||
+          parsed.port_or_known_default()!=Some(443)||
           (url!=S1_INDEX&&url!=S2_INDEX&&!parsed.path().starts_with("/documents/")){
             return Err(Error::InvalidResponse("Unexpected ESA URL".into()));
         }

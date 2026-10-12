@@ -285,7 +285,7 @@ def parse_esa_plan_kml(kml: str, plan: ESAPlan, bbox: list[float], start: dateti
 def _http_text(url: str, max_bytes: int, etag: str | None = None,
                last_modified: str | None = None) -> tuple[str, str | None, str | None, bool]:
     headers = {
-        "User-Agent": "satellites-images/0.2 (public satellite acquisition plan reader)",
+        "User-Agent": "satellites-images/0.3 (public satellite acquisition plan reader)",
         "Accept": "text/html, application/xml, application/vnd.google-earth.kml+xml",
     }
     # RFC 9110 conditional request: only send validators ESA actually supplied.
@@ -296,6 +296,8 @@ def _http_text(url: str, max_bytes: int, etag: str | None = None,
     req = Request(url, headers=headers)
     try:
         with urlopen(req, timeout=25) as result:
+            if urlsplit(result.geturl()).netloc != urlsplit(url).netloc:
+                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing a cross-origin redirect")
             if int(result.headers.get("Content-Length", "0") or "0") > max_bytes:
                 raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
             body = result.read(max_bytes + 1)

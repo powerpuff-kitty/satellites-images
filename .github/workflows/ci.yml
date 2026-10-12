@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - run: npm run check
       - run: npm pack --dry-run -w @powerpuff-kitty/satellites-images
       - run: git diff --exit-code -- packages/typescript/src/sources.json packages/python/src/satellites_images/sources.json crates/satellites-images/src/sources.json
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install --no-audit --no-fund
+      - run: npm ci --no-audit --no-fund
       - name: Install Playwright browser
         working-directory: apps/explorer
         run: npx playwright install --with-deps chromium

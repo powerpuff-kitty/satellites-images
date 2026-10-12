@@ -464,12 +464,17 @@ function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   if (typeof item.orbitRelative === "number")
     li.append(line("Relative orbit",String(item.orbitRelative)));
   li.append(line("Image availability","Not yet acquired"));
-  const link = document.createElement("a");
-  link.href = item.sourceUrl;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
-  link.textContent = "Official ESA plan ↗";
-  li.append(link);
+  try {
+    const source = new URL(item.sourceUrl);
+    if (source.protocol === "https:") {
+      const link = document.createElement("a");
+      link.href = source.toString();
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = "Official ESA plan ↗";
+      li.append(link);
+    }
+  } catch { /* invalid source URL: omit link */ }
   return li;
 }
 function displaySwaths(items:AcquisitionOpportunity[]):void {

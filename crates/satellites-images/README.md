@@ -1,6 +1,6 @@
 # satellites-images (Rust)
 
-Async Rust discovery client for published STAC satellite scenes, currently supporting Element 84 Earth Search.
+Async Rust discovery client for published STAC satellite scenes and planned acquisitions. Supports Earth Search, Planetary Computer, Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC (STAC), plus bespoke ASF SAR and JAXA G-Portal adapters, and official ESA Sentinel-1/2 planned-acquisition plans.
 
 **Not published on crates.io.** Local use:
 

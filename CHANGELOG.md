@@ -53,6 +53,15 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   than an empty result (Python).
 - Declared Rust MSRV raised to 1.82 to match the `Option::is_none_or` API in use.
 
+### Security
+- Provider requests now refuse cross-origin HTTP redirects (TypeScript `redirect:"error"`,
+  Python final-URL check, Rust no-redirect policy) so the same-origin pagination guard
+  cannot be bypassed; the Rust ESA document allowlist now pins the port.
+- TypeScript caps STAC page `features` (10 000) and validates the KML 2.2 namespace before
+  parsing; the explorer validates planned-acquisition links before rendering them.
+- Bumped the declared `fast-xml-parser` range to `^5.11.2`, switched CI installs to
+  `npm ci`, and stopped packaging the crate with `--allow-dirty`.
+
 ## [0.2.0] - 2026-10-12
 
 ### Added

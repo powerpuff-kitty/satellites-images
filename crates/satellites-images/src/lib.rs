@@ -431,7 +431,7 @@ impl Default for StacProvider {
 }
 impl StacProvider {
     pub fn new(id: &str, base_url: &str) -> Result<Self, Error> {
-        let client = Client::builder().timeout(Duration::from_secs(20)).build()?;
+        let client = Client::builder().timeout(Duration::from_secs(20)).redirect(reqwest::redirect::Policy::none()).build()?;
         let endpoint = Url::parse(base_url)
             .map_err(|e| Error::InvalidResponse(e.to_string()))?;
         let host = endpoint.host_str();
@@ -664,7 +664,7 @@ impl AsfProvider {
         }
         Ok(Self {
             id: "asf-vertex".into(),
-            client: Client::builder().timeout(Duration::from_secs(20)).build()?,
+            client: Client::builder().timeout(Duration::from_secs(20)).redirect(reqwest::redirect::Policy::none()).build()?,
             platforms: platforms.iter().map(|s| (*s).to_owned()).collect(),
         })
     }
@@ -696,7 +696,9 @@ impl AsfProvider {
                 let scene = normalize_asf_feature(&feature, &self.id)?;
                 if seen.insert(scene.id.clone()) { items.push(scene); }
             }
-            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched: None });        }
+            let items_len = items.len() as u64;
+            pages.push(SearchPage { provider_id: self.id.clone(), items, page_number: index + 1, has_next: false, matched: Some(items_len) });
+        }
         Ok(pages)
     }
     pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
@@ -771,7 +773,7 @@ impl JaxaProvider {
             return Err(Error::InvalidProvider("A numeric JAXA datasetId is required".into()));
         }
         Ok(Self { id: "jaxa-gportal".into(),
-            client: Client::builder().timeout(Duration::from_secs(25)).build()?,
+            client: Client::builder().timeout(Duration::from_secs(25)).redirect(reqwest::redirect::Policy::none()).build()?,
             dataset_id: dataset_id.into(), resolution: None, count: 100 })
     }
     pub fn with_resolution(mut self, resolution: &str) -> Self { self.resolution = Some(resolution.into()); self }
@@ -900,6 +902,64 @@ mod tests {
         assert_eq!(scene.preview_url.as_deref(), Some("https://gportal.jaxa.jp/gpr/img/x.jpg"));
         assert!(matches!(JaxaProvider::new("GCOM-C_SGLI_L2_SST_250m"), Err(Error::InvalidProvider(_))));
         assert!(JaxaProvider::new("10002002").is_ok());
+    }
+
+    fn spawn_mock(responses: Vec<(u16, String)>, bodies: std::sync::Arc<std::sync::Mutex<Vec<String>>>) -> String {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            let mut iter = responses.into_iter();
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { break; };
+                let Some((status, body)) = iter.next() else { break; };
+                let mut buffer = vec![0u8; 8192];
+                let n = stream.read(&mut buffer).unwrap_or(0);
+                if let Ok(text) = std::str::from_utf8(&buffer[..n]) {
+                    if let Some(index) = text.find("\r\n\r\n") {
+                        bodies.lock().unwrap().push(text[index + 4..].to_string());
+                    }
+                }
+                let response = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}", body.len(), body);
+                let _ = stream.write_all(response.as_bytes());
+                let _ = stream.flush();
+            }
+        });
+        format!("http://127.0.0.1:{port}")
+    }
+
+    #[tokio::test]
+    async fn http_merge_defaults_to_body_replacement() {
+        let bodies = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let page1 = json!({"type":"FeatureCollection","features":[],"links":[{"rel":"next","href":"/v1/search","method":"POST","body":{"token":"t2"}}]}).to_string();
+        let page2 = json!({"type":"FeatureCollection","features":[],"links":[]}).to_string();
+        let base = spawn_mock(vec![(200, page1), (200, page2)], bodies.clone());
+        let provider = StacProvider::new("earth-search", &base).unwrap();
+        let query = SearchQuery::new(-8.5, 116.1, 5000.0, "2025-01-01", "2025-01-31").unwrap();
+        let pages = provider.search_pages(&query).await.unwrap();
+        assert_eq!(pages.len(), 2);
+        assert_eq!(bodies.lock().unwrap().get(1).map(|s| s.trim().to_string()), Some("{\"token\":\"t2\"}".to_string()));
+    }
+
+    #[tokio::test]
+    async fn http_retries_429_then_succeeds() {
+        let bodies = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let ok = json!({"type":"FeatureCollection","features":[],"links":[]}).to_string();
+        let base = spawn_mock(vec![(429, "{}".to_string()), (200, ok)], bodies.clone());
+        let provider = StacProvider::new("earth-search", &base).unwrap().with_retries(2, 1);
+        let query = SearchQuery::new(-8.5, 116.1, 5000.0, "2025-01-01", "2025-01-31").unwrap();
+        assert_eq!(provider.search_pages(&query).await.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn http_pagination_loop_is_rejected() {
+        let bodies = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let page = json!({"type":"FeatureCollection","features":[],"links":[{"rel":"next","href":"/v1/search","method":"POST","body":{"token":"same"}}]}).to_string();
+        let base = spawn_mock(vec![(200, page.clone()), (200, page.clone()), (200, page.clone()), (200, page)], bodies.clone());
+        let mut query = SearchQuery::new(-8.5, 116.1, 5000.0, "2025-01-01", "2025-01-31").unwrap();
+        query.max_pages = 5;
+        let provider = StacProvider::new("earth-search", &base).unwrap();
+        assert!(matches!(provider.search_pages(&query).await, Err(Error::PaginationLoop)));
     }
     #[test]
     fn rejects_malformed_multipolygon() {

@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: '22'
       - name: Install
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
       - name: Validate optional proxy origin
         env:
           ESA_PROXY_URL: ${{ inputs.esa_proxy_url }}
