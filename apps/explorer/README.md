@@ -34,12 +34,18 @@ An initial search scans up to five pages of 75 items each, and can continue in f
 
 The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
 
-## Filters
+## Filters and timeline
 
 Client-side filters over the **loaded** results (instant, no new queries): **satellite**,
-**max cloud cover** (≤10/30/60%), **time of day** (UTC buckets 00–06/06–12/12–18/18–24),
-**resolution** (≤10/20/30 m, when the provider exposes `gsd`), and an **include
-unknown-cloud scenes** toggle. Cloud cover is scene-wide metadata, not per-AOI.
+**collection**, **cloud-cover range** (≥ / ≤), **hour range** (UTC from/to), **resolution**
+(≤10/20/30 m, when the provider exposes `gsd`), **has preview**, an **include
+unknown-cloud scenes** toggle, and a **Reset** button. Filters drive the result cards, the
+timeline and the calendar counts; the counter shows `filtered / total`.
+
+The sticky-header timeline has a **View** selector — **Daily bars** (height = observations
+per day) or a **Time-of-day** heatmap (day × 6-hour bucket density) — and a **Split by**
+selector that stacks the daily bars by **cloud cover**, **mission** or **provider**. Click
+a bar or cell to select that day. Cloud cover is scene-wide metadata, not per-AOI.
 
 ## Layout
 

@@ -39,25 +39,25 @@
             </label>
             <button class="month-arrow" id="next-month" type="button" aria-label="Search next month">→</button>
           </div>
-          <label class="mission-field">Satellite
-            <select id="mission-filter" aria-label="Filter observations by satellite">
-              <option value="">All satellites</option>
-            </select>
-          </label>
+          <div class="heading">
+            <h2>Filters</h2>
+            <button id="clear-filters" type="button" class="text-button">Reset</button>
+          </div>
+          <label class="mission-field">Satellite<select id="mission-filter" aria-label="Filter observations by satellite"><option value="">All satellites</option></select></label>
+          <label class="mission-field">Collection<select id="collection-filter" aria-label="Filter observations by collection"><option value="">All collections</option></select></label>
           <div class="pair filter-pair">
-            <label>Max cloud cover<select id="cloud-filter" aria-label="Maximum scene cloud cover">
-              <option value="">Any</option><option value="10">≤ 10%</option><option value="30">≤ 30%</option><option value="60">≤ 60%</option>
-            </select></label>
-            <label>Time of day (UTC)<select id="time-filter" aria-label="Time of day of the acquisition">
-              <option value="">Any</option><option value="0-6">00–06</option><option value="6-12">06–12</option><option value="12-18">12–18</option><option value="18-24">18–24</option>
-            </select></label>
+            <label>Cloud ≥<select id="cloud-min" aria-label="Minimum scene cloud cover"></select></label>
+            <label>Cloud ≤<select id="cloud-max" aria-label="Maximum scene cloud cover"></select></label>
           </div>
           <div class="pair filter-pair">
-            <label>Resolution<select id="resolution-filter" aria-label="Maximum ground sample distance">
-              <option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option>
-            </select></label>
-            <label class="check-label"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
+            <label>From hour<select id="hour-min" aria-label="Earliest hour (UTC)"></select></label>
+            <label>To hour<select id="hour-max" aria-label="Latest hour (UTC)"></select></label>
           </div>
+          <div class="pair filter-pair">
+            <label>Resolution<select id="resolution-filter" aria-label="Maximum ground sample distance"><option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option></select></label>
+            <label class="check-label"><input type="checkbox" id="has-preview"> Has preview</label>
+          </div>
+          <label class="check-label filters-unknown"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
           <div id="month-strip" class="month-strip" aria-label="Loaded months"></div>
           <div id="day-calendar" class="day-calendar" aria-label="Available image dates"></div>
           <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
@@ -94,6 +94,14 @@
             <button id="window-back" type="button" aria-label="Search an earlier period">◀ earlier</button>
             <span id="window-label" class="muted">—</span>
             <button id="window-forward" type="button" aria-label="Search a later period">later ▶</button>
+          </div>
+          <div class="timeline-controls">
+            <label>View<select id="timeline-view" aria-label="Timeline view">
+              <option value="bars">Daily bars</option><option value="heat">Time-of-day</option>
+            </select></label>
+            <label>Split by<select id="timeline-split" aria-label="Split daily bars by">
+              <option value="cloud">Cloud cover</option><option value="mission">Mission</option><option value="provider">Provider</option>
+            </select></label>
           </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
           <figure class="timeline" id="timeline" aria-label="Observations per day, stacked by cloud cover; click a bar to select that day">

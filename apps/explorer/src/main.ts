@@ -33,10 +33,17 @@ const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
 const missionFilter = element<HTMLSelectElement>("mission-filter");
-const cloudFilter = element<HTMLSelectElement>("cloud-filter");
-const timeFilter = element<HTMLSelectElement>("time-filter");
+const collectionFilter = element<HTMLSelectElement>("collection-filter");
+const cloudMin = element<HTMLSelectElement>("cloud-min");
+const cloudMax = element<HTMLSelectElement>("cloud-max");
+const hourMin = element<HTMLSelectElement>("hour-min");
+const hourMax = element<HTMLSelectElement>("hour-max");
 const resolutionFilter = element<HTMLSelectElement>("resolution-filter");
+const hasPreview = element<HTMLInputElement>("has-preview");
 const includeUnknown = element<HTMLInputElement>("include-unknown");
+const clearFilters = element<HTMLButtonElement>("clear-filters");
+const timelineView = element<HTMLSelectElement>("timeline-view");
+const timelineSplit = element<HTMLSelectElement>("timeline-split");
 const timeline = element<HTMLElement>("timeline");
 const lightbox = element<HTMLElement>("lightbox");
 const lightboxImage = element<HTMLImageElement>("lightbox-image");
@@ -182,37 +189,74 @@ function cloudClassOf(percent: number | null): CloudClass {
   if (percent < 60) return "partial";
   return "cloudy";
 }
+const SPLIT_PALETTE = ["#e0ae54","#6fb3d2","#b98ad6","#4fbf7a","#d98a6a","#9aa0a2","#c0d76a","#7f8cff","#e58fb0","#7ad1c0"];
+function segmentKey(scene:Scene):string {
+  const split = timelineSplit.value;
+  if (split === "mission") return scene.mission || "unknown";
+  if (split === "provider") return scene.providerId;
+  return cloudClassOf(scene.cloudCoverPercent);
+}
+function segmentColour(key:string, index:number):string {
+  if (timelineSplit.value === "cloud") return CLOUD_FILL[key as CloudClass] ?? "#9aa0a2";
+  return SPLIT_PALETTE[index % SPLIT_PALETTE.length];
+}
+function selectTimelineDay(day:string):void {
+  selectedDay = selectedDay === day ? null : day;
+  displayedLimit = 40;
+  redrawAvailability();
+  renderLoadedScenes();
+  storeSearchLink();
+}
+function drawDateAxis(svg:SVGElement, NS:string, first:number, nDays:number, dayMs:number, colW:number, padL:number, height:number):void {
+  const labelIndices = new Set<number>([0, nDays - 1]);
+  for (let k = 1; k <= 3; k++) labelIndices.add(Math.round((nDays - 1) * k / 4));
+  for (const index of [...labelIndices].sort((a, b) => a - b)) {
+    const date = new Date(first + index * dayMs);
+    const label = document.createElementNS(NS, "text");
+    label.setAttribute("x", (padL + index * colW + colW / 2).toFixed(1));
+    label.setAttribute("y", String(height - 5));
+    label.setAttribute("text-anchor", "middle");
+    label.setAttribute("class", "tick");
+    label.textContent = date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+    svg.append(label);
+  }
+}
 function renderTimeline(): void {
   const scenes = loadedScenes.filter(passesFilters);
   timeline.replaceChildren();
   if (!scenes.length) {
     const empty = document.createElement("figcaption");
-    empty.textContent = "No loaded observations to plot yet.";
+    empty.textContent = "No loaded observations match the current filters.";
     timeline.append(empty);
     return;
   }
+  if (timelineView.value === "heat") renderTimelineHeat(scenes);
+  else renderTimelineBars(scenes);
+}
+function renderTimelineBars(scenes:Scene[]): void {
   const NS = "http://www.w3.org/2000/svg";
   const width = Math.max(240, timeline.clientWidth || 320);
-  const height = 104;
-  const padL = 28, padR = 8, padT = 8, padB = 18;
-  const W = width - padL - padR, H = height - padT - padB;
-  const dayMs = 86400000;
-  const buckets = new Map<string, { counts: Record<CloudClass, number>; count: number }>();
+  const height = 104, padL = 28, padR = 8, padT = 8, padB = 18;
+  const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000;
+  const byDay = new Map<string, Map<string, number>>();
+  const totals = new Map<string, number>();
   for (const scene of scenes) {
     const day = scene.acquiredAt.slice(0, 10);
-    const bucket = buckets.get(day) ?? { counts: { clear:0, partial:0, cloudy:0, unknown:0 }, count: 0 };
-    bucket.counts[cloudClassOf(scene.cloudCoverPercent)] += 1;
-    bucket.count += 1;
-    buckets.set(day, bucket);
+    const key = segmentKey(scene);
+    const m = byDay.get(day) ?? new Map<string, number>();
+    m.set(key, (m.get(key) ?? 0) + 1);
+    byDay.set(day, m);
+    totals.set(key, (totals.get(key) ?? 0) + 1);
   }
-  const days = [...buckets.keys()].sort();
+  const order = [...totals.keys()].sort((a, b) => (totals.get(b)! - totals.get(a)!));
+  const days = [...byDay.keys()].sort();
   const first = Date.parse(days[0] + "T00:00:00Z");
   const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
   const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
   const colW = W / nDays;
-  const maxCount = Math.max(...[...buckets.values()].map((b) => b.count));
+  const maxCount = Math.max(...[...byDay.values()].map((m) => [...m.values()].reduce((a, b) => a + b, 0)));
   const svg = document.createElementNS(NS, "svg");
-  svg.setAttribute("viewBox", `0 0 ${width} ${height}`); // 1:1 — no distortion
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("role", "img");
   for (const value of [0, maxCount]) {
     const y = padT + (1 - value / maxCount) * H;
@@ -229,15 +273,15 @@ function renderTimeline(): void {
     }
   }
   for (const day of days) {
-    const bucket = buckets.get(day)!;
+    const m = byDay.get(day)!;
     const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
     const x = padL + index * colW;
     const group = document.createElementNS(NS, "g");
     group.setAttribute("class", "bar-group");
     group.setAttribute("data-day", day);
     let baseline = padT + H;
-    for (const cls of ["unknown", "cloudy", "partial", "clear"] as CloudClass[]) {
-      const n = bucket.counts[cls];
+    for (const key of order) {
+      const n = m.get(key) ?? 0;
       if (!n) continue;
       const h = (n / maxCount) * H;
       const rect = document.createElementNS(NS, "rect");
@@ -245,35 +289,82 @@ function renderTimeline(): void {
       rect.setAttribute("width", Math.max(1, colW * 0.7).toFixed(1));
       rect.setAttribute("y", (baseline - h).toFixed(1));
       rect.setAttribute("height", h.toFixed(1));
-      rect.setAttribute("fill", CLOUD_FILL[cls]);
+      rect.setAttribute("fill", segmentColour(key, order.indexOf(key)));
       group.append(rect);
       baseline -= h;
     }
+    const total = [...m.values()].reduce((a, b) => a + b, 0);
     const title = document.createElementNS(NS, "title");
-    title.textContent = `${day} · ${bucket.count} obs · clear ${bucket.counts.clear}, partial ${bucket.counts.partial}, cloudy ${bucket.counts.cloudy}, n/a ${bucket.counts.unknown}`;
+    title.textContent = `${day} · ${total} obs` + (timelineSplit.value === "cloud" ? "" : " · " + [...m.entries()].map(([k, v]) => `${k} ${v}`).join(", "));
     group.append(title);
-    group.addEventListener("click", () => {
-      selectedDay = selectedDay === day ? null : day;
-      displayedLimit = 40;
-      redrawAvailability();
-      renderLoadedScenes();
-      storeSearchLink();
-    });
+    group.addEventListener("click", () => selectTimelineDay(day));
     svg.append(group);
   }
-  // Sparse date labels: first, last and up to three in between.
-  const labelIndices = new Set<number>([0, nDays - 1]);
-  for (let k = 1; k <= 3; k++) labelIndices.add(Math.round((nDays - 1) * k / 4));
-  for (const index of [...labelIndices].sort((a, b) => a - b)) {
-    const date = new Date(first + index * dayMs);
+  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height);
+  timeline.append(svg);
+}
+function renderTimelineHeat(scenes:Scene[]): void {
+  const NS = "http://www.w3.org/2000/svg";
+  const width = Math.max(240, timeline.clientWidth || 320);
+  const height = 104, padL = 28, padR = 8, padT = 8, padB = 18;
+  const W = width - padL - padR, H = height - padT - padB, dayMs = 86400000, rows = 4;
+  const cells = new Map<string, number>();
+  const daySet = new Set<string>();
+  for (const scene of scenes) {
+    const day = scene.acquiredAt.slice(0, 10);
+    const row = Math.min(rows - 1, Math.floor(new Date(scene.acquiredAt).getUTCHours() / 6));
+    const key = day + "|" + row;
+    cells.set(key, (cells.get(key) ?? 0) + 1);
+    daySet.add(day);
+  }
+  const days = [...daySet].sort();
+  const first = Date.parse(days[0] + "T00:00:00Z");
+  const last = Date.parse(days[days.length - 1] + "T00:00:00Z");
+  const nDays = Math.max(1, Math.round((last - first) / dayMs) + 1);
+  const colW = W / nDays, rowH = H / rows;
+  const maxCell = Math.max(...[...cells.values()]);
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  for (let row = 0; row < rows; row++) {
+    const y = padT + (rows - 1 - row) * rowH;
     const label = document.createElementNS(NS, "text");
-    label.setAttribute("x", (padL + index * colW + colW / 2).toFixed(1));
-    label.setAttribute("y", String(height - 5));
-    label.setAttribute("text-anchor", "middle");
-    label.setAttribute("class", "tick");
-    label.textContent = date.toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+    label.setAttribute("x", "2"); label.setAttribute("y", String(y + rowH - 3)); label.setAttribute("class", "tick");
+    label.textContent = String(row * 6).padStart(2, "0");
     svg.append(label);
   }
+  for (const day of days) {
+    const index = Math.round((Date.parse(day + "T00:00:00Z") - first) / dayMs);
+    const x = padL + index * colW;
+    for (let row = 0; row < rows; row++) {
+      const n = cells.get(day + "|" + row) ?? 0;
+      if (!n) continue;
+      const y = padT + (rows - 1 - row) * rowH;
+      const rect = document.createElementNS(NS, "rect");
+      rect.setAttribute("class", "heat-cell");
+      rect.setAttribute("x", x.toFixed(1)); rect.setAttribute("y", y.toFixed(1));
+      rect.setAttribute("width", Math.max(1, colW).toFixed(1)); rect.setAttribute("height", rowH.toFixed(1));
+      rect.setAttribute("fill", `rgba(224,174,84,${(0.15 + 0.85 * (n / maxCell)).toFixed(2)})`);
+      svg.append(rect);
+    }
+    const hit = document.createElementNS(NS, "rect");
+    hit.setAttribute("class", "bar-group");
+    hit.setAttribute("data-day", day);
+    hit.setAttribute("x", x.toFixed(1)); hit.setAttribute("y", String(padT));
+    hit.setAttribute("width", Math.max(1, colW).toFixed(1)); hit.setAttribute("height", H.toFixed(1));
+    hit.setAttribute("fill", "transparent");
+    const title = document.createElementNS(NS, "title");
+    title.textContent = day;
+    hit.append(title);
+    hit.addEventListener("click", () => selectTimelineDay(day));
+    svg.append(hit);
+  }
+  const axis = document.createElementNS(NS, "line");
+  axis.setAttribute("x1", String(padL)); axis.setAttribute("x2", String(padL + W));
+  axis.setAttribute("y1", String(padT + H)); axis.setAttribute("y2", String(padT + H));
+  axis.setAttribute("class", "axis");
+  svg.append(axis);
+  drawDateAxis(svg, NS, first, nDays, dayMs, colW, padL, height);
   timeline.append(svg);
 }
 
@@ -366,32 +457,42 @@ function highlightScene(scene:Scene|undefined):void {
 }
 function passesFilters(scene:Scene):boolean {
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
+  if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
-  if (cloudFilter.value && scene.cloudCoverPercent !== null && scene.cloudCoverPercent > Number(cloudFilter.value)) return false;
-  if (timeFilter.value) {
-    const [start, end] = timeFilter.value.split("-").map(Number);
-    const hour = new Date(scene.acquiredAt).getUTCHours();
-    if (hour < start || hour >= end) return false;
-  }
+  if (cloudMin.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent < Number(cloudMin.value)) return false;
+  if (cloudMax.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent > Number(cloudMax.value)) return false;
+  const hour = new Date(scene.acquiredAt).getUTCHours();
+  if (hour < Number(hourMin.value) || hour > Number(hourMax.value)) return false;
   if (resolutionFilter.value && (scene.gsdMeters === null || scene.gsdMeters > Number(resolutionFilter.value))) return false;
+  if (hasPreview.checked && !scene.previewUrl) return false;
   return true;
 }
-function updateMissionChoices():void {
-  const wasSelected=missionFilter.value;
-  const values=[...new Set(loadedScenes.map(scene=>scene.mission || "unknown"))].sort();
-  const fragment=document.createDocumentFragment();
-  const all=document.createElement("option");
-  all.value="";
-  all.textContent="All satellites";
-  fragment.append(all);
-  for(const mission of values) {
-    const option=document.createElement("option");
-    option.value=mission;
-    option.textContent=mission;
-    fragment.append(option);
+function hasActiveFilters():boolean {
+  return Boolean(missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
+    resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
+    Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
+}
+function updateFilterChoices():void {
+  const wasMission=missionFilter.value;
+  const missions=[...new Set(loadedScenes.map(scene=>scene.mission || "unknown"))].sort();
+  const missionFragment=document.createDocumentFragment();
+  const allMission=document.createElement("option");
+  allMission.value=""; allMission.textContent="All satellites"; missionFragment.append(allMission);
+  for(const mission of missions) {
+    const option=document.createElement("option"); option.value=mission; option.textContent=mission; missionFragment.append(option);
   }
-  missionFilter.replaceChildren(fragment);
-  missionFilter.value=values.includes(wasSelected)?wasSelected:"";
+  missionFilter.replaceChildren(missionFragment);
+  missionFilter.value=missions.includes(wasMission)?wasMission:"";
+  const wasCollection=collectionFilter.value;
+  const collections=[...new Set(loadedScenes.map(scene=>scene.collection).filter(Boolean))].sort();
+  const collectionFragment=document.createDocumentFragment();
+  const allCollection=document.createElement("option");
+  allCollection.value=""; allCollection.textContent="All collections"; collectionFragment.append(allCollection);
+  for(const collection of collections) {
+    const option=document.createElement("option"); option.value=collection; option.textContent=collection; collectionFragment.append(option);
+  }
+  collectionFilter.replaceChildren(collectionFragment);
+  collectionFilter.value=collections.includes(wasCollection)?wasCollection:"";
 }
 function summaryFromScenes(scenes:Scene[]):AvailabilitySummary {
   const days=new Map<string,{count:number;missions:Record<string,number>;collections:Record<string,number>}>();
@@ -422,7 +523,7 @@ function renderLoadedScenes():void {
   for(const scene of selected)fragment.append(makeScene(scene));
   results.replaceChildren(fragment);
   const counted=loadedScenes.filter(passesFilters).length;
-  const filtering=Boolean(missionFilter.value||cloudFilter.value||timeFilter.value||resolutionFilter.value||!includeUnknown.checked);
+  const filtering=hasActiveFilters();
   counter.textContent=String(visible.length)+(filtering?" / "+counted:"");
   showMoreButton.hidden=visible.length<=displayedLimit;
   if(selectedDay)highlightScene(visible[0]);
@@ -433,7 +534,7 @@ function redrawAvailability():void {
   const full=currentSummary;
   if(!full) return;
   const summary=summaryFromScenes(loadedScenes.filter(passesFilters));
-  const filtering=Boolean(missionFilter.value||cloudFilter.value||timeFilter.value||resolutionFilter.value||!includeUnknown.checked);
+  const filtering=hasActiveFilters();
   renderMonthStrip(monthStrip,summary,from.value,to.value,activeMonth,(month)=>{
     activeMonth=month;calendarMonth.value=month;
     redrawAvailability();
@@ -493,6 +594,25 @@ function shiftWindow(direction:number):void{
 }
 windowBack.addEventListener("click",()=>shiftWindow(-1));
 windowForward.addEventListener("click",()=>shiftWindow(1));
+
+// Filter select options (populated once) + reset.
+function fillSelect(select:HTMLSelectElement, values:[string,string][]):void{
+  const fragment=document.createDocumentFragment();
+  for(const [value,label] of values){ const option=document.createElement("option"); option.value=value; option.textContent=label; fragment.append(option); }
+  select.replaceChildren(fragment);
+}
+fillSelect(cloudMin,[["","Any"],["0","0%"],["10","10%"],["20","20%"],["30","30%"],["40","40%"],["60","60%"],["80","80%"],["100","100%"]]);
+fillSelect(cloudMax,[["","Any"],["10","10%"],["20","20%"],["30","30%"],["40","40%"],["60","60%"],["80","80%"],["100","100%"]]);
+const hourOptions:[string,string][]=[]; for(let h=0;h<24;h++) hourOptions.push([String(h),String(h).padStart(2,"0")]);
+fillSelect(hourMin,hourOptions); fillSelect(hourMax,[...hourOptions]);
+hourMin.value="0"; hourMax.value="23";
+clearFilters.addEventListener("click",()=>{
+  missionFilter.value=""; collectionFilter.value=""; cloudMin.value=""; cloudMax.value="";
+  hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;
+  displayedLimit=40; redrawAvailability(); renderLoadedScenes();
+});
+timelineView.addEventListener("change",renderTimeline);
+timelineSplit.addEventListener("change",renderTimeline);
 allDaysButton.addEventListener("click",()=>{
   selectedDay=null;
   redrawAvailability();
@@ -508,7 +628,7 @@ missionFilter.addEventListener("change",()=>{
   redrawAvailability();
   renderLoadedScenes();
 });
-for(const control of [cloudFilter,timeFilter,resolutionFilter,includeUnknown]) control.addEventListener("change",()=>{
+for(const control of [missionFilter,collectionFilter,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown]) control.addEventListener("change",()=>{
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();
@@ -540,7 +660,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
       const added=session.accumulator.addPage(page);
       loadedScenes.push(...added);
       loadedScenes.sort((a,b)=>b.acquiredAt.localeCompare(a.acquiredAt)||a.id.localeCompare(b.id));
-      updateMissionChoices();
+      updateFilterChoices();
       currentSummary=session.accumulator.summary();
       redrawAvailability();
       renderLoadedScenes();
@@ -605,7 +725,7 @@ form.addEventListener("submit",async(event)=>{
   calendarMonth.value=activeMonth;
   results.replaceChildren();
   missionFilter.value="";
-  updateMissionChoices();
+  updateFilterChoices();
   calendarGrid.replaceChildren();
   monthStrip.replaceChildren();
   counter.textContent="—";

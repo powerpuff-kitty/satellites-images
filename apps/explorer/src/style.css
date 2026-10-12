@@ -81,6 +81,12 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .filter-pair {margin-bottom:12px;}
 .check-label {flex-direction:row;align-items:center;gap:8px;font-size:11px;}
 .check-label input {width:auto;}
+.filters-unknown {margin:2px 0 12px;}
+.timeline-controls {display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 2px;}
+.timeline-controls select {height:32px;padding:4px 8px;}
+.timeline-legend .sw.m1 { background:#e0ae54; } .timeline-legend .sw.m2 { background:#6fb3d2; }
+.timeline-legend .sw.m3 { background:#b98ad6; } .timeline-legend .sw.m4 { background:#4fbf7a; }
+.timeline .heat-cell { stroke:#111512; stroke-width:0.5; }
 
 /* Published observations: independent, scrollable right-hand panel with a sticky header. */
 .observations { display:flex; flex-direction:column; overflow-y:auto; min-width:0; height:100vh; border-left:1px solid #353c35; padding:0 20px 24px; }

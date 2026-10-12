@@ -231,19 +231,40 @@ test("the search window steps back in time", async ({ page }) => {
   await expect(page.locator("#window-label")).toContainText("2025-02-28");
 });
 
-test("cloud-cover and time-of-day filters narrow the loaded results", async ({ page }) => {
+test("cloud-cover and hour filters narrow the loaded results", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("f1", "2025-03-10T02:00:00Z"), stacScene("f2", "2025-03-11T02:00:00Z")], [], 2) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await page.getByRole("button", { name: /Find observations/ }).click();
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#cloud-filter", "10");   // scenes are 12.5% cloud
+  await page.selectOption("#cloud-max", "10"); // scenes are 12.5% cloud
   await expect(page.locator("#results li")).toHaveCount(0);
-  await page.selectOption("#cloud-filter", "30");
+  await page.selectOption("#cloud-max", "30");
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#time-filter", "12-18"); // scenes are ~02:00 UTC
+  await page.selectOption("#hour-min", "12"); // scenes are ~02:00 UTC
   await expect(page.locator("#results li")).toHaveCount(0);
-  await page.selectOption("#time-filter", "0-6");
+  await page.selectOption("#hour-min", "0");
+  await page.selectOption("#hour-max", "6");
   await expect(page.locator("#results li")).toHaveCount(2);
+});
+
+test("collection filter, reset, and timeline views", async ({ page }) => {
+  const sentinel = stacScene("c1", "2025-03-10T02:00:00Z");
+  const landsatBase = stacScene("c2", "2025-03-11T02:00:00Z");
+  const landsat = { ...landsatBase, collection: "landsat-c2-l2",
+    properties: { ...landsatBase.properties, platform: "landsat-9" } };
+  await page.route("**/search", (route) => respond(route, { json: collection([sentinel, landsat], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.getByRole("button", { name: /Find observations/ }).click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.selectOption("#collection-filter", "landsat-c2-l2");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator("#clear-filters").click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.selectOption("#timeline-split", "mission");
+  await expect(page.locator("#timeline svg rect")).not.toHaveCount(0);
+  await page.selectOption("#timeline-view", "heat");
+  await expect(page.locator("#timeline svg .heat-cell")).not.toHaveCount(0);
 });
