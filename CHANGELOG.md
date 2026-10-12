@@ -107,8 +107,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   exhausted" status line was removed.
 - Explorer: UI glyphs replaced with bundled **Font Awesome** icons, and the left-column
   top spacing reduced.
-- Explorer: added a **Range** preset (1 month / 3 / 6 / **1 year**) to set the query window
-  in one step and fetch a full year at once (still bounded by the 50-page cap).
+- Explorer: **month-at-a-time** model — removed the range preset and the window
+  steppers; navigation is per month via the month controls above the calendar (one
+  bounded query per month), and the default range is a single month.
 
 ## [0.2.0] - 2026-10-12
 

@@ -54,8 +54,7 @@ controls and the map stay accessible). Its header is **sticky** and contains a *
 chart** of the loaded observations: one **bar per day** (height = number of observations),
 **stacked by scene-wide cloud cover** (green <10%, amber <60%, grey ≥60%, dark = unknown).
 Click a bar to select that day. Clicking a scene **preview image opens a full-screen
-lightbox** (Esc closes it). Use **◀ earlier / later ▶** to move the whole search window
-one period back or forward (each step issues one new bounded query, with stale results
-discarded), or a **Range** preset (1 month / 3 / 6 months / **1 year**) to set the window
-in one step — e.g. **1 year** fetches a full year in a single query, still bounded by the
-50-page cap (use *Load next 5 catalogue pages*). Cloud cover is scene metadata, not per-AOI.
+lightbox** (Esc closes it). The explorer searches **one month at a time**: use the
+**month navigation above the calendar** (← / → and the month field) to fetch a different
+month, which issues one new bounded query and discards stale results. Cloud cover is
+scene-wide metadata, not per-AOI.

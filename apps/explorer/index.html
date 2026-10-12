@@ -23,7 +23,7 @@
           </div>
           <div class="pair">
             <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
-            <label>To<input id="date-to" type="date" value="2025-03-31" required></label>
+            <label>To<input id="date-to" type="date" value="2025-01-31" required></label>
           </div>
           <button id="search-button" type="submit">Find observations <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i></button>
         </form>
@@ -35,7 +35,7 @@
           <div class="month-navigation">
             <button class="month-arrow" id="previous-month" type="button" aria-label="Search previous month"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button>
             <label class="month-field">Browse month
-              <input id="calendar-month" type="month" value="2025-03" aria-label="Search a specific month">
+              <input id="calendar-month" type="month" value="2025-01" aria-label="Search a specific month">
             </label>
             <button class="month-arrow" id="next-month" type="button" aria-label="Search next month"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
           </div>
@@ -89,21 +89,6 @@
           <div class="heading">
             <h2>Published observations</h2>
             <span id="counter">—</span>
-          </div>
-          <div class="timeline-nav">
-            <button id="window-back" type="button" aria-label="Search an earlier period"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i> earlier</button>
-            <span id="window-label" class="muted">—</span>
-            <button id="window-forward" type="button" aria-label="Search a later period">later <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button>
-          </div>
-          <div class="timeline-range">
-            <span class="muted">Range</span>
-            <select id="range-preset" aria-label="Set the query range">
-              <option value="">Custom</option>
-              <option value="1">1 month</option>
-              <option value="3">3 months</option>
-              <option value="6">6 months</option>
-              <option value="12">1 year</option>
-            </select>
           </div>
           <p class="status" id="status" role="status">Select a location on the map, or enter GPS coordinates.</p>
           <figure class="timeline" id="timeline" aria-label="Stacked timelines: cloud cover, mission, provider and time of day, by day">

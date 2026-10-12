@@ -216,22 +216,6 @@ test("clicking a preview opens a full-screen lightbox and Escape closes it", asy
   await expect(page.locator("#lightbox")).toBeHidden();
 });
 
-test("the search window steps back in time", async ({ page }) => {
-  const months: string[] = [];
-  await page.route("**/search", (route) => {
-    const body = JSON.parse(route.request().postData() ?? "{}");
-    months.push(String(body.datetime ?? "").slice(0, 7));
-    return respond(route, { json: collection([], [], 0) });
-  });
-  await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
-  await page.getByRole("button", { name: /Find observations/ }).click();
-  await expect.poll(() => months.at(-1)).toBe("2025-03");
-  await page.locator("#window-back").click();
-  await expect.poll(() => months.at(-1)).toBe("2025-01");
-  await expect(page.locator("#window-label")).toContainText("2025-02-28");
-});
-
 test("cloud-cover and hour filters narrow the loaded results", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("f1", "2025-03-10T02:00:00Z"), stacScene("f2", "2025-03-11T02:00:00Z")], [], 2) }));
@@ -266,22 +250,6 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#timeline .timeline-caption")).toHaveCount(4);
   await expect(page.locator("#timeline .heat-cell")).not.toHaveCount(0);
-});
-
-test("a range preset fetches a full year at once", async ({ page }) => {
-  const windows: string[] = [];
-  await page.route("**/search", (route) => {
-    const body = JSON.parse(route.request().postData() ?? "{}");
-    windows.push(String(body.datetime ?? ""));
-    return respond(route, { json: collection([], [], 0) });
-  });
-  await page.goto("/");
-  await setRange(page, "2025-06-01", "2025-06-30");
-  await page.getByRole("button", { name: /Find observations/ }).click();
-  await expect.poll(() => windows.length).toBeGreaterThan(0);
-  await page.selectOption("#range-preset", "12");
-  await expect.poll(() => windows.at(-1)).toBe("2024-07-01T00:00:00Z/2025-06-30T23:59:59Z");
-  await expect(page.locator("#window-label")).toContainText("2024-07-01");
 });
 
 test("clicking timeline bars selects the clicked day (does not deselect)", async ({ page }) => {

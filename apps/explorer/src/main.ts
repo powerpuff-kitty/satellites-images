@@ -47,10 +47,6 @@ const timeline = element<HTMLElement>("timeline");
 const lightbox = element<HTMLElement>("lightbox");
 const lightboxImage = element<HTMLImageElement>("lightbox-image");
 const lightboxClose = element<HTMLButtonElement>("lightbox-close");
-const windowBack = element<HTMLButtonElement>("window-back");
-const windowForward = element<HTMLButtonElement>("window-forward");
-const windowLabel = element<HTMLElement>("window-label");
-const rangePreset = element<HTMLSelectElement>("range-preset");
 
 const plansButton = element<HTMLButtonElement>("plans-button");
 const plansStatus = element<HTMLElement>("plans-status");
@@ -406,9 +402,9 @@ function restoreSearchLink():void {
     to.value=params.get("to")!;
   } else {
     const today=new Date().toISOString().slice(0,10);
-    const nowMonth=today.slice(0,7);
-    from.value=shiftMonth(nowMonth,-1)+"-01";
-    to.value=today;
+    const previous=shiftMonth(today.slice(0,7),-1);
+    from.value=previous+"-01";
+    to.value=monthDates(previous).to;
   }
   activeMonth=to.value.slice(0,7);
   calendarMonth.value=activeMonth;
@@ -569,41 +565,6 @@ calendarMonth.addEventListener("change",()=>{
   if(calendarMonth.value)searchMonth(calendarMonth.value);
 });
 
-// --- Search-window steppers: move the whole from/to window one span earlier/later ---
-const DAY_MS=86400000;
-function dateMs(value:string):number{const [y,m,d]=value.split("-").map(Number);return Date.UTC(y,m-1,d);}
-function isoDate(ms:number):string{return new Date(ms).toISOString().slice(0,10);}
-function updateWindowLabel():void{
-  windowLabel.textContent=from.value&&to.value?from.value+" → "+to.value:"—";
-  windowForward.disabled=dateMs(to.value)>=dateMs(new Date().toISOString().slice(0,10));
-}
-function shiftWindow(direction:number):void{
-  const span=Math.max(1,Math.round((dateMs(to.value)-dateMs(from.value))/DAY_MS)+1);
-  if(direction<0){
-    const newTo=dateMs(from.value)-DAY_MS;
-    from.value=isoDate(newTo-(span-1)*DAY_MS);
-    to.value=isoDate(newTo);
-  }else{
-    const newFrom=dateMs(to.value)+DAY_MS;
-    from.value=isoDate(newFrom);
-    to.value=isoDate(newFrom+(span-1)*DAY_MS);
-  }
-  calendarMonth.value=to.value.slice(0,7);
-  form.requestSubmit();
-}
-windowBack.addEventListener("click",()=>shiftWindow(-1));
-windowForward.addEventListener("click",()=>shiftWindow(1));
-// Quick range presets anchor on the current "to" month: e.g. 12 -> a full year at once.
-function applyRange(months:number):void{
-  const [y,m]=to.value.slice(0,7).split("-").map(Number);
-  const start=new Date(Date.UTC(y,m-1-(months-1),1)).toISOString().slice(0,10);
-  const end=new Date(Date.UTC(y,m,0)).toISOString().slice(0,10);
-  from.value=start; to.value=end;
-  calendarMonth.value=to.value.slice(0,7);
-  form.requestSubmit();
-}
-rangePreset.addEventListener("change",()=>{ if(rangePreset.value) applyRange(Number(rangePreset.value)); });
-
 // Filter select options (populated once) + reset.
 function fillSelect(select:HTMLSelectElement, values:[string,string][]):void{
   const fragment=document.createDocumentFragment();
@@ -756,11 +717,10 @@ form.addEventListener("submit",async(event)=>{
   };
   activeScan=session;
   storeSearchLink();
-  updateWindowLabel();
   await scanNextBatch(session);
 });
 restoreSearchLink();
-updateWindowLabel();
+
 
 function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   const li = document.createElement("li");
