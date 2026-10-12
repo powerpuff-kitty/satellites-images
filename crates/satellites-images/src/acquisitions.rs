@@ -74,6 +74,7 @@ fn utc(text:&str)->Option<DateTime<Utc>> {
     DateTime::parse_from_rfc3339(&parsed).ok().map(|d|d.with_timezone(&Utc))
 }
 #[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ESAPlan {
     pub mission: String,
     pub url: String,
@@ -81,6 +82,7 @@ pub struct ESAPlan {
     pub ends_at: String,
 }
 #[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AcquisitionOpportunity {
     pub id: String,
     pub provider_id: String,
@@ -96,6 +98,7 @@ pub struct AcquisitionOpportunity {
 
 /// One selected plan contributing to an upcoming query.
 #[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ESAPlanDiagnostic {
     pub mission: String,
     pub source_url: String,
@@ -105,6 +108,7 @@ pub struct ESAPlanDiagnostic {
 }
 
 #[derive(Debug,Clone,Serialize,Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ESAUpcomingResult {
     pub opportunities: Vec<AcquisitionOpportunity>,
     /// UTC time the query last downloaded a plan body, or None when none was read.

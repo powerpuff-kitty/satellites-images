@@ -88,6 +88,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Added an opt-in live smoke script (`tools/smoke/live.mjs`) — verified reachable
   against Earth Search, Copernicus, USGS LandsatLook, CMR-STAC, ASF, JAXA G-Portal and
   ESA plans (no redirect failures).
+- camelCase JSON contract now available in every SDK: Rust serializes its structs in
+  camelCase (`serde(rename_all = "camelCase")`) and Python exposes `to_json`/`to_camel`.
 
 ## [0.2.0] - 2026-10-12
 

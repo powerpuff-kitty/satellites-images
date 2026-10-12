@@ -5,12 +5,11 @@ TypeScript package's output: `scene.schema.json`, `searchpage.schema.json`,
 `availability.schema.json`, and `acquisition.schema.json`.
 
 The TypeScript test suite validates normalized output against these schemas
-(`packages/typescript/tests/schema.test.mjs`). The **Python** and **Rust** packages
-serialize their native dataclasses/structs directly, which uses each host language's
-snake_case convention (for example `acquired_at`, `cloud_cover_percent`,
-`days_with_observations`). Field *semantics* are identical; only the on-wire casing
-differs. A future release may add camelCase serializers for Python/Rust or a generated
-cross-language conformance corpus (tracked in the roadmap).
+(`packages/typescript/tests/schema.test.mjs`), and Rust serializes its contract structs
+in camelCase (`#[serde(rename_all = "camelCase")]`). The Python package stores native
+snake_case dataclasses and exposes `to_camel`/`to_json` (`satellites_images.serialize`)
+to emit the same camelCase contract. Provider-native metadata under `raw` is preserved
+verbatim in every language.
 
 `providerId` is the provider's `id` (e.g. `earth-search`, `copernicus`,
 `nasa-cmr:ASF`, `asf-vertex`, `jaxa-gportal`).

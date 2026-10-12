@@ -316,6 +316,7 @@ pub fn bounds_around(lat: f64, lon: f64, radius: f64) -> Result<[f64; 4], Error>
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SceneAsset {
     pub key: String,
     pub href: String,
@@ -325,6 +326,7 @@ pub struct SceneAsset {
     pub access: String,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Scene {
     pub provider_id: String,
     pub id: String,
@@ -343,6 +345,7 @@ pub struct Scene {
     pub raw: Value,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SearchPage {
     pub provider_id: String,
     pub items: Vec<Scene>,
@@ -1106,6 +1109,17 @@ mod tests {
     fn rejects_malformed_multipolygon() {
         let bad = json!({"type":"MultiPolygon","coordinates":[[[[0.0,0.0],[1.0,0.0],[1.0,1.0],[0.0,0.0]]],5]});
         assert!(matches!(polygon_boxes(&bad), Err(Error::InvalidQuery(_))));
+    }
+    #[test]
+    fn scene_serializes_camel_case() {
+        let item = json!({"id":"x","collection":"sentinel-2-l2a",
+            "properties":{"datetime":"2025-01-10T02:00:00Z","platform":"sentinel-2a"},"raw_key":"kept"});
+        let scene = normalize_stac_item(item, "earth-search", &[]).unwrap();
+        let value = serde_json::to_value(&scene).unwrap();
+        for key in ["providerId", "acquiredAt", "cloudCoverPercent", "coveragePercent", "previewUrl", "sourceUrl"] {
+            assert!(value.get(key).is_some(), "missing {key}");
+        }
+        assert_eq!(value["raw"]["raw_key"], json!("kept"));
     }
     #[test]
     fn parse_stac_scene() {

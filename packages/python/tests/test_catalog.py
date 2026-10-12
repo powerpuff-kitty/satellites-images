@@ -2,10 +2,11 @@ import unittest
 
 from satellites_images import (
     AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, SatelliteCatalog, SatelliteError,
-    SearchQuery, UsgsLandsatLook,
+    SearchQuery, UsgsLandsatLook, to_json,
     bounds_around, coverage_percent, list_sources,
     polygon_boxes, radius_boxes, resolve_areas,
 )
+import json
 
 SAMPLE = {
     "type": "FeatureCollection",
@@ -197,6 +198,15 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(pages[0].items[0].access, "unknown")
         self.assertIn("token=expired", pages[0].items[0].assets[0].href)
         self.assertEqual(len(seen), 1, "signed asset bytes are never fetched")
+
+    def test_camel_case_serialization(self):
+        def mock(url, method, body):
+            return SAMPLE
+        pages = list(EarthSearch(transport=mock).search(self.query))
+        payload = json.loads(to_json(pages[0].items[0]))
+        for key in ("providerId", "acquiredAt", "cloudCoverPercent", "previewUrl", "sourceUrl"):
+            self.assertIn(key, payload)
+        self.assertIsInstance(payload["raw"], dict)
 
     def test_pagination_and_metadata(self):
         seen = []

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Error, Scene, SearchPage};
 
 #[derive(Debug,Clone,Serialize,Deserialize,PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct AvailabilityDay {
     pub date:String,
     pub count:usize,
@@ -12,6 +13,7 @@ pub struct AvailabilityDay {
     pub collections:BTreeMap<String,usize>,
 }
 #[derive(Debug,Clone,Serialize,Deserialize,PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct AvailabilityMonth {
     pub month:String,
     pub count:usize,
@@ -19,6 +21,7 @@ pub struct AvailabilityMonth {
     pub missions:BTreeMap<String,usize>,
 }
 #[derive(Debug,Clone,Serialize,Deserialize,PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct ProviderAvailability {
     pub id:String,
     pub pages_scanned:usize,
@@ -28,6 +31,7 @@ pub struct ProviderAvailability {
     pub has_more:bool,
 }
 #[derive(Debug,Clone,Serialize,Deserialize,PartialEq)]
+#[serde(rename_all = "camelCase")]
 pub struct AvailabilitySummary {
     pub days:Vec<AvailabilityDay>,
     pub months:Vec<AvailabilityMonth>,

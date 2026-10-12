@@ -19,6 +19,7 @@ from .catalog import (
     SatelliteError,
     SearchPage,
     SearchQuery,
+    SearchProvider,
     Scene,
     SceneAsset,
     StacProvider,
@@ -32,10 +33,12 @@ from .catalog import (
     radius_boxes,
     resolve_areas,
 )
+from .serialize import to_camel, to_json
 
 __all__ = [
     "EarthSearch", "CopernicusDataSpace", "UsgsLandsatLook", "CmrStac", "AsfSearch",
-    "JaxaGPortal", "normalize_asf_feature", "normalize_jaxa_feature", "PlanetaryComputer",
+    "JaxaGPortal", "SearchProvider", "normalize_asf_feature", "normalize_jaxa_feature",
+    "PlanetaryComputer", "to_camel", "to_json",
     "SatelliteCatalog", "SatelliteError", "SearchPage",
     "SearchQuery", "Scene", "SceneAsset", "StacProvider", "bounds_around",
     "radius_boxes", "polygon_boxes", "resolve_areas", "coverage_percent",
