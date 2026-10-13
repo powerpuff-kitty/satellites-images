@@ -360,6 +360,18 @@ test("the day matrix plots one 12x12 px cell per day across the loaded year", as
   await expect(page.locator("#matrix-svg .matrix-month")).toHaveCount(1); // only March is in this window
 });
 
+test("the metric links and the ⋯ toggle share one row and baseline", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#matrix-head")).toBeVisible();
+  const centres = await page.locator("#matrix-links .matrix-link, #matrix-links .matrix-more-toggle")
+    .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)));
+  expect(centres.length).toBe(5);
+  expect(new Set(centres).size).toBe(1);
+});
+
 test("the matrix data links switch the metric it shows", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));

@@ -167,6 +167,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: the matrix **⋯ More** control now lines up vertically with the metric links (its
+  wrapper no longer adds line-box height); E2E asserts all five share one centre.
 - Explorer: the scene card's **Show scene footprint** button is gone — the footprint is drawn
   on the map together with the image and cleared when the overlay closes. The preview **‹ / ›**
   arrows now step only through the **filtered/visible** observations, not every loaded scene.

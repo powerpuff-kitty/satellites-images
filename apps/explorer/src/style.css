@@ -99,8 +99,8 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .matrix-head { display:flex; width:100%; align-items:center; justify-content:space-between; gap:12px; }
 .matrix-links { display:flex; flex-wrap:nowrap; justify-content:flex-start; align-items:center; gap:14px; padding-bottom:2px; }
 .matrix-right { display:flex; align-items:center; gap:8px; flex-shrink:0; }
-.matrix-more { position:relative; }
-.matrix-more-toggle { display:inline-flex; align-items:center; gap:4px; background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.matrix-more { position:relative; display:flex; align-items:center; }
+.matrix-more-toggle { display:inline-flex; align-items:center; width:auto; gap:4px; background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; line-height:1.2; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .matrix-more-toggle[aria-pressed="true"] { color:#e2ae54; font-weight:600; }
 .matrix-more-toggle .fa-solid { line-height:1; }
 .matrix-menu { position:absolute; top:calc(100% + 6px); left:0; z-index:6; display:flex; flex-direction:column; min-width:110px; background:#111512f2; border:1px solid #394037; padding:4px; }
@@ -111,7 +111,7 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .matrix-quick { display:flex; flex-shrink:0; gap:6px; }
 .matrix-chip { background:#1a211b; border:1px solid #394037; color:#9aa39a; font-size:9px; letter-spacing:.06em; text-transform:uppercase; padding:3px 7px; border-radius:0; margin:0; width:auto; cursor:pointer; }
 .matrix-chip[aria-pressed="true"] { background:#2b2a20; border-color:#e0ae54; color:#e7bd6b; }
-.matrix-link { background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+.matrix-link { display:inline-flex; align-items:center; width:auto; background:none; border:0; margin:0; padding:0; color:#8f998c; font-size:10px; line-height:1.2; letter-spacing:.04em; white-space:nowrap; cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
 .matrix-link[aria-pressed="true"] { color:#e2ae54; font-weight:600; }
 .matrix-link:hover { color:#edece6; }
 /* Year stepper sits outside the panel, to its left, arrows stacked vertically. */
