@@ -284,6 +284,10 @@ function makeScene(scene: Scene): HTMLLIElement {
 // --- Scene image overlaid on the map (pan/zoom like the map) ------------------
 let previewScenes:Scene[]=[];
 let previewIndex=0;
+// Object URL backing an image overlay (revoked when the preview changes or closes).
+let previewObjectUrl:string|null=null;
+// Ceiling on a preview fetched for the map overlay.
+const MAX_OVERLAY_BYTES=8*1024*1024;
 type PreviewCorner=[number,number];
 const DISPLAYABLE_IMAGE=/^image\/(jpeg|png|webp|avif)$/i;
 const RASTER_EXTENSION=/\.(jpe?g|png|webp|avif)(\?|#|$)/i;
@@ -366,6 +370,24 @@ function planetaryComputerUrl(kind:"tilejson.json"|"preview.png",collection:stri
     "&"+PLANETARY_COMPUTER_RENDER[collection]+"&format=png";
 }
 interface PreviewOverlay { tiles:string|null; image:string|null }
+/** Fetch an image we cannot hand to MapLibre directly.
+ *
+ * Some provider previews (Earth Search's Sentinel-2 `preview.jpg` on S3) read fine as a plain
+ * CORS fetch and as an `<img>`, but MapLibre's own image request for the same URL fails with
+ * "No 'Access-Control-Allow-Origin' header is present" even though the file returns
+ * `Access-Control-Allow-Origin: *`. Fetching the bytes here and handing over an object URL
+ * sidesteps that path, so the newest scenes can still be drawn on the map. */
+async function fetchOverlayImage(url:string, signal?:AbortSignal):Promise<string|null> {
+  try {
+    const response=await fetch(url,{mode:"cors",signal});
+    if(!response.ok)return null;
+    const blob=await response.blob();
+    if(!blob.type.startsWith("image/")||blob.size>MAX_OVERLAY_BYTES)return null;
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
 async function resolveOverlay(scene:Scene):Promise<PreviewOverlay> {
   const own=tileAssetFor(scene);
   if(own)return {tiles:own,image:null};
@@ -374,7 +396,12 @@ async function resolveOverlay(scene:Scene):Promise<PreviewOverlay> {
     if(id)return {tiles:planetaryComputerUrl("tilejson.json",scene.collection,id),
       image:planetaryComputerUrl("preview.png",scene.collection,id)};
   }
-  return {tiles:null,image:previewUrlFor(scene)};
+  const direct=previewUrlFor(scene);
+  if(direct){
+    const objectUrl=await fetchOverlayImage(direct);
+    if(objectUrl)return {tiles:null,image:objectUrl};
+  }
+  return {tiles:null,image:null};
 }
 /** Whether a scene has anything we can put on the map (checked synchronously). */
 function canOverlay(scene:Scene):boolean {
@@ -392,9 +419,15 @@ function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCor
   return [[lng-d,centerLat+d],[lng+d,centerLat+d],[lng+d,centerLat-d],[lng-d,centerLat-d]];
 }
 function removePreviewLayer():void {
-  if(!map.isStyleLoaded())return;
-  if(map.getLayer("scene-preview-layer"))map.removeLayer("scene-preview-layer");
-  if(map.getSource("scene-preview"))map.removeSource("scene-preview");
+  if(map.isStyleLoaded()){
+    if(map.getLayer("scene-preview-layer"))map.removeLayer("scene-preview-layer");
+    if(map.getSource("scene-preview"))map.removeSource("scene-preview");
+  }
+  releasePreviewObjectUrl();
+}
+/** Frees the object URL backing an image overlay (see `fetchOverlayImage`). */
+function releasePreviewObjectUrl():void {
+  if(previewObjectUrl){ URL.revokeObjectURL(previewObjectUrl); previewObjectUrl=null; }
 }
 /** Highlights the card whose image is currently on the map. */
 function markActiveCard(id:string|null):void {
@@ -409,7 +442,12 @@ async function showMapPreview(index:number):Promise<void> {
   previewIndex=index;
   const overlay=await resolveOverlay(scene);
   if(token!==previewToken)return;  // superseded by a newer selection
-  if(!overlay.tiles&&!overlay.image){ closeMapPreview(); return; }
+  if(!overlay.tiles&&!overlay.image){
+    closeMapPreview();
+    status.textContent="This scene's image cannot be drawn on the map (its preview is not "+
+      "CORS-enabled). Open the card image instead.";
+    return;
+  }
   const coordinates=previewCoordinates(scene);
   const apply=()=>{
     removePreviewLayer();
@@ -417,7 +455,12 @@ async function showMapPreview(index:number):Promise<void> {
     // overlay the best still preview, georeferenced to the scene footprint. The map
     // zoom is left untouched so the view does not jump when an image is opened.
     if(overlay.tiles)map.addSource("scene-preview",{type:"raster",url:overlay.tiles,tileSize:256});
-    else map.addSource("scene-preview",{type:"image",url:overlay.image as string,coordinates});
+    else {
+      if(overlay.image?.startsWith("blob:"))previewObjectUrl=overlay.image;
+      map.addSource("scene-preview",{type:"image",url:overlay.image as string,coordinates});
+    }
+    // Exposed for tests: which kind of overlay is on the map ("tiles" or "image").
+    mapContainer.dataset.previewSource=overlay.tiles?"tiles":"image";
     map.addLayer({id:"scene-preview-layer",type:"raster",source:"scene-preview",
       paint:{"raster-opacity":0.96}});
   };
@@ -433,6 +476,7 @@ function closeMapPreview():void {
   previewToken++;
   if(mapPreview.hidden)return;
   mapPreview.hidden=true;
+  delete mapContainer.dataset.previewSource;
   removePreviewLayer();
   highlightScene(undefined);
   markActiveCard(null);

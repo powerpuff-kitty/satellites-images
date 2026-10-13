@@ -105,6 +105,53 @@ test("the required basemap attribution is not covered by the day matrix", async 
   expect(boxes.attribution!.right).toBeLessThanOrEqual(boxes.pane!.right + 1);
 });
 
+test("a scene with no tile set still draws its preview via a fetched image", async ({ page }) => {
+  // Earth Search Sentinel-2 previews can be read as a plain CORS fetch but fail MapLibre's own
+  // image request, so the app fetches the bytes and hands over an object URL. Without that the
+  // map showed a caption with no raster.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const previewRequests: string[] = [];
+  await page.route("https://example.test/**", (route) => {
+    previewRequests.push(route.request().url());
+    return route.fulfill({ contentType: "image/png", body: png });
+  });
+  // The tile service has not ingested this item, so no tile set can be resolved.
+  await page.route("https://planetarycomputer.microsoft.com/**", (route) => respond(route, { json: { type: "FeatureCollection", features: [], links: [] } }));
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("no-tiles", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await page.locator("#results img").first().click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "image");
+  expect(previewRequests.length).toBeGreaterThan(0); // the page fetched the bytes itself
+  // Closing the preview revokes the overlay instead of leaving a stale source behind.
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#map-preview")).toBeHidden();
+  await expect(page.locator("#map-container")).not.toHaveAttribute("data-preview-source", "image");
+});
+
+test("a scene whose preview cannot be fetched says so instead of an empty overlay", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  let calls = 0;
+  await page.route("https://example.test/**", (route) => {
+    calls += 1;
+    // The card's own <img> loads; the overlay's CORS fetch of the same URL is refused.
+    return calls === 1 ? route.fulfill({ contentType: "image/png", body: png })
+      : route.fulfill({ status: 403, body: "forbidden" });
+  });
+  await page.route("https://planetarycomputer.microsoft.com/**", (route) => respond(route, { json: { type: "FeatureCollection", features: [], links: [] } }));
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("blocked", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
+  await expect(page.locator("#results img")).toHaveCount(1);
+  await expect.poll(async () => page.locator("#results img").first()
+    .evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  await page.locator("#results img").first().click();
+  await expect(page.locator("#map-preview")).toBeHidden();
+  await expect(page.locator("#status")).toContainText(/cannot be drawn on the map/);
+});
+
 test("coordinate search builds a calendar and result cards", async ({ page }) => {
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
