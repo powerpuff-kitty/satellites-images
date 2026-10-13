@@ -39,7 +39,7 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
    or more corners and **Finish area** to search that polygon instead.
 2. Choose a date range; the search runs automatically (the explorer fetches on any input change and when you pick a location on the map — there is no search button).
 3. Read the **day matrix** under the map (a cell per day); click a cell to filter to that day.
-4. Filter to a satellite platform, click a day to display its observation cards, and optionally display a scene footprint on the map.
+4. Filter to a satellite platform or day to display its observation cards; click a card's image to place it on the map (with its footprint).
 5. Use the **‹ / › year stepper** beside the matrix to move the window a year at a time. Searches load their whole window up front, so the
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the state: `lat`/`lon` (search point), `radius`,
