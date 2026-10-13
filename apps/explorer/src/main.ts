@@ -82,6 +82,8 @@ const esaProxy = import.meta.env.VITE_ESA_PROXY_URL ??
 // provider (e.g. VersaTiles) or a self-hosted PMTiles/MapTiler style.
 const mapStyle = import.meta.env.VITE_MAP_STYLE_URL ?? "https://tiles.openfreemap.org/styles/liberty";
 
+const ESA_FETCH_TIMEOUT_MS = 20000;
+
 function esaFetch(url: RequestInfo | URL, options?: RequestInit): Promise<Response> {
   const original = new URL(String(url));
   if (original.origin !== "https://sentinels.copernicus.eu") {
@@ -89,7 +91,12 @@ function esaFetch(url: RequestInfo | URL, options?: RequestInit): Promise<Respon
   }
   const proxied = esaProxy ?
     esaProxy.replace(/\/$/,"") + original.pathname : original.toString();
-  return fetch(proxied, options);
+  // A missing or blocked proxy should fail as a bounded timeout, not a hung request.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ESA_FETCH_TIMEOUT_MS);
+  const signal = options?.signal
+    ? AbortSignal.any([options.signal, controller.signal]) : controller.signal;
+  return fetch(proxied, { ...options, signal }).finally(() => clearTimeout(timer));
 }
 
 
@@ -216,7 +223,11 @@ function makeScene(scene: Scene): HTMLLIElement {
   item.append(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
   if (scene.gsdMeters !== null) item.append(line("Resolution", scene.gsdMeters + " m/pixel"));
   if (scene.coveragePercent !== null) item.append(line("Covers your area", scene.coveragePercent.toFixed(0) + "%"));
-  item.append(line("Image access",scene.access==="unknown"?"Not verified":scene.access));
+  const accessLabel = scene.access === "open" ? "Open (declared)"
+    : scene.access === "authentication-required" ? "Account required"
+    : scene.access === "payment-required" ? "Payment or entitlement required"
+    : "Not verified";
+  item.append(line("Image access", accessLabel));
   const previewHref = previewUrlFor(scene);
   if (previewHref) {
     try {
@@ -529,6 +540,7 @@ function matrixCellKeydown(event:KeyboardEvent, day:string):void {
   }
 }
 const MATRIX_MAX_DAYS=731;   // ~2 years: beyond this the grid is not renderable
+const MATRIX_MIN_CELL=6;     // cells shrink to this before the grid is allowed to scroll
 let matrixTruncated=false;
 function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
@@ -548,7 +560,7 @@ function renderMatrix():void {
     matrixPanel.hidden=true; return;
   }
   matrixPanel.hidden=false;
-  const dayMs=86400000, cell=12, step=cell+1;
+  const dayMs=86400000;
   const first=windowFrom, last=windowTo;
   const startDow=(new Date(first).getUTCDay()+6)%7;
   const start=first-startDow*dayMs;
@@ -556,6 +568,13 @@ function renderMatrix():void {
   const end=last+(6-endDow)*dayMs;
   const nDays=Math.max(1,Math.round((end-start)/dayMs)+1);
   const weeks=Math.ceil(nDays/7);
+  // The whole loaded range must be visible: a clipped December reads as a broken calendar.
+  // Cells shrink from 12 px down to 6 px to fit the map pane, and only scroll below that.
+  // 98 px = the panel's 76 px max-width gutter (which also holds the year stepper) plus
+  // 20 px padding and 2 px borders.
+  const paneWidth=matrixPanel.parentElement?.clientWidth ?? 0;
+  const cell=Math.max(MATRIX_MIN_CELL,Math.min(12,Math.floor(Math.max(140,paneWidth-98)/weeks)-1));
+  const step=cell+1;
   const width=weeks*step, height=7*step;
   matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height}`);
   matrixSvg.setAttribute("width",String(width));
@@ -661,6 +680,12 @@ matrixMoreToggle.addEventListener("click",(event)=>{
 document.addEventListener("click",()=>{
   matrixMoreMenu.hidden=true;
   matrixMoreToggle.setAttribute("aria-expanded","false");
+});
+// The grid is sized to the map pane, so a resize (or a pane-width change) must re-fit it.
+let matrixRefitTimer:number|undefined;
+window.addEventListener("resize",()=>{
+  window.clearTimeout(matrixRefitTimer);
+  matrixRefitTimer=window.setTimeout(()=>{ if(!matrixPanel.hidden)renderMatrix(); },120);
 });
 // Year stepper: shift the whole loaded window a year back or forward and re-search.
 function shiftWindowYear(delta:number):void {
@@ -1422,15 +1447,33 @@ function upcomingHorizonDays():number {
   if(!Number.isFinite(end))return 14;
   return Math.max(1,Math.min(366,Math.round((end-Date.now())/86400000)));
 }
+/** How stale the ESA plan body is: a plan file is a rolling window, not a live feed. */
+function refreshAgeLabel(fetchedAt:string|null):string {
+  if(!fetchedAt)return "no plan file was read";
+  const minutes=Math.max(0,Math.round((Date.now()-Date.parse(fetchedAt))/60000));
+  return minutes<1?"plan fetched just now":"plan fetched "+minutes+" min ago";
+}
+/** The coverage window of the plan documents that were read (file names, not publication). */
+function planWindowLabel(plans:{startsAt:string;endsAt:string;fromCache?:boolean}[]):string {
+  const starts=plans.map((plan)=>plan.startsAt).filter(Boolean).sort();
+  const ends=plans.map((plan)=>plan.endsAt).filter(Boolean).sort();
+  if(!starts.length||!ends.length)return "";
+  const format=(value:string)=>new Date(value).toLocaleDateString(undefined,{dateStyle:"medium",timeZone:"UTC"});
+  // Cache health: every plan served from the in-memory cache means the ETag matched.
+  const cached=plans.every((plan)=>plan.fromCache);
+  return "plan window "+format(starts[0])+" – "+format(ends[ends.length-1])+
+    (cached?" (revalidated, served from cache)":"");
+}
 async function runUpcoming():Promise<void>{
   const token=++currentPlanSearch;
   plansResults.replaceChildren();
   upcomingStatus.textContent="Checking the latest ESA acquisition plans…";
   try {
-    const catalog = new SatelliteCatalog([earthSearch()],[plannedProvider]);
-    const planned=await catalog.upcoming({latitude:Number(lat.value),longitude:Number(lon.value),
+    const diagnostics=await plannedProvider.upcomingWithDiagnostics({
+      latitude:Number(lat.value),longitude:Number(lon.value),
       radiusMeters:Number(radius.value),days:upcomingHorizonDays()});
     if(token!==currentPlanSearch)return;
+    const planned=diagnostics.opportunities;
     const mission=upcomingMission.value;
     const filtered=mission?planned.filter(p=>p.mission.startsWith(mission)):planned;
     displaySwaths(filtered);
@@ -1442,15 +1485,26 @@ async function runUpcoming():Promise<void>{
       const empty=document.createElement("li");
       empty.className="empty";
       empty.textContent="No planned datatakes for this area in the next "+
-        upcomingHorizonDays()+" days. Try a larger radius.";
+        upcomingHorizonDays()+" days. Try a larger radius." +
+        (diagnostics.status==="no-current-plan"?" No current ESA plan was published for that window.":"");
       list.append(empty);
     }
     plansResults.append(list);
     counter.textContent=String(filtered.length);
-    upcomingStatus.textContent=filtered.length
-      ? filtered.length+" officially planned datatake(s) intersect this area within the next "+
-        upcomingHorizonDays()+" days. No image is guaranteed."
-      : "No matching planned datatakes in the latest ESA plans for this location and window.";
+    // Coverage diagnostics: why there is nothing, which plan window was read, how fresh it is.
+    const parts:string[]=[];
+    if(filtered.length) {
+      parts.push(filtered.length+" officially planned datatake(s) intersect this area within the next "+
+        upcomingHorizonDays()+" days. No image is guaranteed.");
+    }else if(diagnostics.status==="no-current-plan") {
+      parts.push("No current ESA plan covers the next "+upcomingHorizonDays()+" days.");
+    }else {
+      parts.push("ESA plans were read for this window but none intersect this area.");
+    }
+    const window=planWindowLabel(diagnostics.plans);
+    if(window)parts.push(window);
+    parts.push(refreshAgeLabel(diagnostics.fetchedAt));
+    upcomingStatus.textContent=parts.join(" · ");
   } catch(error) {
     if(token===currentPlanSearch){
       const failed=document.createElement("li");
@@ -1459,8 +1513,10 @@ async function runUpcoming():Promise<void>{
       plansResults.replaceChildren(failed);
       matrixItems=[];
       renderMatrix();   // never leave the previous tab's data on the grid
+      const timedOut=error instanceof Error && /abort/i.test(error.message);
       upcomingStatus.textContent=
-        "ESA plan lookup failed. "+(error instanceof Error?error.message:String(error))+
+        (timedOut?"ESA plan lookup timed out after "+(ESA_FETCH_TIMEOUT_MS/1000)+" s. "
+          :"ESA plan lookup failed. "+(error instanceof Error?error.message:String(error)))+
         (esaProxy?"":" Browser CORS may require the optional ESA proxy.");
     }
   }

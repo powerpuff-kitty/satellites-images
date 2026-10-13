@@ -306,6 +306,9 @@ test("planned ESA acquisitions are shown separately from published scenes", asyn
   await expect(page.locator("#plans-results li")).toHaveCount(1);
   await expect(page.locator("#plans-results li")).toContainText(/planned/);
   await expect(page.locator("#upcoming-status")).toContainText(/planned datatake/);
+  // Coverage diagnostics: which plan window was read and how fresh that plan file is.
+  await expect(page.locator("#upcoming-status")).toContainText(/plan window/);
+  await expect(page.locator("#upcoming-status")).toContainText(/plan fetched/);
   await expect(page.locator("#map-matrix")).toBeVisible();
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="' + observation.slice(0, 10) + '"]')).toHaveCount(1);
 });
@@ -335,7 +338,55 @@ test("upcoming view overlays published-so-far against planned", async ({ page })
   await expect(page.locator("#matrix-svg .matrix-cell").first()).toBeVisible();
 });
 
-test("the day matrix plots one 12x12 px cell per day across the loaded year", async ({ page }) => {
+test("a blocked ESA plan request explains the optional proxy", async ({ page }) => {
+  // A CORS-blocked or missing proxy surfaces as a network failure: say so, and point at the
+  // optional proxy rather than leaving an empty panel (the deployed build has no proxy).
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("c1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.route("**/acquisition-plans", (route) => route.abort());
+  await page.goto("/");
+  await page.locator("#tab-upcoming").click();
+  await expect(page.locator("#upcoming-status")).toContainText(/ESA plan lookup failed/);
+  await expect(page.locator("#upcoming-status")).toContainText(/optional ESA proxy/);
+  await expect(page.locator("#plans-results li.empty")).toHaveCount(1);
+});
+
+test("the full-year grid fits the map pane instead of clipping December", async ({ page }) => {
+  // Regression: fixed 12 px cells made a 53-week year ~689 px wide inside a ~630 px pane,
+  // so the last weeks sat behind a horizontal scrollbar.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("f1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-01-01", "2025-12-31");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-12-31"]')).toHaveCount(1);
+  const fit = await page.evaluate(() => {
+    const pane = document.querySelector("#map-container")!;
+    const svg = document.querySelector("#matrix-svg")!;
+    const stepper = document.querySelector("#matrix-prev-year")!;
+    const paneBox = pane.getBoundingClientRect();
+    const paneWidth = paneBox.width;
+    const svgWidth = svg.getBoundingClientRect().width;
+    const lastCell = document.querySelector('#matrix-svg .matrix-cell[data-day="2025-12-31"]')!;
+    return {
+      paneWidth,
+      paneLeft: paneBox.left,
+      svgWidth,
+      stepperLeft: stepper.getBoundingClientRect().left,
+      lastCellRight: lastCell.getBoundingClientRect().right,
+      monthCount: document.querySelectorAll("#matrix-svg .matrix-month").length,
+    };
+  });
+  expect(fit.monthCount).toBe(12);
+  expect(fit.svgWidth).toBeLessThanOrEqual(fit.paneWidth - 76);
+  // The December cell is inside the pane, not scrolled out of view.
+  expect(fit.lastCellRight).toBeLessThanOrEqual(fit.paneWidth);
+  // The year stepper stays inside the pane instead of overlapping the left column.
+  expect(fit.stepperLeft).toBeGreaterThanOrEqual(fit.paneLeft);
+});
+
+test("the day matrix plots one square cell per day across the loaded range", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z", "sentinel-2b"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
@@ -347,7 +398,12 @@ test("the day matrix plots one 12x12 px cell per day across the loaded year", as
   const sizes = await page.locator("#matrix-svg .matrix-cell")
     .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
   expect(sizes.length).toBeGreaterThanOrEqual(31); // ≥ one cell per day of the loaded month
-  expect([...new Set(sizes)]).toEqual(["12x12"]);
+  // Uniform square cells, 12 px when the range fits and smaller (≥ 6 px) when it must.
+  expect([...new Set(sizes)].length).toBe(1);
+  const side = Number(sizes[0].split("x")[0]);
+  expect(Number(sizes[0].split("x")[1])).toBe(side);
+  expect(side).toBeGreaterThanOrEqual(6);
+  expect(side).toBeLessThanOrEqual(12);
   // A day with no observations still renders a placeholder cell, not a gap.
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]')).toHaveAttribute("fill", "#2f3830");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).not.toHaveAttribute("fill", "#2f3830");
@@ -400,17 +456,40 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   expect(Math.abs(mapCentre - matrixCentre)).toBeLessThan(4);
 });
 
-test("matrix cells are 12x12 px and the matrix scrolls horizontally", async ({ page }) => {
+test("matrix cells are 12 px when they fit and shrink to fit narrower panes", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z")], [], 1) }));
+  const sizesFor = async () => {
+    return page.locator("#matrix-svg .matrix-cell")
+      .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
+  };
+  const fitsPane = async () => page.evaluate(() => {
+    const pane = document.querySelector("#map-container")!.getBoundingClientRect();
+    const svg = document.querySelector("#matrix-svg")!.getBoundingClientRect();
+    return svg.width <= pane.width - 76 + 0.5;
+  });
+
+  await page.setViewportSize({ width: 1600, height: 940 });
   await page.goto("/");
   await setRange(page, "2025-01-01", "2025-12-31");
   await expect(page.locator("#map-matrix")).toBeVisible();
   await expect(page.locator(".matrix-scroll")).toHaveCount(1);
-  const sizes = await page.locator("#matrix-svg .matrix-cell")
-    .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
-  expect(sizes.length).toBeGreaterThan(300);
-  expect([...new Set(sizes)]).toEqual(["12x12"]);
+  const wide = await sizesFor();
+  expect(wide.length).toBeGreaterThan(300);
+  expect([...new Set(wide)]).toEqual(["12x12"]); // a full year still gets full-size cells when there is room
+  expect(await fitsPane()).toBe(true);
+
+  // A narrower pane shrinks the cells (never below 6 px) instead of clipping the year.
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect.poll(fitsPane).toBe(true);
+  const narrow = await sizesFor();
+  expect([...new Set(narrow)].length).toBe(1);
+  const side = Number(narrow[0].split("x")[0]);
+  expect(side).toBeLessThan(12);
+  expect(side).toBeGreaterThanOrEqual(6);
+  // Resizing back restores the full-size grid.
+  await page.setViewportSize({ width: 1600, height: 940 });
+  await expect.poll(async () => [...new Set(await sizesFor())]).toEqual(["12x12"]);
 });
 
 test("the matrix year arrows load the previous/next year", async ({ page }) => {

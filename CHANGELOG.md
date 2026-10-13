@@ -22,7 +22,21 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Opt-in retry/backoff for transient HTTP 429/503 (honouring `Retry-After`) in the
   STAC providers of all three SDKs, with recorded contract tests for 403, 429 and
   expired-signed-URL / metadata-only responses (assets are recorded, never fetched,
-  and `access` stays `unknown`).
+  and per-asset `access` stays `unknown`).
+- `Scene.access` now reports the access class a provider **declares** for that
+  collection (registry-derived, with verified per-collection refinements such as
+  "Sentinel-2 L2A is a public bucket", "Landsat C2 L2 is requester-pays",
+  "Copernicus/ASF/JAXA downloads need an account") instead of always `unknown`.
+  Per-asset `SceneAsset.access` deliberately stays `unknown`: a signed href can be
+  anonymous or credential-bound, so no entitlement is inferred from a link.
+- Explorer: the Upcoming status line now reports the ESA plan **coverage window** and how
+  fresh the plan file is (via `upcomingWithDiagnostics`), and distinguishes "no current
+  plan published" from "plans were read but none intersect this area".
+- Explorer: the card's **Image access** row now distinguishes *open*, *account required*
+  and *payment/entitlement required* instead of showing "not verified" for every scene.
+- Explorer: ESA plan requests fail with a bounded 20 s timeout and name the optional proxy
+  (the deployed build has none) instead of hanging; the plan-window line also reports when
+  a plan was revalidated from the in-memory cache.
 - Historical availability summaries (UTC day/month counts with provenance and
   truncation status) in all three SDKs.
 - Explorer: availability calendar, month navigation, per-mission filter, shareable
@@ -41,6 +55,11 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   two times `maxPages` pages.
 
 ### Fixed
+- Explorer: the full-year **day matrix overflowed the map pane** at ordinary widths (fixed
+  12 px cells made 53 weeks ~689 px inside a ~630 px pane), so the last weeks — including
+  the December label — were clipped behind a horizontal scrollbar. Cells now shrink from
+  12 px to a 6 px floor to fit the loaded range, the pane is re-fitted on resize, and the
+  year stepper's 38 px is reserved so it no longer overlaps the neighbouring column.
 - Browser builds could not call the default `fetch` (called as an instance method,
   causing `Illegal invocation`); the transport is now bound correctly.
 - Explorer now reports partial results after a mid-scan source failure instead of
