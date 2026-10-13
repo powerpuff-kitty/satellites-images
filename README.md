@@ -42,7 +42,7 @@ The registry records **16 catalogues**, **9 searchable today**. "Shipped" means 
 | Normalised scene metadata: UTC timestamp, footprint, preview, band assets, GSD, access | TypeScript · Python · Rust | Shipped |
 | Provider registry with access terms and implementation flags (`listSources()`) | TypeScript · Python · Rust · explorer panel | Shipped |
 | Adapters: Earth Search, Planetary Computer, Copernicus Data Space, USGS LandsatLook, NASA CMR-STAC, ASF Vertex, JAXA G-Portal | TypeScript · Python · Rust | Shipped |
-| OpenAerialMap aerial imagery (bbox + acquisition window, `tilejson` assets) | TypeScript · Python · Rust · explorer (opt-in catalogue) | Shipped |
+| OpenAerialMap aerial imagery (bbox + acquisition window, `tilejson` assets) | TypeScript · Python · Rust | Shipped (metadata only — its API allows a single browser origin, so browser use needs a proxy) |
 | Distinguish `planned` and `predicted` acquisitions (official ESA Sentinel plans) | TypeScript · Python · Rust · explorer (Upcoming) | Shipped |
 | Pagination with explicit complete/partial signals, page caps, retry/backoff, typed errors | TypeScript · Python · Rust | Shipped |
 | Explorer: MapLibre map, radar and 0.6 m NAIP imagery, native-resolution tiles, day matrix, filters, permalinks, keyboard access | explorer | Shipped |
