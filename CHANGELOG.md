@@ -63,12 +63,15 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 
 ### Fixed
 - Explorer: a scene with no usable tile set could leave the map **showing a preview caption with
-  no image** and a console error. Earth Search's Sentinel-2 previews read fine as a plain CORS
-  fetch (and as a card `<img>`), but MapLibre's own image request for the same URL is refused,
-  so the bytes are now fetched by the app and handed over as an object URL; when they cannot be
-  fetched at all, the preview no longer opens and the status line says why. Object URLs are
-  revoked when the preview changes or closes. This is the common case for a scene published in
-  the last day or two, before Planetary Computer has ingested it.
+  no image** and a console error. The cause is a cache interaction, not the provider: the result
+  cards load the provider preview as a plain `<img>`, caching an opaque (no-CORS) response for
+  that URL, so a later CORS fetch of the same URL — MapLibre's own image request included — fails
+  from that cache with a misleading "No 'Access-Control-Allow-Origin' header" error, even though
+  the file returns `Access-Control-Allow-Origin: *`. The app now fetches the bytes itself with
+  `cache: "reload"` and hands MapLibre an object URL; when the bytes cannot be fetched at all,
+  the preview no longer opens and the status line says why. Object URLs are revoked when the
+  preview changes or closes. This is the common case for a scene published in the last day or
+  two, before Planetary Computer has ingested it.
 - Explorer: the day matrix **covered the basemap attribution**. MapLibre renders the compact
   attribution expanded on wide maps, and the centred panel spans that corner, so the required
   `OpenFreeMap` / `OpenStreetMap` credits were hidden and unclickable. The attribution control
