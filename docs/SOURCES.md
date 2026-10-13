@@ -17,7 +17,7 @@ See the machine-readable [source registry](../sources/registry.json) for source 
 
 - [Earth Search v1](https://earth-search.aws.element84.com/v1): public STAC search for `sentinel-2-l2a` and `landsat-c2-l2`.
 - [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/api/stac/v1): public STAC search; asset signing separate.
-- [Copernicus Data Space Ecosystem STAC](https://stac.dataspace.copernicus.eu/v1): anonymous STAC search; downloads require registration. Adapter in all three SDKs (assets stay `unknown`/gated).
+- [Copernicus Data Space Ecosystem STAC](https://stac.dataspace.copernicus.eu/v1): anonymous STAC search; downloads require registration. Adapter in all three SDKs (scenes are reported as `authentication-required`; per-asset access stays `unknown`).
 - [USGS LandsatLook STAC](https://landsatlook.usgs.gov/stac-server): anonymous STAC search. Adapter in all three SDKs; its CORS policy blocks arbitrary browser origins, so browser use needs the optional proxy.
 - [NASA CMR-STAC](https://cmr.earthdata.nasa.gov/stac): provider-scoped STAC search (e.g. `ASF`, `USGS_LTA`). Adapter in all three SDKs.
 - [Alaska Satellite Facility Search API](https://api.daac.asf.alaska.edu/services/search/param): keyword SAR metadata search returning GeoJSON. Adapter in all three SDKs; product downloads require Earthdata authentication.
@@ -30,4 +30,4 @@ See the machine-readable [source registry](../sources/registry.json) for source 
 2. A public thumbnail or product listing is not an image license.
 3. Do not redistribute proprietary previews in published sample fixtures.
 4. Provider listings may be incomplete, delayed or subject to quotas; pagination is bounded and explicit.
-5. Image access fields default to `unknown`, not `open`, unless a provider adapter can establish asset-level entitlements.
+5. `Scene.access` reports the class the provider **declares** for a collection, derived from this registry plus verified refinements (`declaredImageryAccess`). It is not a licence and not a per-asset check: per-asset `access` stays `unknown`, because an individual href can be expired, signed or gone. A coarse registry value (`mixed`, `signed-or-authenticated`, `per-dataset`) maps to `unknown` rather than being guessed.

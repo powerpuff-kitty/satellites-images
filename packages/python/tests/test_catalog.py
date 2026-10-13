@@ -3,7 +3,7 @@ import unittest
 from satellites_images import (
     AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, PlanetaryComputer, SatelliteCatalog, SatelliteError,
     SearchQuery, UsgsLandsatLook, to_json,
-    bounds_around, coverage_percent, list_sources,
+    bounds_around, coverage_percent, declared_imagery_access, list_sources,
     polygon_boxes, radius_boxes, resolve_areas,
 )
 import json
@@ -124,6 +124,25 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(pages[0].items[0].mission, "Sentinel-1")
         self.assertEqual(pages[0].items[0].acquired_at, "2025-01-10T02:00:00.000Z")
         self.assertEqual(pages[0].items[0].preview_url, "https://example.test/asf-browse.png")
+        self.assertEqual(pages[0].items[0].access, "authentication-required",
+                         "ASF downloads need Earthdata login")
+
+    def test_declared_imagery_access(self):
+        # Registry-derived defaults.
+        self.assertEqual(declared_imagery_access("usgs-landsatlook"), "open")
+        self.assertEqual(declared_imagery_access("copernicus"), "authentication-required")
+        self.assertEqual(declared_imagery_access("asf-vertex"), "authentication-required")
+        self.assertEqual(declared_imagery_access("jaxa-gportal"), "authentication-required")
+        # Coarse registry values stay unknown instead of being guessed.
+        self.assertEqual(declared_imagery_access("earth-search"), "unknown")
+        self.assertEqual(declared_imagery_access("earth-search", "unknown-collection"), "unknown")
+        self.assertEqual(declared_imagery_access("not-a-source"), "unknown")
+        # Collection and sub-provider refinements.
+        self.assertEqual(declared_imagery_access("earth-search", "sentinel-2-l2a"), "open")
+        self.assertEqual(declared_imagery_access("earth-search", "landsat-c2-l2"), "authentication-required")
+        self.assertEqual(declared_imagery_access("planetary-computer", "naip"), "open")
+        self.assertEqual(declared_imagery_access("nasa-cmr:ASF"), "authentication-required")
+        self.assertEqual(declared_imagery_access("nasa-cmr:LPCLOUD"), "unknown")
 
     def test_jaxa_granule_adapter(self):
         requests = []
@@ -195,8 +214,10 @@ class CatalogTests(unittest.TestCase):
             seen.append(url)
             return signed
         pages = list(EarthSearch(transport=transport).search(self.query))
-        self.assertEqual(pages[0].items[0].access, "unknown")
-        self.assertIn("token=expired", pages[0].items[0].assets[0].href)
+        scene = pages[0].items[0]
+        self.assertEqual(scene.access, "open", "the declared class for this provider and collection")
+        self.assertEqual(scene.assets[0].access, "unknown", "per-asset entitlement is never assumed")
+        self.assertIn("token=expired", scene.assets[0].href)
         self.assertEqual(len(seen), 1, "signed asset bytes are never fetched")
 
     def test_camel_case_serialization(self):
@@ -219,7 +240,7 @@ class CatalogTests(unittest.TestCase):
         pages = list(catalog.search(self.query))
         self.assertEqual(len(pages), 2)
         self.assertEqual(pages[0].items[0].acquired_at, "2025-01-10T02:12:00.000Z")
-        self.assertEqual(pages[0].items[0].access, "unknown")
+        self.assertEqual(pages[0].items[0].access, "open")
         self.assertEqual(pages[0].items[0].preview_url, "https://example.test/thumb.jpg")
         self.assertEqual(seen[1][2]["token"], "page2")
         self.assertIn("bbox", seen[1][2])
