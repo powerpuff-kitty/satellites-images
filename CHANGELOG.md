@@ -53,6 +53,7 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Antimeridian-crossing searches are split into two bounding boxes instead of being
   rejected; the page budget now applies per box, so a split query can return up to
   two times `maxPages` pages.
+- The README screenshot was regenerated from the live catalogues after the explorer changes (and the capture now picks a scene the tile service has already ingested, so the map overlay in the image is real rather than an empty frame).
 - Explorer: upgraded to `maplibre-gl` 6. Its ESM build has no default export, so the
   import is now a namespace import, and it loads its worker from a URL it computes at
   runtime — which bundlers do not follow, so the built app requested a path that did not
