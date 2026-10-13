@@ -265,6 +265,47 @@ def _port_or_default(parts: Any) -> tuple[str, str | None, int]:
     return (parts.scheme, parts.hostname, parts.port or default)
 
 
+_IMAGERY_ACCESS_CLASS = {
+    "open": "open",
+    "account": "authentication-required",
+    "paid": "payment-required",
+    "paid-or-entitlement": "payment-required",
+}
+#: Collection-level refinements for sources whose registry entry is deliberately coarse.
+#: Each entry mirrors verified provider behaviour rather than an aspiration.
+_COLLECTION_ACCESS_OVERRIDES = {
+    # Sentinel-2 L2A assets live in the public ``sentinel-cogs`` bucket.
+    "earth-search:sentinel-2-l2a": "open",
+    # Landsat C2 L2 assets are ``s3://usgs-landsat/...``: reading them needs an AWS
+    # account that accepts requester-pays transfer charges.
+    "earth-search:landsat-c2-l2": "authentication-required",
+    # Planetary Computer returns anonymous, CORS-enabled SAS URLs for its open collections.
+    "planetary-computer:sentinel-2-l2a": "open",
+    "planetary-computer:landsat-c2-l2": "open",
+    "planetary-computer:sentinel-1-rtc": "open",
+    "planetary-computer:naip": "open",
+}
+#: Sub-provider refinements: the provider id already carries the DAAC (e.g. ``nasa-cmr:ASF``).
+_PROVIDER_ACCESS_OVERRIDES = {"nasa-cmr:ASF": "authentication-required"}
+
+
+def declared_imagery_access(provider_id: str, collection: str | None = None) -> str:
+    """The access class a provider declares for its image bytes.
+
+    Derived from the shared registry (``sources/registry.json``) plus the refinements above.
+    This describes the published catalogue, not a per-asset entitlement: an individual href
+    can still be expired, signed or gone, so ``SceneAsset.access`` stays ``"unknown"`` until
+    that specific asset can be verified.
+    """
+    override = _COLLECTION_ACCESS_OVERRIDES.get(provider_id + ":" + (collection or ""))
+    if override is None:
+        override = _PROVIDER_ACCESS_OVERRIDES.get(provider_id)
+    if override is not None:
+        return override
+    source = next((entry for entry in list_sources() if entry.get("id") == provider_id.split(":")[0]), None)
+    return _IMAGERY_ACCESS_CLASS.get((source or {}).get("imageryAccess", ""), "unknown")
+
+
 def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | None = None) -> Scene:
     obj = _dictionary(raw)
     props = _dictionary(obj.get("properties"))
@@ -318,7 +359,7 @@ def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | Non
         bbox=bbox if isinstance(bbox, list) and all(isinstance(v, (float, int)) for v in bbox) else None,
         cloud_cover_percent=cloud_value,
         preview_url=preview,
-        access="unknown",
+        access=declared_imagery_access(provider_id, obj.get("collection") if isinstance(obj.get("collection"), str) else None),
         assets=tuple(assets),
         source_url=source_link if isinstance(source_link, str) else None,
         raw=obj,
@@ -519,7 +560,7 @@ def normalize_asf_feature(raw: Any, provider_id: str = "asf-vertex") -> Scene:
         bbox=None,
         cloud_cover_percent=None,
         preview_url=browse[0] if browse else None,
-        access="unknown",
+        access=declared_imagery_access(provider_id),
         assets=tuple(assets),
         source_url=download,
         raw=obj,
@@ -641,7 +682,7 @@ def normalize_jaxa_feature(raw: Any, provider_id: str = "jaxa-gportal") -> Scene
         bbox=None,
         cloud_cover_percent=cloud,
         preview_url=browse[0]["fileName"] if browse else None,
-        access="unknown",
+        access=declared_imagery_access(provider_id),
         assets=tuple(assets),
         source_url=download,
         raw=obj,

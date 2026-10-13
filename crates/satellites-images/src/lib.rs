@@ -16,7 +16,7 @@ use chrono::{DateTime, NaiveDate, SecondsFormat, Utc};
 use reqwest::{Client, Method, Url};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use std::{collections::HashSet, time::Duration};
+use std::{collections::HashSet, sync::OnceLock, time::Duration};
 
 const EARTH_SEARCH: &str = "https://earth-search.aws.element84.com/v1/";
 const PLANETARY_COMPUTER: &str = "https://planetarycomputer.microsoft.com/api/stac/v1";
@@ -364,6 +364,61 @@ pub fn list_sources() -> Result<Value, Error> {
         .map_err(|e| Error::InvalidResponse(format!("Bundled source registry: {e}")))
 }
 
+fn registry_value() -> Option<&'static Value> {
+    static REGISTRY: OnceLock<Option<Value>> = OnceLock::new();
+    REGISTRY.get_or_init(|| list_sources().ok()).as_ref()
+}
+
+/// Map the registry's coarse `imageryAccess` vocabulary onto the scene-level enum.
+const IMAGERY_ACCESS_CLASS: &[(&str, &str)] = &[
+    ("open", "open"),
+    ("account", "authentication-required"),
+    ("paid", "payment-required"),
+    ("paid-or-entitlement", "payment-required"),
+];
+/// Collection-level refinements for sources whose registry entry is deliberately coarse.
+/// Each entry mirrors verified provider behaviour rather than an aspiration.
+const COLLECTION_ACCESS_OVERRIDES: &[(&str, &str)] = &[
+    // Sentinel-2 L2A assets live in the public `sentinel-cogs` bucket.
+    ("earth-search:sentinel-2-l2a", "open"),
+    // Landsat C2 L2 assets are `s3://usgs-landsat/...`: reading them needs an AWS account
+    // that accepts requester-pays transfer charges.
+    ("earth-search:landsat-c2-l2", "authentication-required"),
+    // Planetary Computer returns anonymous, CORS-enabled SAS URLs for its open collections.
+    ("planetary-computer:sentinel-2-l2a", "open"),
+    ("planetary-computer:landsat-c2-l2", "open"),
+    ("planetary-computer:sentinel-1-rtc", "open"),
+    ("planetary-computer:naip", "open"),
+];
+/// Sub-provider refinements: the provider id already carries the DAAC (e.g. `nasa-cmr:ASF`).
+const PROVIDER_ACCESS_OVERRIDES: &[(&str, &str)] = &[("nasa-cmr:ASF", "authentication-required")];
+
+/// The access class a provider declares for its image bytes, derived from the shared
+/// registry (`sources/registry.json`) plus the refinements above.
+///
+/// This describes the published catalogue, not a per-asset entitlement: an individual href
+/// can still be expired, signed or gone, so `SceneAsset.access` stays `unknown` until that
+/// specific asset can be verified.
+pub fn declared_imagery_access(provider_id: &str, collection: Option<&str>) -> String {
+    let key = format!("{provider_id}:{}", collection.unwrap_or(""));
+    if let Some((_, class)) = COLLECTION_ACCESS_OVERRIDES.iter().find(|(k, _)| *k == key)
+        .or_else(|| PROVIDER_ACCESS_OVERRIDES.iter().find(|(k, _)| *k == provider_id))
+    {
+        return (*class).to_string();
+    }
+    let source_id = provider_id.split(':').next().unwrap_or(provider_id);
+    let access = registry_value()
+        .and_then(|value| value.get("sources"))
+        .and_then(Value::as_array)
+        .and_then(|sources| sources.iter().find(|s| s.get("id").and_then(Value::as_str) == Some(source_id)))
+        .and_then(|source| source.get("imageryAccess"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    IMAGERY_ACCESS_CLASS.iter().find(|(value, _)| *value == access)
+        .map(|(_, class)| (*class).to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
 pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -> Result<Scene, Error> {
     let id = item.get("id").and_then(Value::as_str)
         .ok_or_else(|| Error::InvalidResponse("STAC item missing id".into()))?;
@@ -423,7 +478,8 @@ pub fn normalize_stac_item(item: Value, provider_id: &str, boxes: &[[f64; 4]]) -
         gsd_meters,
         coverage_percent: coverage,
         preview_url,
-        access: "unknown".into(), assets, source_url, raw: item,
+        access: declared_imagery_access(provider_id, item.get("collection").and_then(Value::as_str)),
+        assets, source_url, raw: item,
     })
 }
 
@@ -701,7 +757,7 @@ pub fn normalize_asf_feature(item: &Value, provider_id: &str) -> Result<Scene, E
         geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
         bbox: None, cloud_cover_percent: None, gsd_meters: None, coverage_percent: None,
         preview_url: preview,
-        access: "unknown".into(), assets,
+        access: declared_imagery_access(provider_id, None), assets,
         source_url: download.map(str::to_owned),
         raw: item.clone(),
     })
@@ -826,7 +882,7 @@ pub fn normalize_jaxa_feature(item: &Value, provider_id: &str) -> Result<Scene, 
         geometry: item.get("geometry").filter(|g| g.is_object()).cloned(),
         bbox: None, cloud_cover_percent: cloud, gsd_meters: None, coverage_percent: None,
         preview_url: preview,
-        access: "unknown".into(), assets,
+        access: declared_imagery_access(provider_id, None), assets,
         source_url: download.map(str::to_owned),
         raw: item.clone(),
     })
@@ -1029,8 +1085,26 @@ mod tests {
         assert_eq!(scene.mission.as_deref(), Some("Sentinel-1"));
         assert_eq!(scene.acquired_at, "2025-01-10T02:00:00.000Z");
         assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/b.png"));
-        assert_eq!(scene.access, "unknown");
+        assert_eq!(scene.access, "authentication-required", "ASF downloads need Earthdata login");
         assert_eq!(AsfProvider::sentinel1().unwrap().id(), "asf-vertex");
+    }
+    #[test]
+    fn declared_imagery_access_maps_registry_and_refinements() {
+        // Registry-derived defaults.
+        assert_eq!(declared_imagery_access("usgs-landsatlook", None), "open");
+        assert_eq!(declared_imagery_access("copernicus", None), "authentication-required");
+        assert_eq!(declared_imagery_access("asf-vertex", None), "authentication-required");
+        assert_eq!(declared_imagery_access("jaxa-gportal", None), "authentication-required");
+        // Coarse registry values stay unknown instead of being guessed.
+        assert_eq!(declared_imagery_access("earth-search", None), "unknown");
+        assert_eq!(declared_imagery_access("earth-search", Some("unknown-collection")), "unknown");
+        assert_eq!(declared_imagery_access("not-a-source", None), "unknown");
+        // Collection and sub-provider refinements.
+        assert_eq!(declared_imagery_access("earth-search", Some("sentinel-2-l2a")), "open");
+        assert_eq!(declared_imagery_access("earth-search", Some("landsat-c2-l2")), "authentication-required");
+        assert_eq!(declared_imagery_access("planetary-computer", Some("naip")), "open");
+        assert_eq!(declared_imagery_access("nasa-cmr:ASF", None), "authentication-required");
+        assert_eq!(declared_imagery_access("nasa-cmr:LPCLOUD", Some("HLSL30")), "unknown");
     }
     #[test]
     fn jaxa_feature_normalizes() {
@@ -1153,7 +1227,8 @@ mod tests {
         });
         let scene = normalize_stac_item(fixture, "earth-search", &[]).unwrap();
         assert_eq!(scene.acquired_at, "2025-01-10T02:12:00.000Z");
-        assert_eq!(scene.access, "unknown");
+        // Sentinel-2 L2A assets live in the public `sentinel-cogs` bucket.
+        assert_eq!(scene.access, "open");
         assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/preview.png"));
     }
     #[test]

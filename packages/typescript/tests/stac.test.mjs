@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, declaredImageryAccess, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -111,7 +111,7 @@ test("ASF Search API adapter requests GeoJSON and normalizes SAR granules",async
   assert.equal(pages[0].items[0].mission,"Sentinel-1");
   assert.equal(pages[0].items[0].acquiredAt,"2025-01-10T02:00:00.000Z");
   assert.equal(pages[0].items[0].previewUrl,"https://example.test/asf-browse.png");
-  assert.equal(pages[0].items[0].access,"unknown");
+  assert.equal(pages[0].items[0].access,"authentication-required","ASF downloads need Earthdata login");
 });
 test("JAXA G-Portal granule adapter maps acquisition time and browse",async()=>{
   const calls=[];
@@ -170,7 +170,8 @@ test("expired-signed and metadata-only assets are recorded, never fetched",async
   const provider=new StacProvider({id:"earth-search",baseUrl:"https://earth-search.aws.element84.com/v1",collections:["sentinel-2-l2a"],fetchImpl:mock});
   const pages=[]; for await(const p of provider.search(search)) pages.push(p);
   const scene=pages[0].items[0];
-  assert.equal(scene.access,"unknown","asset entitlement is never assumed");
+  assert.equal(scene.access,"open","the declared class for this provider and collection");
+  assert.equal(scene.assets[0].access,"unknown","per-asset entitlement is never assumed");
   assert.ok(scene.assets[0].href.includes("token=expired"));
   assert.equal(calls,1,"the SDK never fetches signed asset bytes");
 });
@@ -188,7 +189,7 @@ test("STAC pagination, normalization, and precise acquisition times",async()=>{
   for await(const p of catalog.search(search)) pages.push(p);
   assert.equal(pages.length,2);
   assert.equal(pages[0].items[0].acquiredAt,"2025-01-10T02:12:00.000Z");
-  assert.equal(pages[0].items[0].access,"unknown");
+  assert.equal(pages[0].items[0].access,"open");
   assert.equal(pages[0].items[0].previewUrl,"https://example.com/thumb.jpg");
   assert.equal(pages[0].matched,2);
   assert.equal(pages[1].hasNext,false);
@@ -278,4 +279,23 @@ test("planetary computer also queries the radar and aerial collections",async()=
   const catalog=new SatelliteCatalog([planetaryComputer(mock)]);
   for await(const _ of catalog.search(search)){ /* drain */ }
   assert.deepEqual(body.collections,["sentinel-2-l2a","landsat-c2-l2","sentinel-1-rtc","naip"]);
+});
+
+test("declared imagery access reflects the registry and verified per-collection behaviour",()=>{
+  // Registry-derived defaults: a per-source value maps to the scene-level enum.
+  assert.equal(declaredImageryAccess("usgs-landsatlook"),"open","USGS Landsat is public domain");
+  assert.equal(declaredImageryAccess("copernicus"),"authentication-required","Copernicus downloads need an account");
+  assert.equal(declaredImageryAccess("asf-vertex"),"authentication-required");
+  assert.equal(declaredImageryAccess("jaxa-gportal"),"authentication-required");
+  // Coarse registry values stay unknown rather than being guessed.
+  assert.equal(declaredImageryAccess("earth-search"),"unknown","Earth Search is a mixed-index source");
+  assert.equal(declaredImageryAccess("earth-search","unknown-collection"),"unknown");
+  assert.equal(declaredImageryAccess("not-a-source"),"unknown");
+  // Collection refinements on top of a coarse source value.
+  assert.equal(declaredImageryAccess("earth-search","sentinel-2-l2a"),"open");
+  assert.equal(declaredImageryAccess("earth-search","landsat-c2-l2"),"authentication-required");
+  assert.equal(declaredImageryAccess("planetary-computer","sentinel-2-l2a"),"open");
+  assert.equal(declaredImageryAccess("planetary-computer","naip"),"open");
+  assert.equal(declaredImageryAccess("nasa-cmr:ASF"),"authentication-required");
+  assert.equal(declaredImageryAccess("nasa-cmr:LPCLOUD"),"unknown");
 });

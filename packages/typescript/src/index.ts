@@ -316,6 +316,49 @@ function sleepWithSignal(ms: number, signal?: AbortSignal): Promise<void> {
     signal?.addEventListener("abort", onAbort, { once: true });
   });
 }
+/** Map the registry's coarse `imageryAccess` vocabulary onto the scene-level enum. */
+const IMAGERY_ACCESS_CLASS: Readonly<Record<string, ImageAccess>> = {
+  "open": "open",
+  "account": "authentication-required",
+  "paid": "payment-required",
+  "paid-or-entitlement": "payment-required",
+};
+/**
+ * Collection-level refinements for sources whose registry entry is deliberately coarse.
+ * Each entry mirrors verified provider behaviour rather than an aspiration.
+ */
+const COLLECTION_ACCESS_OVERRIDES: Readonly<Record<string, ImageAccess>> = {
+  // Sentinel-2 L2A assets live in the public `sentinel-cogs` bucket.
+  "earth-search:sentinel-2-l2a": "open",
+  // Landsat C2 L2 assets are `s3://usgs-landsat/...`: reading them needs an AWS account
+  // that accepts requester-pays transfer charges.
+  "earth-search:landsat-c2-l2": "authentication-required",
+  // Planetary Computer returns anonymous, CORS-enabled SAS URLs for its open-data collections.
+  "planetary-computer:sentinel-2-l2a": "open",
+  "planetary-computer:landsat-c2-l2": "open",
+  "planetary-computer:sentinel-1-rtc": "open",
+  "planetary-computer:naip": "open",
+};
+/** Sub-provider refinements: the provider id already carries the DAAC (e.g. `nasa-cmr:ASF`).
+ *  CMR federates many DAACs; only the ASF mirror exposed here is account-gated. */
+const PROVIDER_ACCESS_OVERRIDES: Readonly<Record<string, ImageAccess>> = {
+  "nasa-cmr:ASF": "authentication-required",
+};
+/**
+ * The access class a provider declares for its image bytes, derived from the shared
+ * registry (`sources/registry.json`) plus the refinements above.
+ *
+ * This is a statement about the published catalogue, **not** a per-asset entitlement
+ * check: an individual href can still be expired, signed or gone, so `SceneAsset.access`
+ * stays `unknown` until the SDK can verify that specific asset.
+ */
+export function declaredImageryAccess(providerId: string, collection?: string | null): ImageAccess {
+  const override = COLLECTION_ACCESS_OVERRIDES[providerId + ":" + (collection ?? "")]
+    ?? PROVIDER_ACCESS_OVERRIDES[providerId];
+  if (override) return override;
+  const source = registry.sources.find((entry) => entry.id === providerId.split(":")[0]);
+  return (source ? IMAGERY_ACCESS_CLASS[source.imageryAccess] : undefined) ?? "unknown";
+}
 function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Scene {
   const raw = object(item);
   const properties = object(raw.properties);
@@ -360,7 +403,7 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
     gsdMeters,
     coveragePercent: coveragePercent(bbox, boxes),
     previewUrl,
-    access: "unknown",
+    access: declaredImageryAccess(providerId, stringOrNull(raw.collection)),
     assets,
     sourceUrl: link ? stringOrNull(link.href) : null,
     raw,
@@ -587,7 +630,7 @@ export function normalizeAsfFeature(item: unknown, providerId = "asf-vertex"): S
     gsdMeters: null,
     coveragePercent: null,
     previewUrl: browse[0] ?? null,
-    access: "unknown",
+    access: declaredImageryAccess(providerId),
     assets,
     sourceUrl: download,
     raw,
@@ -697,7 +740,7 @@ export function normalizeJaxaFeature(item: unknown, providerId = "jaxa-gportal")
     gsdMeters: null,
     coveragePercent: null,
     previewUrl: browse.length ? String(browse[0].fileName) : null,
-    access: "unknown",
+    access: declaredImageryAccess(providerId),
     assets,
     sourceUrl: download,
     raw,
