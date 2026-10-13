@@ -31,26 +31,14 @@ The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deploymen
 
 This package does **not** process pixels, guarantee coverage, promise free downloads, price commercial imagery, or list every image ever taken.
 
-## Feature matrix
+## Coverage
 
-The registry records **16 catalogues**, **9 searchable today**. "Shipped" means the code exists and a test or a documented check covers it; "Planned" means recorded but not implemented — the registry records *why* each one is where it is.
-
-| Capability | Where | Status |
-| --- | --- | --- |
-| Point + radius search of public STAC catalogues | TypeScript · Python · Rust · explorer | Shipped |
-| GeoJSON polygon AOI, including antimeridian/pole splitting and per-scene coverage | TypeScript · Python · Rust · explorer (Draw area) | Shipped |
-| Normalised scene metadata: UTC timestamp, footprint, preview, band assets, GSD, access | TypeScript · Python · Rust | Shipped |
-| Provider registry with access terms and implementation flags (`listSources()`) | TypeScript · Python · Rust · explorer panel | Shipped |
-| Adapters: Earth Search, Planetary Computer, Copernicus Data Space, USGS LandsatLook, NASA CMR-STAC, ASF Vertex, JAXA G-Portal | TypeScript · Python · Rust | Shipped |
-| OpenAerialMap aerial imagery (bbox + acquisition window, `tilejson` assets) | TypeScript · Python · Rust | Shipped (metadata only — its API allows a single browser origin, so browser use needs a proxy) |
-| Distinguish `planned` and `predicted` acquisitions (official ESA Sentinel plans) | TypeScript · Python · Rust · explorer (Upcoming) | Shipped |
-| Pagination with explicit complete/partial signals, page caps, retry/backoff, typed errors | TypeScript · Python · Rust | Shipped |
-| Explorer: MapLibre map, radar and 0.6 m NAIP imagery, native-resolution tiles, day matrix, filters, permalinks, keyboard access | explorer | Shipped |
-| Packages published to npm, PyPI and crates.io | — | Planned (owner approval) |
-| EUMETSAT Data Store | registry only | Planned (needs a registered account) |
-| Planet, SkyFi, UP42, Vantor | registry only | Planned (needs **your** paid/entitled credentials; the SDK never embeds secrets in browser builds) |
-| NASA GIBS, NOAA GOES | registry only | Not planned (tile and object-storage imagery services, not scene catalogues) |
-| Pixel processing, orbital prediction, pricing or order placement | — | Not planned |
+The registry records **16 catalogues**, **9 searchable today**; it is the source of truth for what
+each source exposes, how its imagery may be accessed, and why the remaining ones are not
+implemented ([`sources/registry.json`](sources/registry.json), [docs/SOURCES.md](docs/SOURCES.md)).
+EUMETSAT Data Store needs a registered account; Planet, SkyFi, UP42 and Vantor need paid or
+entitled credentials; NASA GIBS and NOAA GOES are tile and object-storage imagery services rather
+than scene catalogues.
 
 ## Packages
 

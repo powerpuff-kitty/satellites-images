@@ -50,17 +50,28 @@ const nextLink = (token: string, href = "https://earth-search.aws.element84.com/
 const collection = (features: unknown[], links: unknown[], matched: number) =>
   ({ type: "FeatureCollection", features, links, context: { matched } });
 
-/** Turns the auto-selected pixel off, so a test sees the whole loaded year. */
+/**
+ * Turns an auto-selected pixel off, so a test sees the whole loaded year. Nothing to do when the
+ * picked day had no observations: that selection is dropped automatically.
+ */
 async function clearDay(page: Page) {
   const selected = page.locator("#matrix-svg .matrix-cell.selected");
-  await expect(selected).toHaveCount(1);
+  if (await selected.count() === 0) return;
   await selected.click();
   await expect(selected).toHaveCount(0);
 }
 /** Loads the year containing `date`; its day is auto-selected unless `keepDay` is set. */
 async function setDate(page: Page, date: string, keepDay = false) {
-  await page.fill("#date", date);
-  await page.dispatchEvent("#date", "change");
+  // Via the permalink so exactly one search runs: filling the control schedules a second,
+  // debounced search whose render can land after an assertion.
+  await page.goto(`/?lat=-8.58330&lon=116.11670&radius=5000&date=${date}`);
+  // The counter leaves its placeholder once results render; a scan that fails may never render,
+  // so accept the reported failure as the settled state too.
+  await expect.poll(async () => {
+    const counter = (await page.locator("#counter").textContent()) ?? "";
+    const status = (await page.locator("#status").textContent()) ?? "";
+    return counter !== "—" || /failed/i.test(status);
+  }).toBe(true);
   if (!keepDay) await clearDay(page);
 }
 
@@ -1022,6 +1033,20 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(1);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
+});
+
+test("an auto-selected date with no observations falls back to the whole year", async ({ page }) => {
+  // Picking a date that happens to be empty must not hide the loaded observations: the pixel is
+  // dropped and the year's scenes stay listed.
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("j1", "2025-06-01T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await page.fill("#date", "2025-03-10");
+  await page.dispatchEvent("#date", "change");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(0);
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText("j1");
 });
 
 test("a day cell with no observations is still selectable and explains itself", async ({ page }) => {
