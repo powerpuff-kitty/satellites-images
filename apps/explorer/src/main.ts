@@ -26,6 +26,8 @@ const lon = element<HTMLInputElement>("longitude");
 const radius = element<HTMLSelectElement>("radius");
 const from = element<HTMLInputElement>("date-from");
 const to = element<HTMLInputElement>("date-to");
+// The visible control: picking a date loads that date's whole year and selects its day.
+const dateField = element<HTMLInputElement>("date");
 const status = element<HTMLElement>("status");
 const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
@@ -198,8 +200,19 @@ for (const el of [lat,lon]) el.addEventListener("change", () => {
   }
 });
 for (const el of [radius]) el.addEventListener("change", scheduleForTab);
-for (const el of [from,to]) el.addEventListener("change", () => {
-  if(clampSearchRange()) status.textContent="Search range clamped to "+MIN_SEARCH_DATE+" \u2026 "+maxSearchDate()+".";
+// One date drives the search window: its whole calendar year is loaded, and that day is selected.
+function applyWindowFromDate():void {
+  const picked = validDate(dateField.value) ? dateField.value : new Date().toISOString().slice(0,10);
+  dateField.value = picked;
+  const year = picked.slice(0,4);
+  from.value = year + "-01-01";
+  to.value = year + "-12-31";
+  const high = maxSearchDate();
+  if(to.value > high)to.value = high;
+  selectedDay = picked <= to.value ? picked : null;
+}
+dateField.addEventListener("change", () => {
+  applyWindowFromDate();
   scheduleSearch();
 });
 
@@ -585,11 +598,11 @@ function focusMatrixCell(day:string):void {
 }
 /** Moves focus to the next selectable cell (+7 = a week, +1 = a day). */
 function moveMatrixFocus(from:string, delta:number):void {
+  // Every in-window day is focusable, so navigation steps by day rather than skipping empties.
   const fromIndex=matrixDays.indexOf(from);
   if(fromIndex<0)return;
-  for(let i=fromIndex+delta;i>=0&&i<matrixDays.length;i+=delta){
-    if(matrixHasData.has(matrixDays[i])){ focusMatrixCell(matrixDays[i]); return; }
-  }
+  const target=matrixDays[fromIndex+delta];
+  if(target)focusMatrixCell(target);
 }
 function matrixCellKeydown(event:KeyboardEvent, day:string):void {
   const delta=event.key==="ArrowRight"?7:event.key==="ArrowLeft"?-7
@@ -603,6 +616,7 @@ function matrixCellKeydown(event:KeyboardEvent, day:string):void {
 }
 const MATRIX_MAX_DAYS=731;   // ~2 years: beyond this the grid is not renderable
 const MATRIX_MIN_CELL=6;     // cells shrink to this before the grid is allowed to scroll
+const MATRIX_MAX_CELL=12;    // a year-at-a-glance grid keeps 12 px cells when the pane allows
 let matrixTruncated=false;
 function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
@@ -635,7 +649,7 @@ function renderMatrix():void {
   // 98 px = the panel's 76 px max-width gutter (which also holds the year stepper) plus
   // 20 px padding and 2 px borders.
   const paneWidth=matrixPanel.parentElement?.clientWidth ?? 0;
-  const cell=Math.max(MATRIX_MIN_CELL,Math.min(12,Math.floor(Math.max(140,paneWidth-98)/weeks)-1));
+  const cell=Math.max(MATRIX_MIN_CELL,Math.min(MATRIX_MAX_CELL,Math.floor(Math.max(140,paneWidth-98)/weeks)-1));
   const step=cell+1;
   const width=weeks*step, height=7*step;
   matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height}`);
@@ -680,20 +694,25 @@ function renderMatrix():void {
     if(list)classes.push("has-scenes");
     if(day===selectedDay)classes.push("selected");
     rect.setAttribute("class",classes.join(" "));
+    const observationLabel=list
+      ? list.length+" observation"+(list.length===1?"":"s")
+      : "no observations";
     if(list){
       rect.setAttribute("fill",matrixColourOf(list,metric,max,order,keyOf));
-      tip.textContent=day+" - "+list.length+" observation"+(list.length===1?"":"s");
-      // Days with observations are selectable by mouse and keyboard.
-      rect.setAttribute("tabindex","0");
-      rect.setAttribute("role","button");
-      rect.setAttribute("aria-label",day+", "+list.length+" observation"+(list.length===1?"":"s"));
-      rect.addEventListener("click",()=>selectTimelineDay(day));
-      rect.addEventListener("keydown",(event)=>matrixCellKeydown(event,day));
     }else{
       // In-window days with no observations get a placeholder; padding days outside the
       // window are left with no fill so they read as background, not as dark blocks.
       rect.setAttribute("fill",inWindow?MATRIX_EMPTY:"transparent");
-      tip.textContent=day+(inWindow?" - no observations":" - outside the loaded range");
+    }
+    // Every day inside the loaded window is hoverable and selectable, including days with no
+    // observations; padding days outside the window carry a tooltip but are not selectable.
+    tip.textContent=day+" - "+(inWindow?observationLabel:"outside the loaded range");
+    if(inWindow){
+      rect.setAttribute("tabindex","0");
+      rect.setAttribute("role","button");
+      rect.setAttribute("aria-label",day+", "+observationLabel);
+      rect.addEventListener("click",()=>selectTimelineDay(day));
+      rect.addEventListener("keydown",(event)=>matrixCellKeydown(event,day));
     }
     rect.append(tip);
     matrixSvg.append(rect);
@@ -757,8 +776,10 @@ function shiftWindowYear(delta:number):void {
     date.setUTCFullYear(date.getUTCFullYear()+delta);
     return date.toISOString().slice(0,10);
   };
-  from.value=shift(from.value);
-  to.value=shift(to.value);
+  const low=MIN_SEARCH_DATE, high=maxSearchDate();
+  const shifted=shift(validDate(dateField.value) ? dateField.value : new Date().toISOString().slice(0,10));
+  dateField.value = shifted<low ? low : shifted>high ? high : shifted;
+  applyWindowFromDate();
   void runSearch();
 }
 matrixPrevYear.addEventListener("click",()=>shiftWindowYear(-1));
@@ -789,17 +810,6 @@ const MIN_SEARCH_DATE="1970-01-01";
 function maxSearchDate():string {
   return new Date(Date.now()+365*86400000).toISOString().slice(0,10);
 }
-/** Keeps the range inside data that can exist, so the grid stays renderable. */
-function clampSearchRange():boolean {
-  const low=MIN_SEARCH_DATE, high=maxSearchDate();
-  let changed=false;
-  if(from.value<low){ from.value=low; changed=true; }
-  if(to.value<low){ to.value=low; changed=true; }
-  if(from.value>high){ from.value=high; changed=true; }
-  if(to.value>high){ to.value=high; changed=true; }
-  if(from.value>to.value){ const swap=from.value; from.value=to.value; to.value=swap; changed=true; }
-  return changed;
-}
 function validDate(input:string):boolean {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(input))return false;
   const time=Date.parse(input+"T00:00:00Z");
@@ -816,16 +826,14 @@ function restoreSearchLink():void {
   }
   const wantedRadius=params.get("radius");
   if(wantedRadius&&[...radius.options].some(o=>o.value===wantedRadius))radius.value=wantedRadius;
-  if(validDate(params.get("from")??"")&&validDate(params.get("to")??"")) {
-    from.value=params.get("from")!;
-    to.value=params.get("to")!;
-  } else {
-    const year=new Date().toISOString().slice(0,4);
-    from.value=year+"-01-01";
-    to.value=year+"-12-31";
-  }
-  clampSearchRange();
-  for(const input of [from,to]) input.max=maxSearchDate();
+  // A single date selects the year; older links carry a from/to range instead.
+  const wantedDate = params.get("date");
+  if(wantedDate && validDate(wantedDate)) dateField.value = wantedDate;
+  else if(validDate(params.get("from")??"")) dateField.value = params.get("from")!;
+  else dateField.value = new Date().toISOString().slice(0,10);
+  dateField.min=MIN_SEARCH_DATE;
+  dateField.max=maxSearchDate();
+  applyWindowFromDate();
   const restoredDay=params.get("day");
   if(restoredDay&&validDate(restoredDay)&&restoredDay>=from.value&&restoredDay<=to.value) {
     initialPermalinkDay=restoredDay;
@@ -889,21 +897,31 @@ function restoreSearchLink():void {
     if(initialPermalinkScene){
       const scene=loadedScenes.find((candidate)=>candidate.id===initialPermalinkScene);
       initialPermalinkScene=null;
-      if(scene)openScenePreview(scene);
+      if(scene){
+        // The link names an image, so make sure its day is the selected one first: otherwise the
+        // day filter can hide the scene and the preview would not open at all.
+        const day=scene.acquiredAt.slice(0,10);
+        if(selectedDay!==day&&day>=from.value&&day<=to.value){
+          selectedDay=day;
+          redrawAvailability();
+          renderLoadedScenes();
+        }
+        openScenePreview(scene);
+      }
     }
   });
 }
-const MANAGED_PARAMS=["lat","lon","radius","from","to","day","zoom","tab","metric","sensor",
+const MANAGED_PARAMS=["lat","lon","radius","date","day","zoom","tab","metric","sensor",
   "mission","collection","catalogue","orbit","tiles","cloudmin","cloudmax","hmin","hmax","maxgsd",
-  "preview","unknown","src","aoi","scene"];
+  "preview","unknown","src","aoi","scene","from","to"];
 function storeSearchLink():void {
   const url=new URL(window.location.href);
   for(const name of MANAGED_PARAMS)url.searchParams.delete(name);
   url.searchParams.set("lat",lat.value);
   url.searchParams.set("lon",lon.value);
   url.searchParams.set("radius",radius.value);
-  url.searchParams.set("from",from.value);
-  url.searchParams.set("to",to.value);
+  // The date carries its year, so from/to are not written; they are still read for older links.
+  url.searchParams.set("date",dateField.value);
   if(selectedDay)url.searchParams.set("day",selectedDay);
   if(!mapPreview.hidden){
     const shown=previewScenes[previewIndex];
@@ -1100,6 +1118,16 @@ function renderLoadedScenes():void {
   const selected=visible.slice(0,displayedLimit);
   const fragment=document.createDocumentFragment();
   for(const scene of selected)fragment.append(makeScene(scene));
+  if(!selected.length){
+    // Selecting a pixel with no observations is a valid state: say so rather than showing
+    // an empty panel.
+    const empty=document.createElement("li");
+    empty.className="empty";
+    empty.textContent = selectedDay
+      ? "No observations on "+selectedDay+" for this location. Pick another day on the matrix."
+      : "No observations match the current filters.";
+    fragment.append(empty);
+  }
   results.replaceChildren(fragment);
   const counted=loadedScenes.filter(passesFilters).length;
   const filtering=hasActiveFilters();
@@ -1316,8 +1344,13 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     currentSummary=null;
     loadedScenes=[];
     searchErrored=false;
-    selectedDay=initialPermalinkDay && initialPermalinkDay>=from.value &&
-      initialPermalinkDay<=to.value ? initialPermalinkDay : null;
+    // A permalink `day` wins; otherwise the current selection carries over and is only dropped
+    // when it falls outside the new window. The date's own pixel is set when the date changes.
+    if(initialPermalinkDay && initialPermalinkDay>=from.value && initialPermalinkDay<=to.value) {
+      selectedDay=initialPermalinkDay;
+    }else if(selectedDay && (selectedDay<from.value || selectedDay>to.value)) {
+      selectedDay=null;
+    }
     initialPermalinkDay=null;
     displayedLimit=40;
     results.replaceChildren();

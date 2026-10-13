@@ -52,6 +52,14 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Playwright browser E2E suite with fully offline fixtures, wired into CI.
 
 ### Changed
+- Explorer: the two date inputs are replaced by a **single date control**. Picking a date loads
+  that date's whole calendar year and selects its pixel on the matrix, so the grid always shows a
+  year and the chosen day is the active one. The permalink carries `date` (older links with
+  `from`/`to` are still read), and the year stepper moves the picked date by a year.
+- Explorer: **every day in the loaded window is hoverable and selectable**, including days with no
+  observations (previously only days with data were); keyboard arrows step a day at a time,
+  selecting an empty day says so in the panel, and a scene restored from a permalink selects its
+  own day so the day filter cannot hide the image the link names.
 - `SearchQuery` accepts an optional GeoJSON `aoi` in all three SDKs (breaking for
   positional construction in Python/Rust struct literals).
 - Rust: `EarthSearch` is now the generic `StacProvider` alias; construct providers

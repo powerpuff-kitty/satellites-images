@@ -9,13 +9,18 @@ test.skip(!process.env.LIVE, "opt-in: run with LIVE=1");
 
 test("capture the live explorer", async ({ page }) => {
   await page.setViewportSize({ width: 1600, height: 940 });
+  // End a few days back: the overlay prefers Planetary Computer's tile set, which ingests later
+  // than the live catalogues, so the newest scene can have no displayable raster.
+  const until = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
   await page.goto("/");
-  // The view used in the README: a scene over Sumbawa with the default full-year window.
+  // The view used in the README: a scene over Sumbawa, with its year loaded.
   await page.locator("#latitude").fill("-8.5833");
   await page.locator("#longitude").fill("116.1170");
-  await page.locator("#date-from").fill("2026-01-01");
-  await page.locator("#date-to").fill("2026-12-31");
-  await page.locator("#date-to").dispatchEvent("change");
+  // One date loads its calendar year; clear the auto-selected pixel so every scene is listed.
+  await page.locator("#date").fill(until);
+  await page.locator("#date").dispatchEvent("change");
+  const allDays = page.locator("#show-all-days");
+  if (await allDays.isVisible()) await allDays.click();
   await expect.poll(async () => page.locator("#results li").count(), { timeout: 25_000 })
     .toBeGreaterThan(0);
   await expect(page.locator("#coverage")).toContainText(/planetary-computer|earth-search/, { timeout: 25_000 });
