@@ -18,9 +18,6 @@ The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deploymen
 
 ![The explorer for a point off Sumbawa with a 2026 window: a left panel for location, month and filters; a MapLibre map with a Landsat scene placed on its footprint, a marker and a day matrix of 12x12 px cells labelled by month with metric links and All/Image/Radar quick filters; and a right panel of result cards listing scene id, collection, cloud cover, resolution and coverage](docs/assets/explorer.jpg)
 
-That screenshot is captured from the live public catalogues (no fixtures) — see
-"Refresh the README screenshot" in [AGENTS.md](AGENTS.md).
-
 ## What it does
 
 - Search real historical satellite observations from public STAC catalogues.
@@ -33,6 +30,24 @@ That screenshot is captured from the live public catalogues (no fixtures) — se
 - Browse historical observations by day and satellite in a map explorer, with resumable page loading and shareable GPS/date URLs.
 
 This package does **not** process pixels, guarantee coverage, promise free downloads, price commercial imagery, or list every image ever taken.
+
+## Feature matrix
+
+The registry records **16 catalogues**, **8 searchable today**. "Shipped" means the code exists and a test or a documented check covers it; "Planned" means recorded but not implemented.
+
+| Capability | Where | Status |
+| --- | --- | --- |
+| Point + radius search of public STAC catalogues | TypeScript · Python · Rust · explorer | Shipped |
+| GeoJSON polygon AOI, including antimeridian/pole splitting and per-scene coverage | TypeScript · Python · Rust · explorer (Draw area) | Shipped |
+| Normalised scene metadata: UTC timestamp, footprint, preview, band assets, GSD, access | TypeScript · Python · Rust | Shipped |
+| Provider registry with access terms and implementation flags (`listSources()`) | TypeScript · Python · Rust · explorer panel | Shipped |
+| Adapters: Earth Search, Planetary Computer, Copernicus Data Space, USGS LandsatLook, NASA CMR-STAC, ASF Vertex, JAXA G-Portal | TypeScript · Python · Rust | Shipped |
+| Distinguish `planned` and `predicted` acquisitions (official ESA Sentinel plans) | TypeScript · Python · Rust · explorer (Upcoming) | Shipped |
+| Pagination with explicit complete/partial signals, page caps, retry/backoff, typed errors | TypeScript · Python · Rust | Shipped |
+| Explorer: MapLibre map, radar and 0.6 m NAIP imagery, native-resolution tiles, day matrix, filters, permalinks, keyboard access | explorer | Shipped |
+| Packages published to npm, PyPI and crates.io | — | Planned (owner approval) |
+| EUMETSAT, NASA GIBS, NOAA GOES, OpenAerialMap, and commercial sources (Planet, SkyFi, UP42, Vantor) | registry only | Planned |
+| Pixel processing, orbital prediction, pricing or order placement | — | Not planned |
 
 ## Packages
 
