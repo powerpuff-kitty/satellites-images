@@ -100,6 +100,10 @@ Filters cover satellite, collection, catalogue (which provider returned it), clo
 hour range, resolution, orbit direction, native-resolution tiles, has-preview and
 unknown-cloud; the date range is clamped to `1970-01-01` … today + 1 year.
 
+Scene cards show the **STAC scene id** and the acquisition time **to the second** — two
+genuinely different scenes can overlap one location (Landsat adjacent rows are acquired
+seconds apart), and those details are what tell them apart.
+
 A **coverage** line under the filters summarises the loaded result set from the availability
 summary: observations shown, days with data, months, and a per-catalogue split (a trailing `+`
 marks a catalogue that still advertises more pages).

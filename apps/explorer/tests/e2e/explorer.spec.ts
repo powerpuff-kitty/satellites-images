@@ -599,6 +599,9 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(1);
+  // The card identifies the scene and shows seconds, so neighbouring scenes differ.
+  await expect(page.locator("#results li")).toContainText("LC09_1");
+  await expect(page.locator("#results li")).toContainText(/\d{1,2}:\d{2}:\d{2}/);
   await expect(page.locator("#results img")).toHaveCount(1);
   await expect(page.locator("#results img")).toHaveAttribute("src", /LC09_1\/thumbnail/);
   // The map overlay uses the CORS-enabled Planetary Computer render of the same item id.

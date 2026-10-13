@@ -167,6 +167,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: scene cards now show the **STAC scene id** and the acquisition time **to the
+  second**, so two genuinely different scenes that overlap one location (e.g. Landsat
+  adjacent rows acquired seconds apart) are distinguishable instead of looking like a
+  duplicate.
 - Explorer: cross-catalogue duplicates now merge properly — the key is collection + platform +
   UTC day + a 0.5°-snapped footprint, because the two catalogues disagree on the timestamp
   (seconds for Landsat, ~25 minutes for the same Sentinel-2 tile) and on the footprint by a

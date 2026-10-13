@@ -207,10 +207,11 @@ function makeScene(scene: Scene): HTMLLIElement {
   const name = document.createElement("strong");
   name.textContent = scene.mission ?? scene.collection;
   const time = document.createElement("time");
-  time.textContent = new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
+  time.textContent = new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"medium",timeZone:"UTC"})+" UTC";
   time.dateTime = scene.acquiredAt;
   heading.append(name,time);
   item.append(heading);
+  item.append(line("Scene",scene.id));
   item.append(line("Collection",scene.collection));
   item.append(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
   if (scene.gsdMeters !== null) item.append(line("Resolution", scene.gsdMeters + " m/pixel"));
@@ -1342,10 +1343,11 @@ function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   const time = document.createElement("time");
   time.dateTime = item.expectedAt;
   time.textContent = new Date(item.expectedAt).toLocaleString(undefined,{
-    dateStyle:"medium",timeStyle:"short"
-  });
+    dateStyle:"medium",timeStyle:"medium",timeZone:"UTC"
+  })+" UTC";
   heading.append(name,time);
   li.append(heading);
+  if (item.id) li.append(line("Scene",item.id));
   if (item.mode) li.append(line("Acquisition mode",item.mode));
   if (typeof item.orbitRelative === "number")
     li.append(line("Relative orbit",String(item.orbitRelative)));
