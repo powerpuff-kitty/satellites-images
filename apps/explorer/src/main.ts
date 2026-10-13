@@ -201,6 +201,8 @@ for (const el of [lat,lon]) el.addEventListener("change", () => {
 });
 for (const el of [radius]) el.addEventListener("change", scheduleForTab);
 // One date drives the search window: its whole calendar year is loaded, and that day is selected.
+/** True while the selection came from the date control and has not been checked against data. */
+let autoSelectionPending=false;
 function applyWindowFromDate():void {
   const picked = validDate(dateField.value) ? dateField.value : new Date().toISOString().slice(0,10);
   dateField.value = picked;
@@ -210,6 +212,7 @@ function applyWindowFromDate():void {
   const high = maxSearchDate();
   if(to.value > high)to.value = high;
   selectedDay = picked <= to.value ? picked : null;
+  autoSelectionPending = selectedDay !== null;
 }
 dateField.addEventListener("change", () => {
   applyWindowFromDate();
@@ -1277,11 +1280,22 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     const summary=session.accumulator.summary();
     currentSummary=summary;
     if(summary.pagesScanned>=50)session.ended=true;
+    // Once the pagination is done, an auto-selected day that turned out to hold no observations
+    // must not hide the year: fall back to the whole loaded window. A day picked by clicking a
+    // pixel is left alone, so the "no observations" state is still reachable on purpose.
+    if(autoSelectionPending && summary.complete){
+      autoSelectionPending=false;
+      if(selectedDay && !loadedScenes.some((scene)=>scene.acquiredAt.slice(0,10)===selectedDay)){
+        selectedDay=null;
+        displayedLimit=40;
+        redrawAvailability();
+        renderLoadedScenes();
+        storeSearchLink();
+      }
+    }
     redrawAvailability();
     loadNextPagesButton.hidden=session.ended;
-    if(summary.uniqueItems===0 && summary.complete) {
-      status.textContent="No scenes returned by this catalogue for the selected time window.";
-    }else if(summary.complete){
+    if(summary.complete){
       status.textContent="";
     }else if(session.ended){
       status.textContent=summary.uniqueItems+" unique scenes loaded. "+

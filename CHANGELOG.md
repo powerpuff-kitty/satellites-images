@@ -52,6 +52,14 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Playwright browser E2E suite with fully offline fixtures, wired into CI.
 
 ### Changed
+- Explorer: an auto-selected date whose day holds **no observations** no longer hides the loaded
+  results — the pixel is dropped and the year's observations stay listed. Picking an empty day by
+  clicking it still shows the deliberate "no observations" state.
+- Explorer: removed the `No scenes returned by this catalogue for the selected time window.`
+  status line; an empty window now leaves the status area to the other messages.
+- README: the feature-matrix table is replaced by a short coverage note. The registry
+  (`sources/registry.json`) and `docs/SOURCES.md` remain the source of truth for what each
+  catalogue exposes and why the rest are not implemented.
 - Explorer: the two date inputs are replaced by a **single date control**. Picking a date loads
   that date's whole calendar year and selects its pixel on the matrix, so the grid always shows a
   year and the chosen day is the active one. The permalink carries `date` (older links with
