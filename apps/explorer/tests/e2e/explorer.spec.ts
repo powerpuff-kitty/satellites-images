@@ -488,6 +488,26 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   await expect(page.locator("#map-preview")).toBeHidden();
 });
 
+test("the previewed image's card is highlighted with a left border", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("**/search", (route) => respond(route, { json: collection([
+    stacScene("h1", "2025-03-10T02:00:00Z"), stacScene("h2", "2025-03-11T02:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await expect(page.locator("#results li.active")).toHaveCount(0);
+  await page.locator("#results img").first().click();
+  await expect(page.locator("#results li.active")).toHaveCount(1);
+  const first = (await page.locator("#results li.active").getAttribute("data-scene-id")) ?? "";
+  expect(first.length).toBeGreaterThan(0);
+  // Stepping follows the selection to the other card.
+  await page.locator("#preview-next").click();
+  await expect(page.locator("#results li.active")).not.toHaveAttribute("data-scene-id", first);
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#results li.active")).toHaveCount(0);
+});
+
 test("a day cell draws no footprint; opening the image does", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));

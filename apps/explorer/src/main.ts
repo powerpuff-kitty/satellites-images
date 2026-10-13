@@ -201,6 +201,7 @@ function line(label: string, value: string): HTMLElement {
 }
 function makeScene(scene: Scene): HTMLLIElement {
   const item = document.createElement("li");
+  item.dataset.sceneId = scene.id;
   const heading = document.createElement("div");
   heading.className = "scene-heading";
   const name = document.createElement("strong");
@@ -370,6 +371,11 @@ function removePreviewLayer():void {
   if(map.getLayer("scene-preview-layer"))map.removeLayer("scene-preview-layer");
   if(map.getSource("scene-preview"))map.removeSource("scene-preview");
 }
+/** Highlights the card whose image is currently on the map. */
+function markActiveCard(id:string|null):void {
+  for(const item of results.querySelectorAll<HTMLElement>("li[data-scene-id]"))
+    item.classList.toggle("active", item.dataset.sceneId===id);
+}
 let previewToken=0;
 async function showMapPreview(index:number):Promise<void> {
   const scene=previewScenes[index];
@@ -392,6 +398,7 @@ async function showMapPreview(index:number):Promise<void> {
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
   highlightScene(scene);   // the footprint is shown with the image, not by a card button
+  markActiveCard(scene.id);
   previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
     new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
   mapPreview.hidden=false;
@@ -402,6 +409,7 @@ function closeMapPreview():void {
   mapPreview.hidden=true;
   removePreviewLayer();
   highlightScene(undefined);
+  markActiveCard(null);
 }
 function stepPreview(delta:number):void {
   if(!previewScenes.length)return;

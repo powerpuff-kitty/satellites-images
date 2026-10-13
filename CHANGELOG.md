@@ -167,6 +167,8 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: roomier result cards (`20px × 12px` padding) inside a tighter right-hand panel
+  (10px horizontal, 16px bottom), with a slimmer sticky header.
 - Explorer: the matrix **⋯ More** control now lines up vertically with the metric links (its
   wrapper no longer adds line-box height); E2E asserts all five share one centre.
 - Explorer: selecting a **day cell no longer draws a scene footprint** — the outline appears
