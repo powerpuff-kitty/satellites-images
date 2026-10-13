@@ -70,6 +70,8 @@ day matrix and the calendar counts; the counter shows `filtered / total`.
 The **day matrix** at the bottom of the map always spans the loaded range, so **its size never
 changes**, while the data behind it follows the active tab — published scenes on
 **Historical**, planned datatakes on **Upcoming** — and it never shows the other tab's data.
+Upcoming asks for the same horizon as the loaded range (now → the range end, capped at a year;
+ESA publishes only a rolling horizon of roughly a month).
 The metric links and quick filters describe published scenes, so they are hidden on Upcoming.
 If a search returns nothing, the panel says why: an explicit empty state for the plans list,
 and a note when scenes were hidden because their footprint does not cover the location. It is a GitHub-style grid of **12×12 px** cells — one

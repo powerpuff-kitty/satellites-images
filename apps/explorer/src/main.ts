@@ -63,7 +63,6 @@ const tabHistorical = element<HTMLButtonElement>("tab-historical");
 const tabUpcoming = element<HTMLButtonElement>("tab-upcoming");
 const panelHistorical = element<HTMLElement>("panel-historical");
 const panelUpcoming = element<HTMLElement>("panel-upcoming");
-const daysAhead = element<HTMLSelectElement>("days-ahead");
 const upcomingMission = element<HTMLSelectElement>("upcoming-mission");
 const upcomingStatus = element<HTMLElement>("upcoming-status");
 const obsTitle = element<HTMLElement>("obs-title");
@@ -1332,6 +1331,12 @@ function plannedAsScenes(items:AcquisitionOpportunity[]):PlannedScene[] {
     mode:item.mode ?? null, orbitRelative:item.orbitRelative ?? null, endAt:item.endAt ?? null, status:item.status,
   }));
 }
+/** Upcoming uses the same horizon as the loaded range: now until its end (max a year). */
+function upcomingHorizonDays():number {
+  const end=Date.parse(to.value+"T00:00:00Z");
+  if(!Number.isFinite(end))return 14;
+  return Math.max(1,Math.min(366,Math.round((end-Date.now())/86400000)));
+}
 async function runUpcoming():Promise<void>{
   const token=++currentPlanSearch;
   plansResults.replaceChildren();
@@ -1339,7 +1344,7 @@ async function runUpcoming():Promise<void>{
   try {
     const catalog = new SatelliteCatalog([earthSearch()],[plannedProvider]);
     const planned=await catalog.upcoming({latitude:Number(lat.value),longitude:Number(lon.value),
-      radiusMeters:Number(radius.value),days:Number(daysAhead.value)});
+      radiusMeters:Number(radius.value),days:upcomingHorizonDays()});
     if(token!==currentPlanSearch)return;
     const mission=upcomingMission.value;
     const filtered=mission?planned.filter(p=>p.mission.startsWith(mission)):planned;
@@ -1352,13 +1357,14 @@ async function runUpcoming():Promise<void>{
       const empty=document.createElement("li");
       empty.className="empty";
       empty.textContent="No planned datatakes for this area in the next "+
-        daysAhead.value+" days. Try a larger radius or a longer window.";
+        upcomingHorizonDays()+" days. Try a larger radius.";
       list.append(empty);
     }
     plansResults.append(list);
     counter.textContent=String(filtered.length);
     upcomingStatus.textContent=filtered.length
-      ? filtered.length+" officially planned datatake(s) intersect this area within "+daysAhead.value+" days. No image is guaranteed."
+      ? filtered.length+" officially planned datatake(s) intersect this area within the next "+
+        upcomingHorizonDays()+" days. No image is guaranteed."
       : "No matching planned datatakes in the latest ESA plans for this location and window.";
   } catch(error) {
     if(token===currentPlanSearch){
@@ -1396,7 +1402,7 @@ tabHistorical.addEventListener("click",()=>setTab("historical"));
 tabUpcoming.addEventListener("click",()=>setTab("upcoming"));
 let upcomingTimer=0;
 function scheduleUpcoming():void{ window.clearTimeout(upcomingTimer); upcomingTimer=window.setTimeout(()=>void runUpcoming(),350); }
-for(const el of [daysAhead,upcomingMission]) el.addEventListener("change",scheduleUpcoming);
+for(const el of [upcomingMission]) el.addEventListener("change",scheduleUpcoming);
 
 // Bootstrap last: MapLibre fires moveend during map construction and restoreSearchLink
 // reads declarations that appear later in the module, so both run after everything exists.

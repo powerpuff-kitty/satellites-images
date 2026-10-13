@@ -36,8 +36,8 @@ impl AcquisitionQuery {
     }
     pub fn validate(&self) -> Result<(), Error> {
         bounds_around(self.latitude,self.longitude,self.radius_meters)?;
-        if !(1..=30).contains(&self.days) {
-            return Err(Error::InvalidQuery("days must be between 1 and 30".into()));
+        if !(1..=366).contains(&self.days) {
+            return Err(Error::InvalidQuery("days must be between 1 and 366".into()));
         }
         if self.missions.is_empty() || self.missions.iter().any(|m| !MISSIONS.contains(&m.as_str())) {
             return Err(Error::InvalidQuery("Unsupported ESA mission filter".into()));
@@ -50,8 +50,8 @@ impl AcquisitionQuery {
         let end=self.to.as_deref().map(|s|parse_day(s,"to"))
             .transpose()?.map(|d|d+Duration::days(1)-Duration::milliseconds(1))
             .unwrap_or(now+Duration::days(i64::from(self.days)));
-        if end<start || end-start>Duration::days(31) {
-            return Err(Error::InvalidQuery("Invalid upcoming window (maximum 31 days)".into()));
+        if end<start || end-start>Duration::days(367) {
+            return Err(Error::InvalidQuery("Invalid upcoming window (maximum 367 days)".into()));
         }
         Ok((start,end,bounds_around(self.latitude,self.longitude,self.radius_meters)?))
     }

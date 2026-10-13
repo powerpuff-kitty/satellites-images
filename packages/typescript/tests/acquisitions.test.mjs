@@ -45,6 +45,27 @@ test("parse real-shaped ExtendedData and ignore calibration/out-of-bounds strips
   assert.equal(results[0].orbitRelative,47);
   assert.equal(results[0].footprint.type,"Polygon");
 });
+test("the upcoming window accepts up to a year and rejects beyond it",async()=>{
+  // Regression: the day bound was widened while the window comparison still used 31 days,
+  // so app queries (which use the loaded year) failed with INVALID_QUERY.
+  const mock=async(url)=>{
+    if(url.endsWith("/acquisition-plans")) return new Response(index,{status:200});
+    if(url===s2) return new Response(kml,{status:200});
+    if(url===s1) return new Response(s1kml,{status:200});
+    return new Response("",{status:404});
+  };
+  const provider=esaSentinelPlans({fetchImpl:mock, clock:()=>new Date("2026-10-12T16:00:00Z"),
+    missions:["S1C","S2B"]});
+  const day=86_400_000;
+  await assert.doesNotReject(()=>provider.upcoming({latitude:-8.5833,longitude:116.1167,
+    radiusMeters:5000,days:180}));
+  await assert.rejects(()=>provider.upcoming({latitude:-8.5833,longitude:116.1167,
+    radiusMeters:5000,days:367}),e=>e.code==="INVALID_QUERY");
+  await assert.rejects(()=>provider.upcoming({latitude:-8.5833,longitude:116.1167,
+    radiusMeters:5000,from:"2026-10-12",to:new Date("2026-10-12T16:00:00Z").getTime()+400*day
+      ? "2027-11-15" : "2027-11-15"}),e=>e.code==="INVALID_QUERY");
+});
+
 test("future adapter selects newest plan per satellite with bounded queries",async()=>{
   const calls=[];
   const mock=async(url)=>{

@@ -155,14 +155,14 @@ def _date_start(text: str, name: str) -> datetime:
 
 def _window(query: AcquisitionQuery, clock: Callable[[], datetime]) -> tuple[datetime, datetime, list[float]]:
     bounds = bounds_around(query.latitude, query.longitude, query.radius_meters)
-    if type(query.days) is not int or not 1 <= query.days <= 30:
-        raise SatelliteError("INVALID_QUERY", "days must be between 1 and 30")
+    if type(query.days) is not int or not 1 <= query.days <= 366:
+        raise SatelliteError("INVALID_QUERY", "days must be between 1 and 366")
     now = clock().astimezone(timezone.utc)
     start = max(now, _date_start(query.start, "start") if query.start is not None else now)
     stop = (_date_start(query.end, "end") + timedelta(days=1, microseconds=-1)
             if query.end is not None else now + timedelta(days=query.days))
-    if stop < start or stop - start > timedelta(days=31):
-        raise SatelliteError("INVALID_QUERY", "Invalid upcoming window (maximum 31 days)")
+    if stop < start or stop - start > timedelta(days=367):
+        raise SatelliteError("INVALID_QUERY", "Invalid upcoming window (maximum 367 days)")
     if query.missions is not None and (not query.missions or any(m not in KNOWN for m in query.missions)):
         raise SatelliteError("INVALID_QUERY", "Unknown mission filter")
     return start, stop, bounds

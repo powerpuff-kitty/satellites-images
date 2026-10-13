@@ -80,11 +80,11 @@ function queryWindow(query: AcquisitionQuery, clock: () => Date): {start:number;
   const now = clock().valueOf();
   if (!Number.isFinite(now)) throw new SatelliteError("INVALID_QUERY","Invalid current clock");
   const days = query.days ?? 14;
-  if (!Number.isInteger(days) || days < 1 || days > 30) throw new SatelliteError("INVALID_QUERY","days must be 1..30");
+  if (!Number.isInteger(days) || days < 1 || days > 366) throw new SatelliteError("INVALID_QUERY","days must be 1..366");
   const start = Math.max(now, query.from ? day(query.from,"from") : now);
   const end = query.to ? day(query.to,"to")+86_400_000-1 : now + days*86_400_000;
-  if (end < start || end-start > 31*86_400_000)
-    throw new SatelliteError("INVALID_QUERY","Invalid upcoming window (maximum 31 days)");
+  if (end < start || end-start > 367*86_400_000)
+    throw new SatelliteError("INVALID_QUERY","Invalid upcoming window (maximum 367 days)");
   if (query.missions && (!query.missions.length || query.missions.some(m=>!DEFAULT_MISSIONS.includes(m))))
     throw new SatelliteError("INVALID_QUERY","Unsupported mission filter");
   return {start,end,bounds};

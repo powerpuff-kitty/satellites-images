@@ -167,6 +167,10 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: the Upcoming tab's **Days ahead** select is gone — the plan query now uses the same
+  horizon as the loaded range (now → the range end, up to a year), and the SDKs allow an
+  upcoming window of up to 366 days (previously capped at 31, which a widened day bound did
+  not actually honour — fixed with a regression test).
 - Explorer: on the **Upcoming** tab the scene-oriented controls (metric links, ··· menu, quick
   filters) are hidden, and empty results now explain themselves — an empty state in the plans
   list, and a note when scenes were dropped because their footprint does not cover the
