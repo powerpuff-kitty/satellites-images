@@ -25,6 +25,7 @@ const counter = element<HTMLElement>("counter");
 const form = element<HTMLFormElement>("search-form");
 const calendarStatus = element<HTMLElement>("calendar-status");
 const mapLabel = element<HTMLElement>("map-label");
+const mapContainer = element<HTMLElement>("map-container");
 const matrixHead = element<HTMLElement>("matrix-head");
 const drawAreaButton = element<HTMLButtonElement>("draw-area");
 const clearAreaButton = element<HTMLButtonElement>("clear-area");
@@ -819,6 +820,8 @@ function storeSearchLink():void {
   window.history.replaceState(null,"",url);
 }
 function highlightScene(scene:Scene|undefined):void {
+  // Exposed for tests and debugging: which scene's footprint is currently drawn.
+  mapContainer.dataset.footprint=scene?scene.id:"";
   const featureCollection:FeatureCollection = {
     type:"FeatureCollection",
     features:scene && (scene.geometry?.type==="Polygon" || scene.geometry?.type==="MultiPolygon")
@@ -988,8 +991,6 @@ function renderLoadedScenes():void {
   const filtering=hasActiveFilters();
   counter.textContent=String(visible.length)+(filtering?" / "+counted:"");
   showMoreButton.hidden=visible.length<=displayedLimit;
-  if(selectedDay)highlightScene(visible[0]);
-  else highlightScene(undefined);
   matrixItems=loadedScenes.filter(passesFilters);
   renderMatrix();
 }

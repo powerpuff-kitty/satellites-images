@@ -84,7 +84,8 @@ and Orbit), and **right-aligned quick filters** (**All / Image / Radar**) narrow
 optical or SAR scenes. Scenes whose footprint does **not** contain the searched point are
 always hidden, so the map overlay always covers your location: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
-**Provider** (colour by the day's dominant value). Click a cell to select that day. The grid
+**Provider** (colour by the day's dominant value). Click a cell to select that day (this filters the cards; it does not draw a footprint —
+the outline is shown only with an image on the map). The grid
 **scrolls horizontally** when a year is wider than the map. Cloud cover is scene-wide
 metadata, not per-AOI.
 

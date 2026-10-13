@@ -488,6 +488,24 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   await expect(page.locator("#map-preview")).toBeHidden();
 });
 
+test("a day cell draws no footprint; opening the image does", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("f1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  // Selecting a day filters the list but must not draw a footprint.
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#map-container")).not.toHaveAttribute("data-footprint", /.+/);
+  // Opening the image draws it, and closing clears it.
+  await page.locator("#results img").click();
+  await expect(page.locator("#map-container")).toHaveAttribute("data-footprint", "f1");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#map-container")).not.toHaveAttribute("data-footprint", /.+/);
+});
+
 test("the arrows step only through the filtered observations", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
