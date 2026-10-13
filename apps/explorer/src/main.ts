@@ -1,4 +1,11 @@
-import maplibregl from "maplibre-gl";
+// maplibre-gl 6 dropped the default export: the ESM build is named-exports only, so a
+// namespace import is the documented form (the types still advertise a default, which is
+// why this only fails at bundle time).
+import * as maplibregl from "maplibre-gl";
+// maplibre-gl 6 also derives its worker URL at runtime, and bundlers do not follow that
+// reference: the built app requested a path that did not exist, so vite served the SPA HTML
+// and the worker never started (no tiles, no sources). Import the worker as a build asset.
+import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import type { FeatureCollection, Geometry } from "geojson";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
@@ -101,6 +108,8 @@ function esaFetch(url: RequestInfo | URL, options?: RequestInit): Promise<Respon
 
 
 const plannedProvider=esaSentinelPlans({fetchImpl:esaFetch});
+
+maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const map = new maplibregl.Map({
   container: "map",

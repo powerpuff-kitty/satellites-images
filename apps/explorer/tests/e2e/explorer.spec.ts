@@ -54,6 +54,30 @@ test.beforeEach(async ({ page }) => {
   await page.route("https://tiles.openfreemap.org/**", (route) => respond(route, { json: MAP_STYLE }));
 });
 
+test("the built app serves the maplibre worker as javascript", async ({ page }) => {
+  // maplibre-gl 6 loads its worker from a URL it computes at runtime. If the bundler does
+  // not emit that file the preview server answers with the SPA HTML, the worker never
+  // starts, and every source silently stops loading tiles.
+  const workerResponses: { status: number; type: string }[] = [];
+  const errors: string[] = [];
+  page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("response", (response) => {
+    if (/maplibre-gl-worker/.test(response.url())) {
+      workerResponses.push({ status: response.status(), type: response.headers()["content-type"] ?? "" });
+    }
+  });
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("w1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect.poll(() => workerResponses.length).toBeGreaterThan(0);
+  for (const response of workerResponses) {
+    expect(response.status).toBe(200);
+    expect(response.type).not.toContain("text/html");
+  }
+  expect(errors.filter((text) => /Worker failed to load/i.test(text))).toEqual([]);
+});
+
 test("coordinate search builds a calendar and result cards", async ({ page }) => {
   await page.route("**/search", async (route) => {
     const body = JSON.parse(route.request().postData() ?? "{}");
