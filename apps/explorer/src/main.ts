@@ -7,7 +7,7 @@ import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, 
   cmrStac, jaxaGPortal, esaSentinelPlans, listSources, AvailabilityAccumulator,
   type AvailabilitySummary,
   type Scene, type SceneAsset, type AcquisitionOpportunity, type SearchProvider } from "@powerpuff-kitty/satellites-images";
-import { renderDayCalendar, renderMonthStrip, shiftMonth, monthDates, asMonthLabel } from "./calendar.js";
+import { shiftMonth, monthDates } from "./calendar.js";
 
 const element = <T extends Element>(id: string): T => {
   const item = document.getElementById(id);

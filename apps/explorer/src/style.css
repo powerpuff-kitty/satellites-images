@@ -70,22 +70,6 @@ h2 {font-size:13px; letter-spacing:.005em; font-weight:600; margin:0;}
 
 /* Satellite-date index: compact scientific calendar, no decorative cards. */
 .history-calendar { padding-bottom:10px; }
-.month-navigation { display:grid; grid-template-columns:40px minmax(0,1fr) 40px; gap:8px; align-items:end; margin:12px 0 8px; }
-.month-navigation .month-field { min-width:0; }
-.month-navigation input { min-height:38px; }
-button.month-arrow { padding:0; display:grid; place-items:center; height:40px; width:40px; background:#252c25; border:1px solid #434d42; color:#edece6; font-size:17px; }
-.month-strip { display:flex; gap:5px; overflow-x:auto; padding:3px 0 8px; scrollbar-width:thin; }
-button.month-pill {display:flex; align-items:center; flex-direction:column; justify-content:center; width:auto; min-width:78px; margin:0; padding:7px 8px; background:transparent; color:#a9b2a8; border:1px solid #363d35; font-size:10px; }
-.month-pill small {font-size:13px; font-weight:650; color:#d0d4cb; font-variant-numeric:tabular-nums;}
-button.month-pill.active {border-color:#e0ae54; color:#e7bd6b; background:#2b2a20;}
-.day-calendar {display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); gap:3px;}
-.weekday {font-size:10px; color:#999f98; padding:5px 0; text-align:center;}
-.day-spacer {min-height:40px;}
-button.day-cell {margin:0; padding:5px 3px; border:1px solid #313b33; background:#182019; color:#89958a; display:flex; align-items:center; flex-direction:column; justify-content:center; min-height:45px; gap:1px; font:inherit;}
-.day-cell small {color:#8c9a8e; font-size:10px; font-variant-numeric:tabular-nums;}
-button.day-cell.has-scenes {color:#e8e9df; background:#294238; border-color:#456856;}
-.day-cell.has-scenes small {color:#c3e3d0;}
-button.day-cell.selected {border-color:#efbe62; outline:1px solid #efbe62; background:#574425;}
 button.text-button {background:none; border:none; text-decoration:underline; color:#e0b86d; font-weight:400; padding:4px 0; margin:0 0 10px; width:auto; font-size:12px; text-underline-offset:3px; justify-content:flex-start; gap:6px;}
 [hidden] {display:none !important;}
 .results .scene-inspect {margin:12px 0 2px; width:auto; padding:7px 10px; border:1px solid #596557; color:#d7dcce; background:transparent; font-size:11px; }
@@ -102,7 +86,7 @@ button.text-button {background:none; border:none; text-decoration:underline; col
 .check-label input {width:auto;}
 .filters-unknown {margin:2px 0 12px;}
 /* Icon-only buttons: the glyph is a block, centred on both axes. */
-button.month-arrow, .map-preview-arrow, .map-preview-close, .matrix-year-button { display:grid; place-items:center; place-content:center; line-height:1; }
+.map-preview-arrow, .map-preview-close, .matrix-year-button { display:grid; place-items:center; place-content:center; line-height:1; }
 
 /* Published observations: independent, scrollable right-hand panel with a sticky header. */
 .observations { display:flex; flex-direction:column; overflow-y:auto; min-width:0; height:100vh; border-left:1px solid #353c35; padding:0 20px 24px; }

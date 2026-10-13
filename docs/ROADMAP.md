@@ -17,7 +17,7 @@
 - [x] Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC adapters in all three SDKs
 - [x] ASF SAR Search API adapter (keyword query, GeoJSON) in all three SDKs
 - [x] JAXA G-Portal granule adapter (CSW 3.0.0 GET, GeoJSON) in all three SDKs
-- [x] Map calendar with month navigation, per-day and per-satellite filtering, scene footprint overlay and shareable links
+- [x] Day-matrix date selection with per-day and per-satellite filtering, scene footprint overlay and shareable links
 - [x] Resumable bounded historical catalogue paging (5-page batches; 50-page safety limit), and cancellation of stale searches
 - [x] Correct STAC POST next-link merge defaults across all three SDKs
 - [x] Browser E2E tests (Playwright) with fully offline fixtures in CI
@@ -27,7 +27,7 @@
 - [ ] Duplicate observation grouping across providers without losing provenance
 - [ ] Copernicus STAC authenticated download handling
 - [ ] Shared cross-language conformance fixtures for availability JSON serialization and unknown sources
-- [ ] More provider-specific calendar pagination and summary optimization for multi-year queries
+- [ ] Provider-specific pagination and summary optimization for multi-year queries
 - [ ] Optional browser-safe proxy for API keys and provider CORS limits
 - [ ] Public releases (npm, PyPI, crates.io) with ownership checks and trusted publishing (workflows staged; not yet run)
 

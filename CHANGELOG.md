@@ -221,6 +221,11 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay uses the CORS-enabled **Planetary Computer** render of the same item id, and
   prefers its **tile set** (native resolution) over the whole-scene PNG.
 
+- Explorer: removed the dead calendar code left over from the day-matrix replacement
+  (`renderDayCalendar`, `renderMonthStrip`, `asMonthLabel`, the weekday/day-cell/month-pill
+  CSS and the unused import) and refreshed the architecture/roadmap notes that still
+  described the removed calendar.
+
 ## [0.2.0] - 2026-10-12
 
 ### Added
