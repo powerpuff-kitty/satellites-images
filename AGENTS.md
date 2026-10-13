@@ -21,6 +21,17 @@ PYTHONPATH=packages/python/src python3 -m unittest discover -s packages/python/t
 cargo test --manifest-path crates/satellites-images/Cargo.toml
 ```
 
+### Refresh the README screenshot
+
+The README screenshot is generated from the live catalogues, not fixtures:
+
+```bash
+LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "capture the live explorer"
+```
+
+It writes `docs/assets/explorer.png`. Re-run it when the explorer UI changes, otherwise the
+image stops representing current behaviour.
+
 Opt-in live checks (network; never part of CI):
 
 ```bash

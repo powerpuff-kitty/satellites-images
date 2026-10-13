@@ -1,8 +1,25 @@
 # satellites-images
 
+[![CI](https://github.com/powerpuff-kitty/satellites-images/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/powerpuff-kitty/satellites-images/actions/workflows/ci.yml)
+[![Publish Explorer](https://github.com/powerpuff-kitty/satellites-images/actions/workflows/publish-explorer.yml/badge.svg?branch=main&event=workflow_dispatch)](https://github.com/powerpuff-kitty/satellites-images/actions/workflows/publish-explorer.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+[![Live explorer](https://img.shields.io/badge/explorer-live-4fbf7a)](https://powerpuff-kitty.github.io/satellites-images/)
+
 A cross-language, open-source satellite **catalogue discovery SDK**. Search existing imagery and inspect available assets, access conditions, and provider capabilities by location and date.
 
 **Status:** pre-release V0.3. TypeScript, Python and Rust packages are source implementations; **none are published to npm, PyPI or crates.io yet**.
+
+## Live explorer
+
+**[powerpuff-kitty.github.io/satellites-images](https://powerpuff-kitty.github.io/satellites-images/)**
+
+The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deployment is a
+**manually dispatched, reviewed** build (`npm run check` runs first), not every push.
+
+![The explorer: a left search panel with location, date range and filters; a MapLibre map showing a Landsat scene overlaid on its footprint plus a marker and a day matrix of 12x12 px cells with month labels; and a right panel of result cards with cloud cover, resolution and coverage](docs/assets/explorer.png)
+
+That screenshot is captured from the live public catalogues (no fixtures) — see
+"Refresh the README screenshot" in [AGENTS.md](AGENTS.md).
 
 ## What it does
 
@@ -101,7 +118,12 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data contracts, pagination,
 
 ## Explorer deployment
 
-A manual-only GitHub Pages workflow is available. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md). It does not auto-publish. The expected public URL is not considered live until the workflow is explicitly run and succeeds.
+Deployed to GitHub Pages at <https://powerpuff-kitty.github.io/satellites-images/> by the
+manual-only `publish-explorer.yml` workflow. It never auto-publishes on push: a human
+dispatches it, the job runs `npm run check`, and only then is `apps/explorer/dist` uploaded.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for the optional `VITE_ESA_PROXY_URL` input
+(without it the Upcoming tab reports that ESA plans need the proxy, because the ESA index
+sends no CORS headers).
 
 ## Development and quality
 
