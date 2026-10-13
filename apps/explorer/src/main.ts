@@ -372,14 +372,19 @@ function planetaryComputerUrl(kind:"tilejson.json"|"preview.png",collection:stri
 interface PreviewOverlay { tiles:string|null; image:string|null }
 /** Fetch an image we cannot hand to MapLibre directly.
  *
- * Some provider previews (Earth Search's Sentinel-2 `preview.jpg` on S3) read fine as a plain
- * CORS fetch and as an `<img>`, but MapLibre's own image request for the same URL fails with
- * "No 'Access-Control-Allow-Origin' header is present" even though the file returns
- * `Access-Control-Allow-Origin: *`. Fetching the bytes here and handing over an object URL
- * sidesteps that path, so the newest scenes can still be drawn on the map. */
+ * Provider previews such as Earth Search's Sentinel-2 `preview.jpg` on S3 are loaded by the
+ * result cards as a plain `<img>`, which caches an opaque (no-CORS) response for that URL. A
+ * later CORS fetch of the same URL — MapLibre's image source included — then fails from that
+ * cache with a misleading "No 'Access-Control-Allow-Origin' header" error, even though the file
+ * itself returns `Access-Control-Allow-Origin: *`. Fetching the bytes here with
+ * `cache: "reload"` bypasses the opaque entry, and handing MapLibre an object URL sidesteps its
+ * own request, so a freshly published scene can still be drawn on the map. */
 async function fetchOverlayImage(url:string, signal?:AbortSignal):Promise<string|null> {
   try {
-    const response=await fetch(url,{mode:"cors",signal});
+    // `cache: "reload"` matters: the result cards load the same URL as a plain <img>, which
+    // caches an opaque response, and a later CORS fetch of that URL then fails from the cache
+    // ("Failed to fetch") until it is bypassed.
+    const response=await fetch(url,{mode:"cors",cache:"reload",signal});
     if(!response.ok)return null;
     const blob=await response.blob();
     if(!blob.type.startsWith("image/")||blob.size>MAX_OVERLAY_BYTES)return null;
