@@ -29,7 +29,8 @@ The README screenshot is generated from the live catalogues, not fixtures:
 LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "capture the live explorer"
 ```
 
-It writes `docs/assets/explorer.png`. Re-run it when the explorer UI changes, otherwise the
+It writes `docs/assets/explorer.png` (convert to `explorer.jpg` if the PNG is heavy — the map
+imagery is photographic). Re-run it when the explorer UI changes, otherwise the
 image stops representing current behaviour.
 
 Opt-in live checks (network; never part of CI):
