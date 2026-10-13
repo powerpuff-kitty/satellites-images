@@ -4,20 +4,12 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
-  # Every observed dependency location has its own entry: a root npm entry does not cover
-  # nested npm packages (workspace or not).
+  # npm: this repository is an npm workspace (root package.json declares
+  # workspaces: packages/typescript, apps/explorer), so a single root entry updates the one
+  # committed package-lock.json that covers every workspace member. Adding separate entries
+  # for the members produces lockfile-desynchronised PRs that fail `npm ci`.
   - package-ecosystem: "npm"
     directory: "/"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-  - package-ecosystem: "npm"
-    directory: "/apps/explorer"
-    schedule:
-      interval: "weekly"
-    open-pull-requests-limit: 5
-  - package-ecosystem: "npm"
-    directory: "/packages/typescript"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5
