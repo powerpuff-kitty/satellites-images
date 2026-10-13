@@ -403,6 +403,7 @@ async function showMapPreview(index:number):Promise<void> {
   previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
     new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
   mapPreview.hidden=false;
+  storeSearchLink();   // keep the permalink pointing at the image on the map
 }
 function closeMapPreview():void {
   previewToken++;
@@ -411,6 +412,7 @@ function closeMapPreview():void {
   removePreviewLayer();
   highlightScene(undefined);
   markActiveCard(null);
+  storeSearchLink();
 }
 function stepPreview(delta:number):void {
   if(!previewScenes.length)return;
@@ -690,6 +692,7 @@ let initialPermalinkDay:string|null=null;
 let loadedScenes:Scene[]=[];
 let currentSummary:AvailabilitySummary|null=null;
 let selectedDay:string|null=null;
+let initialPermalinkScene:string|null=null;
 let pendingMissionFilter="";
 let pendingCollectionFilter="";
 let displayedLimit=40;
@@ -788,17 +791,24 @@ function restoreSearchLink():void {
     for(const id of wantedExtras.split(","))
       if(EXTRA_SOURCES.some((source)=>source.id===id))enabledExtraSources.add(id);
   renderSources();
+  const wantedScene=params.get("scene");
+  if(wantedScene)initialPermalinkScene=wantedScene;
   const wantedTab=params.get("tab");
-  const hadRange=validDate(params.get("from")??"")&&validDate(params.get("to")??"");
-  // A query permalink should reproduce its search, not just fill dormant inputs.
+  // The form already carries a location and a range, so search on start instead of waiting
+  // for a click; a permalink merely overrides those inputs.
   queueMicrotask(async ()=>{
-    if(hadRange)await runSearch();
+    await runSearch();
     if(wantedTab==="upcoming")setTab("upcoming");
+    if(initialPermalinkScene){
+      const scene=loadedScenes.find((candidate)=>candidate.id===initialPermalinkScene);
+      initialPermalinkScene=null;
+      if(scene)openScenePreview(scene);
+    }
   });
 }
 const MANAGED_PARAMS=["lat","lon","radius","from","to","day","zoom","tab","metric","sensor",
   "mission","collection","catalogue","orbit","tiles","cloudmin","cloudmax","hmin","hmax","maxgsd",
-  "preview","unknown","src","aoi"];
+  "preview","unknown","src","aoi","scene"];
 function storeSearchLink():void {
   const url=new URL(window.location.href);
   for(const name of MANAGED_PARAMS)url.searchParams.delete(name);
@@ -808,6 +818,10 @@ function storeSearchLink():void {
   url.searchParams.set("from",from.value);
   url.searchParams.set("to",to.value);
   if(selectedDay)url.searchParams.set("day",selectedDay);
+  if(!mapPreview.hidden){
+    const shown=previewScenes[previewIndex];
+    if(shown)url.searchParams.set("scene",shown.id);
+  }
   url.searchParams.set("tab",activeTab);
   url.searchParams.set("metric",matrixMetric);
   url.searchParams.set("sensor",sensorFilter);

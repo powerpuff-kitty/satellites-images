@@ -182,6 +182,9 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   wrapper no longer adds line-box height); E2E asserts all five share one centre.
 - Explorer: selecting a **day cell no longer draws a scene footprint** — the outline appears
   only with the image on the map and clears when the overlay closes.
+- Explorer: the location now **loads on start** (the form already holds one) instead of
+  waiting for a click or a permalink, and the image on the map is stored in the permalink as
+  **`scene=<id>`** so a refresh restores the overlay, its footprint and the highlighted card.
 - Explorer: the scene card's **Show scene footprint** button is gone — the footprint is drawn
   on the map together with the image and cleared when the overlay closes. The preview **‹ / ›**
   arrows now step only through the **filtered/visible** observations, not every loaded scene.

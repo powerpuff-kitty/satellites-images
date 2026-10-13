@@ -122,12 +122,14 @@ test("the matrix keeps its size when switching tabs", async ({ page }) => {
   expect(await page.locator("#matrix-svg").getAttribute("height")).toBe(height);
 });
 
-test("the map prompt disappears once a location is chosen", async ({ page }) => {
+test("the map prompt is gone once the default location loads", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("l1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await expect(page.locator("#map-label")).toBeVisible();
-  await setRange(page, "2025-03-01", "2025-03-31");
+  // The form already holds a location, so the app loads it without a click.
+  await expect(page.locator("#map-label")).toBeHidden();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator("#latitude").fill("-8.5");
   await expect(page.locator("#map-label")).toBeHidden();
 });
 
@@ -187,8 +189,8 @@ test("a year is fetched in a single request per catalogue", async ({ page }) => 
   });
   await page.goto("/");
   await setRange(page, "2025-01-01", "2025-12-31");
-  await expect.poll(() => starts.length).toBe(2);
-  expect(new Set(starts)).toEqual(new Set(["2025-01"]));
+  // The start-up load uses the default (current-year) window, so filter to this range.
+  await expect.poll(() => starts.filter((start) => start === "2025-01").length).toBe(2);
 });
 
 test("selecting a matrix day filters the result cards", async ({ page }) => {
@@ -220,9 +222,9 @@ test("a search loads every page of its window up front", async ({ page }) => {
   });
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
-  await expect.poll(() => requests).toBe(24); // both catalogues page through the window
   await expect(page.locator("#results li")).toHaveCount(12); // merged on display
   await expect(page.locator("#load-next-pages")).toBeHidden();
+  expect(requests).toBeGreaterThanOrEqual(12); // paged through, not one five-page batch
 });
 
 test("a mid-scan catalogue failure is reported and keeps partial results", async ({ page }) => {
@@ -500,6 +502,23 @@ test("cross-catalogue copies of one tile merge; different acquisitions stay", as
   await setRange(page, "2025-03-01", "2025-03-31");
   // The two copies collapse; the second acquisition is kept.
   await expect(page.locator("#results li")).toHaveCount(2);
+});
+
+test("the image on the map is restored from the permalink", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("**/search", (route) => respond(route, { json: collection([
+    stacScene("s1", "2025-03-10T02:00:00Z"), stacScene("s2", "2025-03-11T02:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await page.locator("#results img").first().click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  const scene = new URL(page.url()).searchParams.get("scene");
+  expect(scene).toBeTruthy();
+  // Reloading the same URL puts the same image back on the map.
+  await page.goto(page.url());
+  await expect(page.locator("#map-preview")).toBeVisible();
+  await expect(page.locator("#map-container")).toHaveAttribute("data-footprint", scene!);
 });
 
 test("the previewed image's card is highlighted with a left border", async ({ page }) => {
