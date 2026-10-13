@@ -50,9 +50,18 @@ const nextLink = (token: string, href = "https://earth-search.aws.element84.com/
 const collection = (features: unknown[], links: unknown[], matched: number) =>
   ({ type: "FeatureCollection", features, links, context: { matched } });
 
-async function setRange(page: Page, from: string, to: string) {
-  await page.fill("#date-from", from);
-  await page.fill("#date-to", to);
+/** Turns the auto-selected pixel off, so a test sees the whole loaded year. */
+async function clearDay(page: Page) {
+  const selected = page.locator("#matrix-svg .matrix-cell.selected");
+  await expect(selected).toHaveCount(1);
+  await selected.click();
+  await expect(selected).toHaveCount(0);
+}
+/** Loads the year containing `date`; its day is auto-selected unless `keepDay` is set. */
+async function setDate(page: Page, date: string, keepDay = false) {
+  await page.fill("#date", date);
+  await page.dispatchEvent("#date", "change");
+  if (!keepDay) await clearDay(page);
 }
 
 test.beforeEach(async ({ page }) => {
@@ -120,6 +129,7 @@ test("a scene with no tile set still draws its preview via a fetched image", asy
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("no-tiles", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
+  await clearDay(page);
   await expect(page.locator("#results img")).toHaveCount(1);
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
@@ -144,6 +154,7 @@ test("a scene whose preview cannot be fetched says so instead of an empty overla
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("blocked", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
+  await clearDay(page);
   await expect(page.locator("#results img")).toHaveCount(1);
   await expect.poll(async () => page.locator("#results img").first()
     .evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
@@ -162,7 +173,7 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
     await respond(route, { json: collection(features, links, features.length) });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#counter")).toHaveText("2");
   // The availability rollup summarises what was loaded, per catalogue.
@@ -179,7 +190,7 @@ test("a drawn area is searched as a polygon and can be cleared", async ({ page }
     return respond(route, { json: collection([stacScene("a1", "2025-03-10T02:00:00Z")], [], 1) });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   // Draw three corners on the map, then finish.
   await page.locator("#draw-area").click();
@@ -210,7 +221,7 @@ test("the matrix keeps its size when switching tabs", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("s1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-12-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   const width = await page.locator("#matrix-svg").getAttribute("width");
   const height = await page.locator("#matrix-svg").getAttribute("height");
@@ -231,20 +242,22 @@ test("the map prompt is gone once the default location loads", async ({ page }) 
   await expect(page.locator("#map-label")).toBeHidden();
 });
 
-test("an out-of-range date selection is clamped and the grid stays bounded", async ({ page }) => {
+test("the date control is bounded and its year is what the grid renders", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("c1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await page.locator("#date-from").fill("1900-01-01");
-  await page.locator("#date-to").fill("2100-12-31");
-  await page.locator("#date-to").dispatchEvent("change");
-  // Nothing optical predates Landsat-1, and nothing is published a year ahead.
-  await expect(page.locator("#date-from")).toHaveValue("1970-01-01");
-  // The grid renders at most ~2 years even though the range is much wider.
-  await expect.poll(async () => page.locator("#matrix-svg .matrix-cell").count()).toBeGreaterThan(700);
-  const cells = await page.locator("#matrix-svg .matrix-cell").count();
-  expect(cells).toBeLessThanOrEqual(750);
-  await expect(page.locator("#coverage")).toContainText(/last 2 years/);
+  // Nothing optical predates Landsat-1, and nothing is published more than a year ahead.
+  await expect(page.locator("#date")).toHaveAttribute("min", "1970-01-01");
+  await expect(page.locator("#date")).toHaveAttribute("max", new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10));
+  await page.fill("#date", "2025-03-10");
+  await page.dispatchEvent("#date", "change");
+  // Picking a date loads its whole calendar year and selects that day's pixel.
+  await expect(page.locator("#date-from")).toHaveValue("2025-01-01");
+  await expect(page.locator("#date-to")).toHaveValue("2025-12-31");
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-10");
+  // Whole weeks of one year, never a multi-year range.
+  expect(await page.locator("#matrix-svg .matrix-cell").count()).toBeGreaterThan(300);
+  expect(await page.locator("#matrix-svg .matrix-cell").count()).toBeLessThan(400);
 });
 
 test("catalogue, orbit and native-tile filters narrow the results", async ({ page }) => {
@@ -256,7 +269,7 @@ test("catalogue, orbit and native-tile filters narrow the results", async ({ pag
   (b.properties as Record<string, unknown>)["sat:orbit_state"] = "descending";
   await page.route("**/search", (route) => respond(route, { json: collection([a, b], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   // The merged result keeps one copy per scene, so the catalogue filter lists that source.
   expect(await page.locator("#provider-filter option").count()).toBeGreaterThan(1);
@@ -271,11 +284,13 @@ test("catalogue, orbit and native-tile filters narrow the results", async ({ pag
   await expect(page.locator("#results li")).toHaveCount(2);
 });
 
-test("the form defaults to the full calendar year", async ({ page }) => {
+test("the form defaults to today, loads its year and selects that pixel", async ({ page }) => {
   await page.goto("/");
-  const year = new Date().toISOString().slice(0, 4);
-  await expect(page.locator("#date-from")).toHaveValue(year + "-01-01");
-  await expect(page.locator("#date-to")).toHaveValue(year + "-12-31");
+  const today = new Date().toISOString().slice(0, 10);
+  await expect(page.locator("#date")).toHaveValue(today);
+  await expect(page.locator("#date-from")).toHaveValue(today.slice(0, 4) + "-01-01");
+  await expect(page.locator("#date-to")).toHaveValue(today.slice(0, 4) + "-12-31");
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", today);
 });
 
 test("a year is fetched in a single request per catalogue", async ({ page }) => {
@@ -286,7 +301,7 @@ test("a year is fetched in a single request per catalogue", async ({ page }) => 
     await respond(route, { json: collection([], [], 0) });
   });
   await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-12-31");
+  await setDate(page, "2025-03-10");
   // The start-up load uses the default (current-year) window, so filter to this range.
   await expect.poll(() => starts.filter((start) => start === "2025-01").length).toBe(2);
 });
@@ -301,7 +316,7 @@ test("selecting a matrix day filters the result cards", async ({ page }) => {
     await respond(route, { json: collection(features, links, features.length) });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.locator("#matrix-svg .matrix-cell.has-scenes").first().click();
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);
@@ -319,7 +334,7 @@ test("a search loads every page of its window up front", async ({ page }) => {
     await respond(route, { json: collection([stacScene("p" + index, "2025-03-" + day + "T02:00:00Z")], links, 12) });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(12); // merged on display
   await expect(page.locator("#load-next-pages")).toBeHidden();
   expect(requests).toBeGreaterThanOrEqual(12); // paged through, not one five-page batch
@@ -335,7 +350,7 @@ test("a mid-scan catalogue failure is reported and keeps partial results", async
     return respond(route, { status: 429, body: "rate limited", contentType: "text/plain" });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#status")).toContainText(/failed/i);
 });
@@ -359,14 +374,14 @@ test("responsive viewport keeps the search form usable", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection([], [], 0) }));
   await page.goto("/");
   await expect(page.locator("#search-form")).toBeVisible();
-  await expect(page.locator("#date-from")).toBeVisible();
+  await expect(page.locator("#date")).toBeVisible();
 });
 
 test("left tabs switch between historical and upcoming views", async ({ page }) => {
   await page.route("**/acquisition-plans", (route) => respond(route, { contentType: "text/html", body: "<html></html>" }));
   await page.route("**/search", (route) => respond(route, { json: collection([stacScene("h1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#map-matrix")).toBeVisible();
   await page.locator("#tab-upcoming").click();
@@ -428,7 +443,7 @@ test("upcoming view overlays published-so-far against planned", async ({ page })
   await page.route("**/documents/**", (route) => respond(route, { contentType: "application/vnd.google-earth.kml+xml", body: kml }));
   await page.route("**/search", (route) => respond(route, { json: collection([stacScene("h1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   await page.locator("#tab-upcoming").click();
   await expect(page.locator("#plans-results li")).toHaveCount(1);
@@ -456,7 +471,7 @@ test("the full-year grid fits the map pane instead of clipping December", async 
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("f1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-12-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-12-31"]')).toHaveCount(1);
   const fit = await page.evaluate(() => {
@@ -466,20 +481,26 @@ test("the full-year grid fits the map pane instead of clipping December", async 
     const paneBox = pane.getBoundingClientRect();
     const paneWidth = paneBox.width;
     const svgWidth = svg.getBoundingClientRect().width;
+    const scroll = document.querySelector(".matrix-scroll")!;
     const lastCell = document.querySelector('#matrix-svg .matrix-cell[data-day="2025-12-31"]')!;
     return {
       paneWidth,
       paneLeft: paneBox.left,
       svgWidth,
       stepperLeft: stepper.getBoundingClientRect().left,
-      lastCellRight: lastCell.getBoundingClientRect().right,
+      cellRight: lastCell.getBoundingClientRect().right,
+      viewRight: scroll.getBoundingClientRect().right,
+      scrollWidth: scroll.scrollWidth,
+      clientWidth: scroll.clientWidth,
       monthCount: document.querySelectorAll("#matrix-svg .matrix-month").length,
     };
   });
   expect(fit.monthCount).toBe(12);
   expect(fit.svgWidth).toBeLessThanOrEqual(fit.paneWidth - 76);
-  // The December cell is inside the pane, not scrolled out of view.
-  expect(fit.lastCellRight).toBeLessThanOrEqual(fit.paneWidth);
+  // The December cell is visible in the grid's own viewport, and no horizontal scrolling is
+  // needed to reach it (that was the original clipping bug).
+  expect(fit.cellRight).toBeLessThanOrEqual(fit.viewRight + 0.5);
+  expect(fit.scrollWidth).toBeLessThanOrEqual(fit.clientWidth + 1);
   // The year stepper stays inside the pane instead of overlapping the left column.
   expect(fit.stepperLeft).toBeGreaterThanOrEqual(fit.paneLeft);
 });
@@ -488,14 +509,14 @@ test("the day matrix plots one square cell per day across the loaded range", asy
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z", "sentinel-2b"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(3);
   await expect(page.locator("#map-matrix")).toBeVisible();
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(1);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
   const sizes = await page.locator("#matrix-svg .matrix-cell")
     .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
-  expect(sizes.length).toBeGreaterThanOrEqual(31); // ≥ one cell per day of the loaded month
+  expect(sizes.length).toBeGreaterThanOrEqual(365); // ≥ one cell per day of the loaded year
   // Uniform square cells, 12 px when the range fits and smaller (≥ 6 px) when it must.
   expect([...new Set(sizes)].length).toBe(1);
   const side = Number(sizes[0].split("x")[0]);
@@ -510,17 +531,17 @@ test("the day matrix plots one square cell per day across the loaded range", asy
   const titledCells = await page.locator("#matrix-svg .matrix-cell:has(title)").count();
   expect(titledCells).toBe(allCells);
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"] title')).toHaveText(/no observations/);
-  // Padding days outside the window have no fill, and a month legend sits under the grid.
-  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-02-25"]')).toHaveAttribute("fill", "transparent");
-  await expect(page.locator("#matrix-svg .matrix-month").first()).toHaveText("MAR");
-  await expect(page.locator("#matrix-svg .matrix-month")).toHaveCount(1); // only March is in this window
+  // Padding days outside the year have no fill, and twelve month labels sit under the grid.
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2024-12-30"]')).toHaveAttribute("fill", "transparent");
+  await expect(page.locator("#matrix-svg .matrix-month").first()).toHaveText("JAN");
+  await expect(page.locator("#matrix-svg .matrix-month")).toHaveCount(12);
 });
 
 test("the metric links and the ⋯ toggle share one row and baseline", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#matrix-head")).toBeVisible();
   const centres = await page.locator("#matrix-links .matrix-link, #matrix-links .matrix-more-toggle")
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)));
@@ -532,7 +553,7 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "true");
   await page.locator('.matrix-link[data-metric="mission"]').click();
@@ -569,7 +590,7 @@ test("matrix cells are 12 px when they fit and shrink to fit narrower panes", as
 
   await page.setViewportSize({ width: 1600, height: 940 });
   await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-12-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   await expect(page.locator(".matrix-scroll")).toHaveCount(1);
   const wide = await sizesFor();
@@ -594,14 +615,14 @@ test("the matrix year arrows load the previous/next year", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("y1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-12-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
-  await expect(page.locator("#date-from")).toHaveValue("2025-01-01");
+  await expect(page.locator("#date")).toHaveValue("2025-03-10");
   await page.locator("#matrix-next-year").click();
+  await expect(page.locator("#date")).toHaveValue("2026-03-10");
   await expect(page.locator("#date-from")).toHaveValue("2026-01-01");
-  await expect(page.locator("#date-to")).toHaveValue("2026-12-31");
   await page.locator("#matrix-prev-year").click();
-  await expect(page.locator("#date-from")).toHaveValue("2025-01-01");
+  await expect(page.locator("#date")).toHaveValue("2025-03-10");
   await expect(page.locator("#date-to")).toHaveValue("2025-12-31");
 });
 
@@ -612,11 +633,11 @@ test("the matrix stays visible for a year with no observations", async ({ page }
     await respond(route, { json: collection(features, [], features.length) });
   });
   await page.goto("/");
-  await setRange(page, "2025-01-01", "2025-12-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   await page.locator("#matrix-next-year").click();
-  await expect(page.locator("#date-from")).toHaveValue("2026-01-01");
-  await expect(page.locator("#results li")).toHaveCount(0);
+  await expect(page.locator("#date")).toHaveValue("2026-03-10");
+  await expect(page.locator("#results li.empty")).toContainText(/No observations/);
   // The 2026 grid is still drawn, entirely as placeholder cells.
   await expect(page.locator("#map-matrix")).toBeVisible();
   const cells = await page.locator("#matrix-svg .matrix-cell").count();
@@ -629,7 +650,7 @@ test("icon-only buttons centre their glyph", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("i1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   for (const id of ["#matrix-prev-year", "#matrix-next-year"]) {
     const box = (await page.locator(id).boundingBox())!;
@@ -651,6 +672,7 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   // The range comes from the permalink so exactly one search runs: filling two date
   // inputs schedules two debounced searches and the second can land after the click.
   await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
+  await clearDay(page);
   await expect(page.locator("#results img")).toHaveCount(2);
   await page.waitForLoadState("networkidle");
   const zoomBefore = Number(new URL(page.url()).searchParams.get("zoom"));
@@ -678,7 +700,7 @@ test("cross-catalogue copies of one tile merge; different acquisitions stay", as
   await page.route("**/search", (route) => respond(route, { json: collection(
     [earthSearch, planetary, otherDay], [], 3) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   // The two copies collapse; the second acquisition is kept.
   await expect(page.locator("#results li")).toHaveCount(2);
 });
@@ -689,7 +711,7 @@ test("the image on the map is restored from the permalink", async ({ page }) => 
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("s1", "2025-03-10T02:00:00Z"), stacScene("s2", "2025-03-11T02:00:00Z")], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
   const scene = new URL(page.url()).searchParams.get("scene");
@@ -707,6 +729,7 @@ test("the previewed image's card is highlighted with a left border", async ({ pa
     stacScene("h1", "2025-03-10T02:00:00Z"), stacScene("h2", "2025-03-11T02:00:00Z")], [], 2) }));
   // One search from the permalink, settled before interacting (see the test above).
   await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
+  await clearDay(page);
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.waitForLoadState("networkidle");
   await expect(page.locator("#results li.active")).toHaveCount(0);
@@ -727,7 +750,7 @@ test("a day cell draws no footprint; opening the image does", async ({ page }) =
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("f1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   // Selecting a day filters the list but must not draw a footprint.
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
   await expect(page.locator("#results li")).toHaveCount(1);
@@ -745,7 +768,7 @@ test("the arrows step only through the filtered observations", async ({ page }) 
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("a1", "2025-03-10T02:00:00Z"), stacScene("b1", "2025-03-11T02:00:00Z")], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   // The per-card footprint button is gone...
   await expect(page.locator(".scene-inspect")).toHaveCount(0);
@@ -767,7 +790,7 @@ test("the card and map preview prefer a higher-resolution provider asset", async
   scene.assets.rendered_preview = { href: "https://example.test/rendered-hq.png", roles: ["overview"], type: "image/png" };
   await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results img")).toHaveCount(1);
   await expect(page.locator("#results img")).toHaveAttribute("src", /rendered-hq\.png/);
 });
@@ -796,7 +819,7 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
   };
   await page.route("**/search", (route) => respond(route, { json: collection([item], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   // The card identifies the scene and shows seconds, so neighbouring scenes differ.
   await expect(page.locator("#results li")).toContainText("LC09_1");
@@ -832,7 +855,7 @@ test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", a
       : route.fulfill({ contentType: "image/png", body: png });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results img")).toHaveCount(1);
   await page.locator("#results img").click();
   await expect(page.locator("#map-preview")).toBeVisible();
@@ -848,7 +871,7 @@ test("scenes whose footprint misses the searched point are never shown", async (
   missing.bbox = [10.0, -9.0, 10.3, -8.7];
   await page.route("**/search", (route) => respond(route, { json: collection([covering, missing], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   // The default point is inside only the first scene's footprint (bbox vs polygon gap),
   // so the second is dropped and the matrix/overlay always cover the location.
   await expect(page.locator("#results li")).toHaveCount(1);
@@ -862,7 +885,7 @@ test("the Data sources panel lists the registry and enables extra catalogues", a
     return respond(route, { json: collection([stacScene("s1", "2025-03-10T02:00:00Z")], [], 1) });
   });
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   // The panel lists registry sources with their access terms.
   await page.locator("#sources summary").click();
@@ -882,7 +905,7 @@ test("the More dropdown picks an extra metric", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   await page.locator("#matrix-more").click();
   await expect(page.locator("#matrix-more-menu")).toBeVisible();
@@ -900,7 +923,7 @@ test("the Image/Radar quick filter narrows the view and sits right", async ({ pa
     properties: { ...radarBase.properties, platform: "sentinel-1c" } };
   await page.route("**/search", (route) => respond(route, { json: collection([optical, radar], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   // The quick filters are right-aligned against the metric links.
   const links = (await page.locator("#matrix-links").boundingBox())!;
@@ -937,7 +960,7 @@ test("a radar scene renders its tile set and is listed in the collection filter"
   };
   await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#collection-filter option", { hasText: "sentinel-1-rtc" })).toHaveCount(1);
   await page.locator("#results img").click();
@@ -959,7 +982,7 @@ test("a provider tile set is used when the scene exposes one", async ({ page }) 
   scene.assets.tilejson = { href: "https://example.test/tilejson.json?item=tiled", roles: ["tiles"], type: "application/json" };
   await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results img")).toHaveCount(1);
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
@@ -970,14 +993,15 @@ test("cloud-cover and hour filters narrow the loaded results", async ({ page }) 
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("f1", "2025-03-10T02:00:00Z"), stacScene("f2", "2025-03-11T02:00:00Z")], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.selectOption("#cloud-max", "10"); // scenes are 12.5% cloud
-  await expect(page.locator("#results li")).toHaveCount(0);
+  // Nothing matches: the panel says so rather than going blank.
+  await expect(page.locator("#results li.empty")).toContainText(/No observations match/);
   await page.selectOption("#cloud-max", "30");
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.selectOption("#hour-min", "12"); // scenes are ~02:00 UTC
-  await expect(page.locator("#results li")).toHaveCount(0);
+  await expect(page.locator("#results li.empty")).toContainText(/No observations match/);
   await page.selectOption("#hour-min", "0");
   await page.selectOption("#hour-max", "6");
   await expect(page.locator("#results li")).toHaveCount(2);
@@ -990,7 +1014,7 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
     properties: { ...landsatBase.properties, platform: "landsat-9" } };
   await page.route("**/search", (route) => respond(route, { json: collection([sentinel, landsat], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   await page.selectOption("#collection-filter", "landsat-c2-l2");
   await expect(page.locator("#results li")).toHaveCount(1);
@@ -1000,15 +1024,35 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-11"]')).toHaveCount(1);
 });
 
+test("a day cell with no observations is still selectable and explains itself", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection([
+    stacScene("n1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await setDate(page, "2025-03-10");
+  const empty = page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]');
+  await expect(empty).toHaveAttribute("role", "button");
+  await expect(empty).toHaveAttribute("tabindex", "0");
+  await expect(empty.locator("title")).toHaveText(/no observations/);
+  await empty.click();
+  await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-05");
+  // Selecting an empty day says so rather than showing a blank panel.
+  await expect(page.locator("#results li.empty")).toContainText(/No observations on 2025-03-05/);
+  // The selection clears again from the matrix control.
+  await page.locator("#show-all-days").click();
+  await expect(page.locator("#results li")).toHaveCount(1);
+});
+
 test("matrix day cells are keyboard operable", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("k1", "2025-03-10T02:00:00Z"), stacScene("k2", "2025-03-12T02:00:00Z")], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-10");
-  // Arrow keys step to the next selectable day; Enter selects it.
+  // Every in-window day is focusable, so arrows step a day at a time (empty days included).
+  await page.keyboard.press("ArrowDown");
+  await expect(page.locator("#matrix-svg .matrix-cell:focus")).toHaveAttribute("data-day", "2025-03-11");
   await page.keyboard.press("ArrowDown");
   await page.keyboard.press("Enter");
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveAttribute("data-day", "2025-03-12");
@@ -1019,7 +1063,7 @@ test("clicking a matrix cell selects that day without changing the zoom", async 
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("z1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
   const before = Number(new URL(page.url()).searchParams.get("zoom"));
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
@@ -1032,7 +1076,7 @@ test("clicking a matrix cell toggles the selected day", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("b1", "2025-03-10T02:00:00Z"), stacScene("b2", "2025-03-12T02:00:00Z")], [], 2) }));
   await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  await setDate(page, "2025-03-10");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toBeVisible();
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(1);

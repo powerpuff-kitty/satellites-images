@@ -16,7 +16,7 @@ A cross-language, open-source satellite **catalogue discovery SDK**. Search exis
 The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deployment is a
 **manually dispatched, reviewed** build (`npm run check` runs first), not every push.
 
-![The explorer for a point off Sumbawa with a 2026 window: a left panel with location, radius, date range and filters; a MapLibre map with a satellite scene placed on its footprint, a marker, the basemap attribution, and a full-year day matrix with month labels, metric links and All/Image/Radar quick filters; and a right panel of result cards listing scene id, collection, cloud cover, resolution, coverage and image access](docs/assets/explorer.jpg)
+![The explorer for a point off Sumbawa with a 2026 window: a left panel with location, radius, a single date (its whole year is loaded) and filters; a MapLibre map with a satellite scene placed on its footprint, a marker, the basemap attribution, and a full-year day matrix with month labels, metric links and All/Image/Radar quick filters; and a right panel of result cards listing scene id, collection, cloud cover, resolution, coverage and image access](docs/assets/explorer.jpg)
 
 ## What it does
 

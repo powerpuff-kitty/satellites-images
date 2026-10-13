@@ -29,10 +29,8 @@
           </div>
 
           <section id="panel-historical" role="tabpanel" aria-labelledby="tab-historical">
-            <div class="pair">
-              <label>From<input id="date-from" type="date" min="1970-01-01" value="2025-01-01" required></label>
-              <label>To<input id="date-to" type="date" min="1970-01-01" value="2025-12-31" required></label>
-            </div>
+            <label class="full-field">Date<input id="date" type="date" min="1970-01-01" required></label>
+            <input id="date-from" type="hidden"><input id="date-to" type="hidden">
             <section class="history-calendar" aria-label="Historical observation availability">
               <div class="heading">
                 <h2>Filters</h2>
