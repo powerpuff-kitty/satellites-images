@@ -116,9 +116,13 @@ const map = new maplibregl.Map({
   style: mapStyle,
   center: [116.1167, -8.5833],
   zoom: 8,
-  attributionControl: { compact: true },
+  // The basemap attribution is added by hand below: MapLibre renders the compact
+  // attribution expanded on wide maps, and the day matrix owns the bottom band, so the
+  // required attribution would be covered there.
+  attributionControl: false,
 });
 map.addControl(new maplibregl.NavigationControl(), "top-right");
+map.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
 const marker = new maplibregl.Marker({color:"#e0a84b"})
   .setLngLat([116.1167, -8.5833]).addTo(map);
 
