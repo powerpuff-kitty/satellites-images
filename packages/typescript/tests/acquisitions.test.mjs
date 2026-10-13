@@ -62,8 +62,7 @@ test("the upcoming window accepts up to a year and rejects beyond it",async()=>{
   await assert.rejects(()=>provider.upcoming({latitude:-8.5833,longitude:116.1167,
     radiusMeters:5000,days:367}),e=>e.code==="INVALID_QUERY");
   await assert.rejects(()=>provider.upcoming({latitude:-8.5833,longitude:116.1167,
-    radiusMeters:5000,from:"2026-10-12",to:new Date("2026-10-12T16:00:00Z").getTime()+400*day
-      ? "2027-11-15" : "2027-11-15"}),e=>e.code==="INVALID_QUERY");
+    radiusMeters:5000,from:"2026-10-12",to:"2027-11-15"}),e=>e.code==="INVALID_QUERY");
 });
 
 test("future adapter selects newest plan per satellite with bounded queries",async()=>{
