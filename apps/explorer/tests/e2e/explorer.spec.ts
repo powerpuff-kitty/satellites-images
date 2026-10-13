@@ -11,8 +11,13 @@ const CORS = {
 const MAP_STYLE = {
   version: 8,
   name: "test",
-  sources: {},
-  layers: [{ id: "bg", type: "background", paint: { "background-color": "#111512" } }],
+  // A source attribution so the required-attribution control renders and can be measured.
+  sources: { base: { type: "geojson", data: { type: "FeatureCollection", features: [] }, attribution: "Test basemap" } },
+  layers: [
+    { id: "bg", type: "background", paint: { "background-color": "#111512" } },
+    // An (invisible) layer so MapLibre counts the source's attribution.
+    { id: "base-fill", type: "fill", source: "base", paint: { "fill-opacity": 0 } },
+  ],
 };
 
 async function respond(route: Route, options: { status?: number; json?: unknown; body?: string; contentType?: string }) {
@@ -76,6 +81,28 @@ test("the built app serves the maplibre worker as javascript", async ({ page }) 
     expect(response.type).not.toContain("text/html");
   }
   expect(errors.filter((text) => /Worker failed to load/i.test(text))).toEqual([]);
+});
+
+test("the required basemap attribution is not covered by the day matrix", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("a1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await expect(page.locator("#map-matrix")).toBeVisible();
+  const boxes = await page.evaluate(() => {
+    const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect() ?? null;
+    const attribution = rect(".maplibregl-ctrl-attrib");
+    const matrix = rect("#map-matrix");
+    const pane = rect("#map-container");
+    return { attribution, matrix, pane, text: document.querySelector(".maplibregl-ctrl-attrib-inner")?.textContent ?? "" };
+  });
+  expect(boxes.text).toContain("Test basemap");
+  const overlaps = boxes.attribution && boxes.matrix
+    && boxes.attribution.left < boxes.matrix.right && boxes.attribution.right > boxes.matrix.left
+    && boxes.attribution.top < boxes.matrix.bottom && boxes.attribution.bottom > boxes.matrix.top;
+  expect(overlaps).toBe(false);
+  // It also stays inside the map, rather than being pushed out of the pane.
+  expect(boxes.attribution!.left).toBeGreaterThanOrEqual(boxes.pane!.left);
+  expect(boxes.attribution!.right).toBeLessThanOrEqual(boxes.pane!.right + 1);
 });
 
 test("coordinate search builds a calendar and result cards", async ({ page }) => {

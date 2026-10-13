@@ -61,6 +61,11 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   asserts it is served as JavaScript rather than as the HTML fallback.
 
 ### Fixed
+- Explorer: the day matrix **covered the basemap attribution**. MapLibre renders the compact
+  attribution expanded on wide maps, and the centred panel spans that corner, so the required
+  `OpenFreeMap` / `OpenStreetMap` credits were hidden and unclickable. The attribution control
+  is now placed at the top-right below the zoom control, and an E2E test asserts it does not
+  intersect the matrix and stays inside the map pane.
 - Explorer: the full-year **day matrix overflowed the map pane** at ordinary widths (fixed
   12 px cells made 53 weeks ~689 px inside a ~630 px pane), so the last weeks — including
   the December label — were clipped behind a horizontal scrollbar. Cells now shrink from
