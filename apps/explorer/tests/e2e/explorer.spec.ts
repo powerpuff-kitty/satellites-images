@@ -550,9 +550,11 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("img-a", "2025-03-09T02:00:00Z"), stacScene("img-b", "2025-03-12T02:00:00Z")], [], 2) }));
-  await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  // The range comes from the permalink so exactly one search runs: filling two date
+  // inputs schedules two debounced searches and the second can land after the click.
+  await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
   await expect(page.locator("#results img")).toHaveCount(2);
+  await page.waitForLoadState("networkidle");
   const zoomBefore = Number(new URL(page.url()).searchParams.get("zoom"));
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
@@ -605,9 +607,10 @@ test("the previewed image's card is highlighted with a left border", async ({ pa
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("h1", "2025-03-10T02:00:00Z"), stacScene("h2", "2025-03-11T02:00:00Z")], [], 2) }));
-  await page.goto("/");
-  await setRange(page, "2025-03-01", "2025-03-31");
+  // One search from the permalink, settled before interacting (see the test above).
+  await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(2);
+  await page.waitForLoadState("networkidle");
   await expect(page.locator("#results li.active")).toHaveCount(0);
   await page.locator("#results img").first().click();
   await expect(page.locator("#results li.active")).toHaveCount(1);
