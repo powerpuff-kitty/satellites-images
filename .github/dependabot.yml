@@ -4,8 +4,20 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+  # Every observed dependency location has its own entry: a root npm entry does not cover
+  # nested npm packages (workspace or not).
   - package-ecosystem: "npm"
     directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/apps/explorer"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "npm"
+    directory: "/packages/typescript"
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 5

@@ -1,0 +1,55 @@
+# Agent instructions
+
+Project-specific guidance for automated agents (and humans) working in this repository.
+Keep it short and factual; update it when the commands or boundaries change.
+
+## What this repository is
+
+Cross-language satellite catalogue discovery SDKs (TypeScript, Python, Rust) plus a MapLibre
+explorer web app. Everything is read-only against public catalogues: no imagery is
+downloaded, and nothing is uploaded.
+
+## Commands that must pass
+
+```bash
+npm run check                     # registry generation + SDK build + explorer typecheck + TS tests
+npm run test                      # TypeScript SDK tests (vitest via node:test runner)
+npm run test:e2e -w @satellites-images/explorer   # mocked Playwright E2E (offline)
+npm run bench                     # optional micro-benchmarks
+
+PYTHONPATH=packages/python/src python3 -m unittest discover -s packages/python/tests
+cargo test --manifest-path crates/satellites-images/Cargo.toml
+```
+
+Opt-in live checks (network; never part of CI):
+
+```bash
+node tools/smoke/live.mjs                                          # provider reachability
+LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "live search"
+```
+
+## Generated paths — do not hand-edit
+
+- `sources/registry.json` is the **source of truth** for catalogues. It is copied into
+  `packages/typescript/src/sources.json`, `packages/python/src/satellites_images/sources.json`
+  and `crates/satellites-images/src/sources.json` by `npm run generate:registry`.
+  Edit the registry, regenerate, and check the tree stays clean.
+- `package-lock.json` and `crates/satellites-images/Cargo.lock` are committed; regenerate
+  rather than editing.
+
+## Boundaries
+
+- Never publish to npm, PyPI or crates.io, and never tag a release, without explicit owner
+  approval.
+- Do not change repository settings, branch protection or workflows without explicit approval.
+- Keep the mocked E2E suite offline: every request in `apps/explorer/tests/e2e` is
+  intercepted. Live behaviour belongs in the opt-in checks above.
+- Public catalogues are third-party services. Do not add credentials, and do not present
+  planned acquisitions as existing imagery.
+
+## Evidence expectations
+
+- State what was actually run and its result; a skipped or mocked check is not a pass.
+- Cite exact files and reproducible commands. Distinguish measured facts from inference.
+- Provider behaviour (CORS, preview assets, collection coverage) is verified against the
+  live APIs, not assumed — record the observation date when quoting metadata.
