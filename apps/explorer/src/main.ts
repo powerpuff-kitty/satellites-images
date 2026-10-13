@@ -11,7 +11,7 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, asfSearch,
-  cmrStac, jaxaGPortal, esaSentinelPlans, listSources, AvailabilityAccumulator,
+  cmrStac, jaxaGPortal, openAerialMap, esaSentinelPlans, listSources, AvailabilityAccumulator,
   type AvailabilitySummary,
   type Scene, type SceneAsset, type AcquisitionOpportunity, type SearchProvider } from "@powerpuff-kitty/satellites-images";
 import { shiftMonth, monthDates } from "./calendar.js";
@@ -1378,6 +1378,8 @@ const EXTRA_SOURCES:ExtraSource[]=[
   // same ids the repo's live smoke test uses, so both are operator-verifiable.
   {id:"nasa-cmr",label:"NASA CMR-STAC (ASF)",create:()=>cmrStac("ASF",["sentinel-1-rtc"])},
   {id:"jaxa-gportal",label:"JAXA G-Portal (ALOS)",create:()=>jaxaGPortal({datasetId:"10002002"})},
+  // Crowdsourced aerial imagery: the records expose a tilejson asset, not a thumbnail.
+  {id:"open-aerial-map",label:"OpenAerialMap (aerial)",create:()=>openAerialMap({limit:50})},
 ];
 const enabledExtraSources=new Set<string>();
 function renderSources():void {

@@ -824,6 +824,137 @@ export function jaxaGPortal(options: JaxaProviderOptions): JaxaProvider {
   return new JaxaProvider(options);
 }
 
+export const OPEN_AERIAL_MAP_ENDPOINT = "https://api.openaerialmap.org/meta";
+
+function numericBbox(value: unknown): number[] | null {
+  return Array.isArray(value) && value.length === 4 && value.every((entry) => typeof entry === "number" && Number.isFinite(entry))
+    ? value as number[] : null;
+}
+/** A GeoJSON Polygon/MultiPolygon from a record, or null when the shape is unusable. */
+function geoJsonGeometry(value: unknown): Record<string, unknown> | null {
+  const geometry = object(value);
+  const type = stringOrNull(geometry.type);
+  return (type === "Polygon" || type === "MultiPolygon") && Array.isArray(geometry.coordinates) ? geometry : null;
+}
+/**
+ * Map one OpenAerialMap record to a normalized scene.
+ *
+ * These are drone/aircraft images rather than satellite scenes: there is no cloud metadata, and
+ * the provider reports `gsd` in **degrees** at scales that disagree between records (observed
+ * 1.9e-7 and 2.8e-3 for comparable UAV captures), so it is kept in `raw` instead of being
+ * guessed into metres. Per-image licences vary — the API itself is CC-BY 4.0 — so the declared
+ * access class stays `unknown`.
+ */
+export function normalizeOamRecord(record: unknown, providerId = "open-aerial-map", boxes: BoundingBox[] = []): Scene {
+  const raw = object(record);
+  const id = stringOrNull(raw["_id"]);
+  const date = stringOrNull(raw.acquisition_start) ?? stringOrNull(raw.acquisition_end);
+  if (!id || !date || Number.isNaN(Date.parse(date))) {
+    throw new SatelliteError("INVALID_RESPONSE", "OpenAerialMap record lacks an id or acquisition time", providerId);
+  }
+  const assets: SceneAsset[] = [];
+  const tilejson = stringOrNull(object(raw.properties).tilejson);
+  if (tilejson) assets.push({ key:"tilejson", href:tilejson, type:"application/json", roles:["tiles"], access:"unknown" });
+  const source = stringOrNull(raw.uuid);
+  if (source) assets.push({ key:"data", href:source, type:null, roles:["data"], access:"unknown" });
+  const bbox = numericBbox(raw.bbox);
+  // The provider's own `geojson` when present, else the bbox as a rectangle (the WKT
+  // `footprint` is retained in `raw`).
+  const geometry = geoJsonGeometry(raw.geojson) ?? (bbox ? {
+    type:"Polygon",
+    coordinates:[[[bbox[0],bbox[3]],[bbox[2],bbox[3]],[bbox[2],bbox[1]],[bbox[0],bbox[1]],[bbox[0],bbox[3]]]],
+  } : null);
+  return {
+    providerId,
+    id,
+    collection: "openaerialmap",
+    acquiredAt: new Date(date).toISOString(),
+    mission: stringOrNull(raw.platform) ?? "openaerialmap",
+    geometry,
+    bbox,
+    cloudCoverPercent: null,
+    gsdMeters: null,
+    coveragePercent: coveragePercent(bbox, boxes),
+    previewUrl: null,
+    access: declaredImageryAccess(providerId),
+    assets,
+    sourceUrl: stringOrNull(raw.meta_uri),
+    raw,
+  };
+}
+
+export interface OamProviderOptions { limit?: number; fetchImpl?: typeof fetch }
+/**
+ * OpenAerialMap metadata adapter.
+ *
+ * Crowdsourced aerial imagery (drone/aircraft, not satellite) over an anonymous API:
+ * `GET api.openaerialmap.org/meta?bbox=&acquisition_from=&acquisition_to=&limit=&page=`.
+ * The acquisition window is filtered server-side and mapped from the query's `from`/`to`;
+ * `meta.found` is the provider's total for that filter, and `hasNext` is derived from it.
+ * No preview thumbnail is published — each record instead carries a `tilejson` asset, which the
+ * explorer can render on the map at native resolution.
+ */
+export class OamProvider {
+  readonly id = "open-aerial-map";
+  private readonly limit: number;
+  private readonly fetchImpl: typeof fetch;
+  constructor(options: OamProviderOptions = {}) {
+    const limit = options.limit ?? 50;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+      throw new SatelliteError("INVALID_PROVIDER", "OpenAerialMap limit must be an integer between 1 and 100", this.id);
+    }
+    this.limit = limit;
+    this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
+  }
+  async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
+    checkDate(query.from, "from");
+    checkDate(query.to, "to");
+    if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
+    const { boxes } = resolveAreas(query);
+    const limit = Math.min(this.limit, query.limit ?? this.limit);
+    const seen = new Set<string>();
+    let pageNumber = 0;
+    for (const box of boxes) {
+      for (let page = 1; ; page += 1) {
+        const params = new URLSearchParams({
+          bbox: box.map((value) => value.toFixed(6)).join(","),
+          acquisition_from: query.from,
+          acquisition_to: query.to,
+          limit: String(limit),
+          page: String(page),
+        });
+        let response: Response;
+        try {
+          response = await this.fetchImpl(OPEN_AERIAL_MAP_ENDPOINT + "?" + params.toString(), {
+            headers: { "Accept": "application/json" },
+            redirect: "error",
+            signal: query.signal ? AbortSignal.any([query.signal, AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000),
+          });
+        } catch (error) {
+          if ((error as { name?: string })?.name === "AbortError") throw new SatelliteError("ABORTED", "OpenAerialMap request aborted", this.id);
+          throw new SatelliteError("NETWORK", "OpenAerialMap request failed: " + String(error), this.id);
+        }
+        if (!response.ok) throw new SatelliteError("HTTP_ERROR", "OpenAerialMap returned HTTP " + response.status, this.id);
+        const data = object(await readJsonBounded(response, this.id));
+        const results = Array.isArray(data.results) ? data.results : [];
+        if (results.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "OpenAerialMap page exceeds the 10000-record limit", this.id);
+        const scenes = results.map((record) => normalizeOamRecord(record, this.id, boxes))
+          .filter((scene) => !seen.has(scene.id));
+        scenes.forEach((scene) => seen.add(scene.id));
+        const found = object(data.meta).found;
+        const matched = typeof found === "number" && Number.isFinite(found) ? found : null;
+        pageNumber += 1;
+        const hasNext = results.length === limit && (matched === null || page * limit < matched);
+        yield { providerId:this.id, items:scenes, pageNumber, hasNext, matched };
+        if (!hasNext) break;
+      }
+    }
+  }
+}
+export function openAerialMap(options: OamProviderOptions = {}): OamProvider {
+  return new OamProvider(options);
+}
+
 export interface AcquisitionProvider {
   readonly id: string;
   upcoming(query: import("./acquisitions.js").AcquisitionQuery): Promise<AcquisitionOpportunity[]>;

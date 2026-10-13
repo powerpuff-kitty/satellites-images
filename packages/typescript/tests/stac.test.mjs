@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, declaredImageryAccess, listSources, SatelliteError } from "../dist/index.js";
+import { SatelliteCatalog, StacProvider, boundsAround, radiusBoxes, polygonBoxes, resolveAreas, coveragePercent, summarizeAvailability, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook, cmrStac, asfSearch, jaxaGPortal, openAerialMap, normalizeOamRecord, declaredImageryAccess, listSources, SatelliteError } from "../dist/index.js";
 
 const sample = {
   type: "FeatureCollection",
@@ -298,4 +298,78 @@ test("declared imagery access reflects the registry and verified per-collection 
   assert.equal(declaredImageryAccess("planetary-computer","naip"),"open");
   assert.equal(declaredImageryAccess("nasa-cmr:ASF"),"authentication-required");
   assert.equal(declaredImageryAccess("nasa-cmr:LPCLOUD"),"unknown");
+});
+
+const oamRecord = (id, start, extra = {}) => ({
+  _id: id,
+  acquisition_start: start,
+  acquisition_end: new Date(Date.parse(start) + 3600000).toISOString(),
+  bbox: [5.847374, 50.87125, 5.847564, 50.871908],
+  footprint: "POLYGON ((5.847374 50.87125, 5.847564 50.87125, 5.847564 50.871908, 5.847374 50.871908, 5.847374 50.87125))",
+  geojson: { type: "Polygon", coordinates: [[[5.847374, 50.871908], [5.847564, 50.87125], [5.847374, 50.871908]]] },
+  gsd: 0.0027583900000251026,
+  platform: "uav",
+  provider: "Showcase project",
+  title: "Showcase project",
+  meta_uri: "https://oin-hotosm.s3.amazonaws.com/" + id + "/0/" + id + "_meta.json",
+  uuid: "https://oin-hotosm.s3.amazonaws.com/" + id + "/0/" + id + ".tif",
+  properties: { tilejson: "https://tiles.openaerialmap.org/cog/tilejson.json?url=" + id },
+  ...extra,
+});
+
+test("OpenAerialMap adapter pages the catalogue and normalises aerial imagery", async () => {
+  const calls = [];
+  const page = (number, records) => ({
+    meta: { provided_by: "OpenAerialMap", page: number, limit: 2, found: 4 },
+    results: records,
+  });
+  const mock = async (url) => {
+    calls.push(String(url));
+    // Page 2 repeats an id to check de-duplication across pages.
+    return new Response(JSON.stringify(calls.length === 1
+      ? page(1, [oamRecord("a1", "2021-04-30T22:00:00.000Z"), oamRecord("a2", "2021-05-01T22:00:00.000Z")])
+      : page(2, [oamRecord("a2", "2021-05-01T22:00:00.000Z"), oamRecord("a3", "2021-05-02T22:00:00.000Z")])),
+      { status: 200 });
+  };
+  const pages = [];
+  for await (const result of openAerialMap({ limit: 2, fetchImpl: mock }).search(
+    { latitude: 50.871, longitude: 5.847, radiusMeters: 2000, from: "2021-04-01", to: "2021-06-30", limit: 2 })) {
+    pages.push(result);
+  }
+  assert.ok(calls[0].startsWith("https://api.openaerialmap.org/meta?"));
+  assert.ok(calls[0].includes("acquisition_from=2021-04-01"));
+  assert.ok(calls[0].includes("acquisition_to=2021-06-30"));
+  assert.ok(calls[0].includes("limit=2"));
+  assert.ok(calls[0].includes("page=1"));
+  assert.ok(calls[1].includes("page=2"));
+  assert.equal(pages.length, 2);
+  assert.equal(pages[0].hasNext, true, "a full page with more matches ahead");
+  assert.equal(pages[0].matched, 4);
+  assert.equal(pages[1].items.length, 1, "the repeated id is dropped");
+  assert.equal(pages[1].hasNext, false);
+
+  const scene = pages[0].items[0];
+  assert.equal(scene.providerId, "open-aerial-map");
+  assert.equal(scene.id, "a1");
+  assert.equal(scene.collection, "openaerialmap");
+  assert.equal(scene.acquiredAt, "2021-04-30T22:00:00.000Z");
+  assert.equal(scene.mission, "uav");
+  assert.deepEqual(scene.bbox, [5.847374, 50.87125, 5.847564, 50.871908]);
+  assert.equal(scene.geometry.type, "Polygon", "the provider's own geojson is preferred");
+  assert.equal(scene.gsdMeters, null, "the provider's gsd is in degrees and inconsistently scaled");
+  assert.equal(scene.access, "unknown", "per-image licences vary");
+  assert.equal(scene.previewUrl, null, "OpenAerialMap publishes no preview thumbnail");
+  const tiles = scene.assets.find((asset) => asset.roles.includes("tiles"));
+  assert.ok(tiles.href.includes("tilejson"), "the record's tilejson is exposed as a tile asset");
+  assert.equal(scene.assets.find((asset) => asset.key === "data").href, scene.raw.uuid);
+});
+
+test("OpenAerialMap falls back to a bbox rectangle and rejects unusable records", () => {
+  const record = oamRecord("b1", "2021-04-30T22:00:00.000Z", { geojson: undefined });
+  const scene = normalizeOamRecord(record);
+  assert.deepEqual(scene.geometry.coordinates, [[[5.847374, 50.871908], [5.847564, 50.871908], [5.847564, 50.87125], [5.847374, 50.87125], [5.847374, 50.871908]]]);
+  assert.throws(() => normalizeOamRecord({ _id: "no-date" }), (error) => error.code === "INVALID_RESPONSE");
+  assert.throws(() => normalizeOamRecord({ acquisition_start: "2021-04-30T22:00:00.000Z" }), (error) => error.code === "INVALID_RESPONSE");
+  assert.throws(() => openAerialMap({ limit: 0 }), (error) => error.code === "INVALID_PROVIDER");
+  assert.throws(() => openAerialMap({ limit: 101 }), (error) => error.code === "INVALID_PROVIDER");
 });

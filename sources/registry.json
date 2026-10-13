@@ -170,11 +170,11 @@
       "scheduled": "no",
       "collections": [],
       "implemented": {
-        "typescript": false,
-        "python": false,
-        "rust": false
+        "typescript": true,
+        "python": true,
+        "rust": true
       },
-      "notes": "Crowdsourced aerial imagery; per-scene licenses and coverage vary."
+      "notes": "Crowdsourced aerial imagery (drone/aircraft). Anonymous metadata search via api.openaerialmap.org/meta with a bbox and an acquisition window; records carry a tilejson asset but no preview thumbnail, and per-image licences vary. Adapter implemented in all three SDKs."
     },
     {
       "id": "planet",

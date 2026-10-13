@@ -947,12 +947,150 @@ impl JaxaProvider {
     }
 }
 
+pub const OPEN_AERIAL_MAP_ENDPOINT: &str = "https://api.openaerialmap.org/meta";
+
+/// A GeoJSON Polygon/MultiPolygon from a record, or None when the shape is unusable.
+fn geojson_geometry(value: &Value) -> Option<Value> {
+    let usable = value.get("coordinates").and_then(Value::as_array).is_some();
+    match (value.get("type").and_then(Value::as_str), usable) {
+        (Some("Polygon"), true) | (Some("MultiPolygon"), true) => Some(value.clone()),
+        _ => None,
+    }
+}
+
+/// Map one OpenAerialMap record to a normalized scene.
+///
+/// These are drone/aircraft images rather than satellite scenes: there is no cloud metadata, and
+/// the provider reports `gsd` in **degrees** at scales that disagree between records (observed
+/// 1.9e-7 and 2.8e-3 for comparable UAV captures), so it is kept in `raw` instead of being
+/// guessed into metres. Per-image licences vary — the API itself is CC-BY 4.0 — so the declared
+/// access class stays `unknown`.
+pub fn normalize_oam_record(item: &Value, provider_id: &str, boxes: &[[f64; 4]]) -> Result<Scene, Error> {
+    let id = item.get("_id").and_then(Value::as_str)
+        .ok_or_else(|| Error::InvalidResponse("OpenAerialMap record missing _id".into()))?;
+    let raw_when = item.get("acquisition_start").and_then(Value::as_str)
+        .or_else(|| item.get("acquisition_end").and_then(Value::as_str))
+        .ok_or_else(|| Error::InvalidResponse("OpenAerialMap record missing an acquisition time".into()))?;
+    let acquired = DateTime::parse_from_rfc3339(raw_when)
+        .map_err(|_| Error::InvalidResponse("Invalid OpenAerialMap acquisition time".into()))?
+        .with_timezone(&Utc).to_rfc3339_opts(SecondsFormat::Millis, true);
+    let mut assets: Vec<SceneAsset> = Vec::new();
+    if let Some(tilejson) = item.get("properties").and_then(|p| p.get("tilejson")).and_then(Value::as_str) {
+        assets.push(SceneAsset { key: "tilejson".into(), href: tilejson.into(),
+            media_type: Some("application/json".into()), roles: vec!["tiles".into()], access: "unknown".into() });
+    }
+    if let Some(source) = item.get("uuid").and_then(Value::as_str) {
+        assets.push(SceneAsset { key: "data".into(), href: source.into(),
+            media_type: None, roles: vec!["data".into()], access: "unknown".into() });
+    }
+    let bbox = item.get("bbox").and_then(Value::as_array)
+        .and_then(|values| values.iter().map(Value::as_f64).collect::<Option<Vec<f64>>>())
+        .filter(|values| values.len() == 4);
+    // The provider's own `geojson` when present, else the bbox as a rectangle (the WKT
+    // `footprint` is retained in `raw`).
+    let geometry = item.get("geojson").and_then(geojson_geometry).or_else(|| bbox.as_ref().map(|b| json!({
+        "type": "Polygon",
+        "coordinates": [[[b[0], b[3]], [b[2], b[3]], [b[2], b[1]], [b[0], b[1]], [b[0], b[3]]]],
+    })));
+    Ok(Scene {
+        provider_id: provider_id.into(), id: id.into(),
+        collection: "openaerialmap".into(),
+        acquired_at: acquired,
+        mission: Some(item.get("platform").and_then(Value::as_str).unwrap_or("openaerialmap").to_owned()),
+        geometry,
+        bbox: bbox.clone(), cloud_cover_percent: None, gsd_meters: None,
+        coverage_percent: coverage_percent(bbox.as_ref(), boxes),
+        preview_url: None,
+        access: declared_imagery_access(provider_id, None),
+        assets,
+        source_url: item.get("meta_uri").and_then(Value::as_str).map(str::to_owned),
+        raw: item.clone(),
+    })
+}
+
+/// OpenAerialMap metadata adapter.
+///
+/// Crowdsourced aerial imagery (drone/aircraft, not satellite) over an anonymous API:
+/// `GET api.openaerialmap.org/meta?bbox=&acquisition_from=&acquisition_to=&limit=&page=`.
+/// The acquisition window is filtered server-side from the query's start/end; `meta.found` is
+/// the provider's total for that filter and `has_next` derives from it. No preview thumbnail is
+/// published — each record instead carries a `tilejson` asset, which the explorer can render on
+/// the map at native resolution.
+#[derive(Clone)]
+pub struct OamProvider {
+    id: String,
+    client: Client,
+    limit: u32,
+}
+impl OamProvider {
+    pub fn new(limit: u32) -> Result<Self, Error> {
+        if limit == 0 || limit > 100 {
+            return Err(Error::InvalidProvider("OpenAerialMap limit must be between 1 and 100".into()));
+        }
+        Ok(Self { id: "open-aerial-map".into(),
+            client: Client::builder().timeout(Duration::from_secs(20))
+                .redirect(reqwest::redirect::Policy::none()).build()?,
+            limit })
+    }
+    pub fn id(&self) -> &str { &self.id }
+    pub async fn search_pages(&self, query: &SearchQuery) -> Result<Vec<SearchPage>, Error> {
+        let (boxes, _) = resolve_areas(query)?;
+        let limit = self.limit.min(query.limit as u32) as usize;
+        let mut seen: HashSet<String> = HashSet::new();
+        let mut pages = Vec::new();
+        let mut page_number = 0usize;
+        'boxes: for box_ in boxes.iter() {
+            let bbox = box_.iter().map(|value| format!("{value:.6}")).collect::<Vec<_>>().join(",");
+            let mut number = 1u32;
+            loop {
+                let params: Vec<(&str, String)> = vec![
+                    ("bbox", bbox.clone()),
+                    ("acquisition_from", query.start.clone()),
+                    ("acquisition_to", query.end.clone()),
+                    ("limit", limit.to_string()),
+                    ("page", number.to_string()),
+                ];
+                let response = self.client.get(OPEN_AERIAL_MAP_ENDPOINT).query(&params)
+                    .header("Accept", "application/json").send().await?;
+                if !response.status().is_success() { return Err(Error::Http(response.status().as_u16())); }
+                let data = read_json_bounded(response, MAX_RESPONSE_BYTES).await?;
+                let records = data.get("results").and_then(Value::as_array)
+                    .ok_or_else(|| Error::InvalidResponse("OpenAerialMap response lacks a results array".into()))?;
+                if records.len() > 10000 {
+                    return Err(Error::InvalidResponse("Provider page exceeds the 10000-record limit".into()));
+                }
+                let mut items = Vec::new();
+                for record in records {
+                    let scene = normalize_oam_record(record, &self.id, &boxes)?;
+                    if seen.insert(scene.id.clone()) { items.push(scene); }
+                }
+                let matched = data.get("meta").and_then(|meta| meta.get("found")).and_then(Value::as_u64);
+                let has_next = records.len() == limit
+                    && matched.is_none_or(|total| (number as u64) * (limit as u64) < total);
+                page_number += 1;
+                pages.push(SearchPage { provider_id: self.id.clone(), items, page_number, has_next, matched, skipped: 0 });
+                // Pages are materialised here, so stop at the query's page cap like the STAC
+                // provider instead of looping over a large result set.
+                if !has_next || page_number >= query.max_pages { break 'boxes; }
+                number += 1;
+            }
+        }
+        Ok(pages)
+    }
+    pub async fn search(&self, query: &SearchQuery) -> Result<Vec<Scene>, Error> {
+        Ok(self.search_pages(query).await?.into_iter().flat_map(|page| page.items).collect())
+    }
+}
+/// OpenAerialMap provider with a default page size.
+pub fn open_aerial_map(limit: u32) -> Result<OamProvider, Error> { OamProvider::new(limit) }
+
 /// A provider that can be registered with a [`SatelliteCatalog`].
 #[derive(Clone)]
 pub enum CatalogProvider {
     Stac(StacProvider),
     Asf(AsfProvider),
     Jaxa(JaxaProvider),
+    Oam(OamProvider),
 }
 impl CatalogProvider {
     pub fn id(&self) -> &str {
@@ -960,6 +1098,7 @@ impl CatalogProvider {
             CatalogProvider::Stac(p) => p.id(),
             CatalogProvider::Asf(p) => p.id(),
             CatalogProvider::Jaxa(p) => p.id(),
+            CatalogProvider::Oam(p) => p.id(),
         }
     }
     /// Returns pages collected before any error, alongside the error.
@@ -970,6 +1109,9 @@ impl CatalogProvider {
                 Ok(pages) => (pages, None), Err(error) => (Vec::new(), Some(error)),
             },
             CatalogProvider::Jaxa(p) => match p.search_pages(query).await {
+                Ok(pages) => (pages, None), Err(error) => (Vec::new(), Some(error)),
+            },
+            CatalogProvider::Oam(p) => match p.search_pages(query).await {
                 Ok(pages) => (pages, None), Err(error) => (Vec::new(), Some(error)),
             },
         }
@@ -1087,6 +1229,47 @@ mod tests {
         assert_eq!(scene.preview_url.as_deref(), Some("https://example.test/b.png"));
         assert_eq!(scene.access, "authentication-required", "ASF downloads need Earthdata login");
         assert_eq!(AsfProvider::sentinel1().unwrap().id(), "asf-vertex");
+    }
+    #[test]
+    fn oam_record_normalizes_aerial_imagery() {
+        let record = json!({
+            "_id": "a1",
+            "acquisition_start": "2021-04-30T22:00:00.000Z",
+            "acquisition_end": "2021-05-01T02:00:00.000Z",
+            "bbox": [5.847374, 50.87125, 5.847564, 50.871908],
+            "footprint": "POLYGON ((5.847374 50.87125, 5.847564 50.87125, 5.847564 50.871908, 5.847374 50.871908, 5.847374 50.87125))",
+            "geojson": {"type":"Polygon","coordinates":[[[5.847374,50.871908],[5.847564,50.87125],[5.847374,50.871908]]]},
+            "gsd": 0.0027583900000251026,
+            "platform": "uav",
+            "meta_uri": "https://oin-hotosm.s3.amazonaws.com/a1/0/meta.json",
+            "uuid": "https://oin-hotosm.s3.amazonaws.com/a1/0/a1.tif",
+            "properties": {"tilejson": "https://tiles.openaerialmap.org/cog/tilejson.json?url=a1"}
+        });
+        let scene = normalize_oam_record(&record, "open-aerial-map", &[]).unwrap();
+        assert_eq!(scene.provider_id, "open-aerial-map");
+        assert_eq!(scene.id, "a1");
+        assert_eq!(scene.collection, "openaerialmap");
+        assert_eq!(scene.acquired_at, "2021-04-30T22:00:00.000Z");
+        assert_eq!(scene.mission.as_deref(), Some("uav"));
+        assert_eq!(scene.bbox.as_ref().map(Vec::len), Some(4));
+        assert_eq!(scene.geometry.as_ref().and_then(|g| g.get("type")).and_then(Value::as_str), Some("Polygon"));
+        assert_eq!(scene.gsd_meters, None, "the provider's gsd is in degrees and inconsistently scaled");
+        assert_eq!(scene.access, "unknown", "per-image licences vary");
+        assert_eq!(scene.preview_url, None, "OpenAerialMap publishes no preview thumbnail");
+        let tiles = scene.assets.iter().find(|a| a.roles.iter().any(|r| r == "tiles")).unwrap();
+        assert!(tiles.href.contains("tilejson"));
+        // A bbox rectangle is used when the provider omits `geojson`.
+        let without = json!({"_id":"b1","acquisition_start":"2021-04-30T22:00:00.000Z",
+            "bbox":[5.847374,50.87125,5.847564,50.871908]});
+        let fallback = normalize_oam_record(&without, "open-aerial-map", &[]).unwrap();
+        let ring = fallback.geometry.unwrap()["coordinates"][0].clone();
+        assert_eq!(ring[0], json!([5.847374, 50.871908]));
+        // Unusable records and provider options are explicit failures.
+        assert!(matches!(normalize_oam_record(&json!({"acquisition_start":"2021-04-30T22:00:00.000Z"}),
+            "open-aerial-map", &[]), Err(Error::InvalidResponse(_))));
+        assert!(matches!(OamProvider::new(0), Err(Error::InvalidProvider(_))));
+        assert!(matches!(OamProvider::new(101), Err(Error::InvalidProvider(_))));
+        assert!(OamProvider::new(50).is_ok());
     }
     #[test]
     fn declared_imagery_access_maps_registry_and_refinements() {

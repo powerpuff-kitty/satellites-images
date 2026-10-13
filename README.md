@@ -33,7 +33,7 @@ This package does **not** process pixels, guarantee coverage, promise free downl
 
 ## Feature matrix
 
-The registry records **16 catalogues**, **8 searchable today**. "Shipped" means the code exists and a test or a documented check covers it; "Planned" means recorded but not implemented.
+The registry records **16 catalogues**, **9 searchable today**. "Shipped" means the code exists and a test or a documented check covers it; "Planned" means recorded but not implemented — the registry records *why* each one is where it is.
 
 | Capability | Where | Status |
 | --- | --- | --- |
@@ -42,11 +42,14 @@ The registry records **16 catalogues**, **8 searchable today**. "Shipped" means 
 | Normalised scene metadata: UTC timestamp, footprint, preview, band assets, GSD, access | TypeScript · Python · Rust | Shipped |
 | Provider registry with access terms and implementation flags (`listSources()`) | TypeScript · Python · Rust · explorer panel | Shipped |
 | Adapters: Earth Search, Planetary Computer, Copernicus Data Space, USGS LandsatLook, NASA CMR-STAC, ASF Vertex, JAXA G-Portal | TypeScript · Python · Rust | Shipped |
+| OpenAerialMap aerial imagery (bbox + acquisition window, `tilejson` assets) | TypeScript · Python · Rust · explorer (opt-in catalogue) | Shipped |
 | Distinguish `planned` and `predicted` acquisitions (official ESA Sentinel plans) | TypeScript · Python · Rust · explorer (Upcoming) | Shipped |
 | Pagination with explicit complete/partial signals, page caps, retry/backoff, typed errors | TypeScript · Python · Rust | Shipped |
 | Explorer: MapLibre map, radar and 0.6 m NAIP imagery, native-resolution tiles, day matrix, filters, permalinks, keyboard access | explorer | Shipped |
 | Packages published to npm, PyPI and crates.io | — | Planned (owner approval) |
-| EUMETSAT, NASA GIBS, NOAA GOES, OpenAerialMap, and commercial sources (Planet, SkyFi, UP42, Vantor) | registry only | Planned |
+| EUMETSAT Data Store | registry only | Planned (needs a registered account) |
+| Planet, SkyFi, UP42, Vantor | registry only | Planned (needs **your** paid/entitled credentials; the SDK never embeds secrets in browser builds) |
+| NASA GIBS, NOAA GOES | registry only | Not planned (tile and object-storage imagery services, not scene catalogues) |
 | Pixel processing, orbital prediction, pricing or order placement | — | Not planned |
 
 ## Packages

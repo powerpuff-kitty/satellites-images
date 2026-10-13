@@ -11,6 +11,13 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 ## [Unreleased]
 
 ### Added
+- OpenAerialMap adapter (crowdsourced aerial imagery, drone/aircraft) in TypeScript, Python and
+  Rust: anonymous `/meta` search with a bbox and a server-side acquisition window
+  (`acquisition_from`/`acquisition_to`), `page`/`limit` paging driven by the provider's
+  `meta.found`, and each record's `tilejson` exposed as a `tiles` asset so the explorer can
+  render it. Records publish no preview thumbnail and the provider's `gsd` is in degrees at
+  scales that disagree between records, so `gsdMeters` stays `null` and the raw value is kept.
+  Also available as an opt-in catalogue in the explorer and covered by the live smoke test.
 - GeoJSON `Polygon`/`MultiPolygon` area-of-interest search with antimeridian-safe
   bounding boxes and coverage scoring across TypeScript, Python and Rust.
 - ESA acquisition-plan coverage/freshness diagnostics (`upcomingWithDiagnostics` /

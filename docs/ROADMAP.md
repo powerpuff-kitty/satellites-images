@@ -33,7 +33,7 @@
 
 ## Later
 
-- [ ] JAXA G-Portal (CSW/OpenSearch) and commercial SkyFi/UP42/Planet/Vantor integrations
+- [ ] Commercial SkyFi/UP42/Planet/Vantor integrations — blocked on owner-supplied, entitled credentials; no secrets in browser builds. EUMETSAT Data Store needs a registered account. NASA GIBS (rendered tiles) and NOAA GOES (object listings) are imagery services rather than scene catalogues, so the scene-search adapter model does not apply to them.
 - [ ] Orbit prediction independent of officially scheduled acquisitions
 - [ ] Exact (non-bbox) geometric coverage scoring and imagery asset-access verification
 - [ ] Connection to standalone satellite-diff-map raster comparison and exports
