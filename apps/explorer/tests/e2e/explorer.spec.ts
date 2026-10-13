@@ -335,7 +335,7 @@ test("upcoming view overlays published-so-far against planned", async ({ page })
 
 test("the day matrix plots one 12x12 px cell per day across the loaded year", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
-    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
+    json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z", "sentinel-2b"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
   await page.goto("/");
   await setRange(page, "2025-03-01", "2025-03-31");
   await expect(page.locator("#results li")).toHaveCount(3);
@@ -486,6 +486,20 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   expect(Number(new URL(page.url()).searchParams.get("zoom"))).toBe(zoomBefore);
   await page.keyboard.press("Escape");
   await expect(page.locator("#map-preview")).toBeHidden();
+});
+
+test("cross-catalogue copies of one tile merge; different acquisitions stay", async ({ page }) => {
+  // The same tile from both catalogues: different ids, timestamps ~25 min apart, and a
+  // footprint that differs by a rounding-sized amount.
+  const earthSearch = stacScene("es-copy", "2025-03-10T02:40:00Z");
+  const planetary = { ...stacScene("pc-copy", "2025-03-10T02:16:00Z"), bbox: [116.0, -8.7, 116.3, -8.41] };
+  const otherDay = stacScene("other-day", "2025-03-11T02:16:00Z");
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [earthSearch, planetary, otherDay], [], 3) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  // The two copies collapse; the second acquisition is kept.
+  await expect(page.locator("#results li")).toHaveCount(2);
 });
 
 test("the previewed image's card is highlighted with a left border", async ({ page }) => {

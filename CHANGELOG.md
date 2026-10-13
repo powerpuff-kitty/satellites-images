@@ -167,6 +167,11 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: cross-catalogue duplicates now merge properly — the key is collection + platform +
+  UTC day + a 0.5°-snapped footprint, because the two catalogues disagree on the timestamp
+  (seconds for Landsat, ~25 minutes for the same Sentinel-2 tile) and on the footprint by a
+  rounding-sized amount. Different tiles of one overpass stay separate (verified live:
+  47 items → 27, every merged group exactly two, no over-merge).
 - Explorer: roomier result cards (`20px × 12px` padding) inside a tighter right-hand panel
   (10px horizontal, 16px bottom), with a slimmer sticky header.
 - Explorer: the matrix **⋯ More** control now lines up vertically with the metric links (its

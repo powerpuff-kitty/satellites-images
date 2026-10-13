@@ -846,13 +846,17 @@ function highlightScene(scene:Scene|undefined):void {
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
 }
-// Earth Search and Planetary Computer both carry the same scenes under different ids, so
-// merge them on display by collection + acquisition time + footprint.
+// The catalogues carry the same scenes under different ids and disagree slightly on the
+// timestamp (seconds apart for Landsat, ~25 minutes apart for the same Sentinel-2 tile) and
+// on the footprint (a 0.01 deg rounding difference). Merge on collection + platform + UTC day
+// + a 0.5 deg-snapped footprint, which collapses those copies while keeping genuinely
+// different tiles of one overpass (their footprints differ by ~1 deg) apart.
 function sceneKey(scene:Scene):string {
+  const snap=(value:number)=>String(Math.round(value*2)/2);
   const box=Array.isArray(scene.bbox)&&scene.bbox.length===4
-    ?scene.bbox.map((value)=>value.toFixed(4)).join(",")
+    ?scene.bbox.map(snap).join(",")
     :"";
-  return scene.collection+"|"+scene.acquiredAt+"|"+box;
+  return [scene.collection,(scene.mission??"").toLowerCase(),scene.acquiredAt.slice(0,10),box].join("|");
 }
 function dedupeScenes(scenes:Scene[]):Scene[] {
   const seen=new Set<string>();

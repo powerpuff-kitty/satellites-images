@@ -50,7 +50,10 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
 
 The explorer loads **one year at a time** (the current calendar year by default), queried from
 **both Earth Search and Planetary Computer together** — one request per catalogue for the whole
-window; the same scene returned by both is shown once (merged on display). Earth Search covers
+window; the same scene returned by both is shown once — merged on collection + platform +
+UTC day + a 0.5°-snapped footprint, because the catalogues disagree slightly on the timestamp
+(seconds for Landsat, ~25 minutes for an identical Sentinel-2 tile) and on the footprint
+rounding. Different tiles of one overpass stay separate. Earth Search covers
 Sentinel-2 L2A and Landsat C2 L2; Planetary Computer adds **Sentinel-1 RTC** radar (~10 m,
 grayscale backscatter, no cloud cover) and **NAIP** aerial imagery (**0.6 m**, US). A search loads every provider page (in five-page
 batches, up to a 50-page safety cap) so the day matrix covers the full year without manual
