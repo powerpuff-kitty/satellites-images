@@ -751,6 +751,147 @@ class JaxaGPortal:
                              matched if isinstance(matched, int) and not isinstance(matched, bool) else None)
 
 
+OPEN_AERIAL_MAP_ENDPOINT = "https://api.openaerialmap.org/meta"
+
+
+def _numeric_bbox(value: Any) -> list[float] | None:
+    if (isinstance(value, list) and len(value) == 4 and all(
+            isinstance(entry, (int, float)) and not isinstance(entry, bool) and math.isfinite(entry)
+            for entry in value)):
+        return [float(entry) for entry in value]
+    return None
+
+
+def _geojson_geometry(value: Any) -> dict[str, Any] | None:
+    geometry = _dictionary(value)
+    if geometry.get("type") in ("Polygon", "MultiPolygon") and isinstance(geometry.get("coordinates"), list):
+        return geometry
+    return None
+
+
+def normalize_oam_record(raw: Any, provider_id: str = "open-aerial-map",
+                         boxes: list[list[float]] | None = None) -> Scene:
+    """Map one OpenAerialMap record to a normalized scene.
+
+    These are drone/aircraft images rather than satellite scenes: there is no cloud metadata, and
+    the provider reports ``gsd`` in **degrees** at scales that disagree between records (observed
+    1.9e-7 and 2.8e-3 for comparable UAV captures), so it is kept in ``raw`` instead of being
+    guessed into metres. Per-image licences vary — the API itself is CC-BY 4.0 — so the declared
+    access class stays ``unknown``.
+    """
+    obj = _dictionary(raw)
+    identifier = obj.get("_id")
+    when = obj.get("acquisition_start") or obj.get("acquisition_end")
+    if not isinstance(identifier, str) or not isinstance(when, str):
+        raise SatelliteError("INVALID_RESPONSE", "OpenAerialMap record lacks an id or acquisition time", provider_id)
+    try:
+        parsed = datetime.fromisoformat(when.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("Missing timezone")
+        acquired = parsed.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    except ValueError:
+        raise SatelliteError("INVALID_RESPONSE", "Invalid OpenAerialMap acquisition time", provider_id) from None
+    assets: list[SceneAsset] = []
+    tilejson = _dictionary(obj.get("properties")).get("tilejson")
+    if isinstance(tilejson, str) and tilejson:
+        assets.append(SceneAsset("tilejson", tilejson, "application/json", ("tiles",)))
+    source = obj.get("uuid")
+    if isinstance(source, str) and source:
+        assets.append(SceneAsset("data", source, None, ("data",)))
+    bbox = _numeric_bbox(obj.get("bbox"))
+    # The provider's own ``geojson`` when present, else the bbox as a rectangle (the WKT
+    # ``footprint`` is retained in ``raw``).
+    geometry = _geojson_geometry(obj.get("geojson"))
+    if geometry is None and bbox is not None:
+        west, south, east, north = bbox
+        geometry = {"type": "Polygon",
+                    "coordinates": [[[west, north], [east, north], [east, south], [west, south], [west, north]]]}
+    return Scene(
+        provider_id=provider_id,
+        id=identifier,
+        collection="openaerialmap",
+        acquired_at=acquired,
+        mission=obj.get("platform") if isinstance(obj.get("platform"), str) else "openaerialmap",
+        geometry=geometry,
+        bbox=bbox,
+        cloud_cover_percent=None,
+        preview_url=None,
+        access=declared_imagery_access(provider_id),
+        assets=tuple(assets),
+        source_url=obj.get("meta_uri") if isinstance(obj.get("meta_uri"), str) else None,
+        raw=obj,
+        gsd_meters=None,
+        coverage_percent=coverage_percent(bbox, boxes) if boxes and bbox else None,
+    )
+
+
+class OpenAerialMap:
+    """OpenAerialMap metadata adapter.
+
+    Crowdsourced aerial imagery (drone/aircraft, not satellite) over an anonymous API:
+    ``GET api.openaerialmap.org/meta?bbox=&acquisition_from=&acquisition_to=&limit=&page=``.
+    The acquisition window is filtered server-side and mapped from the query's start/end;
+    ``meta.found`` is the provider's total for that filter and ``has_next`` derives from it.
+    No preview thumbnail is published — each record instead carries a ``tilejson`` asset, which
+    the explorer can render on the map at native resolution.
+    """
+
+    id = "open-aerial-map"
+
+    def __init__(self, limit: int = 50, transport: Transport | None = None):
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise SatelliteError("INVALID_PROVIDER", "OpenAerialMap limit must be an integer between 1 and 100", self.id)
+        self.limit = limit
+        self._transport = transport or _http_json
+
+    def search(self, query: SearchQuery) -> Iterator[SearchPage]:
+        boxes, _ = resolve_areas(query)
+        limit = min(self.limit, query.limit)
+        seen: set[str] = set()
+        page = 0
+        for box in boxes:
+            number = 1
+            while True:
+                params = {
+                    "bbox": ",".join(f"{value:.6f}" for value in box),
+                    "acquisition_from": query.start,
+                    "acquisition_to": query.end,
+                    "limit": limit,
+                    "page": number,
+                }
+                url = OPEN_AERIAL_MAP_ENDPOINT + "?" + urlencode(params)
+                try:
+                    result = self._transport(url, "GET", None)
+                except SatelliteError as exc:
+                    if exc.provider_id is None:
+                        exc.provider_id = self.id
+                    raise
+                except Exception as exc:
+                    raise SatelliteError("NETWORK", "OpenAerialMap request failed: " + str(exc), self.id) from exc
+                if not isinstance(result, dict):
+                    raise SatelliteError("INVALID_RESPONSE", "OpenAerialMap response must be an object", self.id)
+                records = result.get("results")
+                if not isinstance(records, list):
+                    raise SatelliteError("INVALID_RESPONSE", "OpenAerialMap response lacks a results array", self.id)
+                if len(records) > 10000:
+                    raise SatelliteError("INVALID_RESPONSE", "Provider page exceeds the 10000-record limit", self.id)
+                items: list[Scene] = []
+                for record in records:
+                    scene = normalize_oam_record(record, self.id, boxes)
+                    if scene.id in seen:
+                        continue
+                    seen.add(scene.id)
+                    items.append(scene)
+                page += 1
+                found = _dictionary(result.get("meta")).get("found")
+                matched = found if isinstance(found, int) and not isinstance(found, bool) else None
+                has_next = len(records) == limit and (matched is None or number * limit < matched)
+                yield SearchPage(self.id, tuple(items), page, has_next, matched)
+                if not has_next:
+                    break
+                number += 1
+
+
 class EarthSearch(StacProvider):
     def __init__(self, transport: Transport | None = None, **kwargs: Any):
         super().__init__(

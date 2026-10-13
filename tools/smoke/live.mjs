@@ -6,7 +6,7 @@
 //
 // No credentials are used; results are whatever the public services return today.
 import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook,
-  cmrStac, asfSearch, jaxaGPortal, esaSentinelPlans } from "../../packages/typescript/dist/index.js";
+  cmrStac, asfSearch, jaxaGPortal, openAerialMap, esaSentinelPlans } from "../../packages/typescript/dist/index.js";
 
 const base = { latitude: -8.5833, longitude: 116.1167, radiusMeters: 25000, maxPages: 1, limit: 5 };
 async function run(name, fn) {
@@ -31,6 +31,9 @@ await run("cmr-stac ASF", () => count(cmrStac("ASF", ["sentinel-1-rtc"]), { ...b
 await run("asf-search", () => count(asfSearch(), { ...base, from: "2025-05-01", to: "2025-05-02" }));
 // JAXA: small AOI + day; verifies the CSW granule endpoint and the bbox request shape.
 await run("jaxa-gportal", () => count(jaxaGPortal({ datasetId: "10002002" }), { ...base, from: "2021-07-07", to: "2021-07-07" }));
+// OpenAerialMap: a window it has coverage for; verifies the acquisition_from/to + paging shape.
+await run("open-aerial-map", () => count(openAerialMap({ limit: 5 }),
+  { latitude: 50.871, longitude: 5.847, radiusMeters: 2000, maxPages: 1, limit: 5, from: "2021-04-01", to: "2021-06-30" }));
 await run("esa-plans", async () => {
   const catalog = new SatelliteCatalog([earthSearch()], [esaSentinelPlans()]);
   const planned = await catalog.upcoming({ latitude: -8.5833, longitude: 116.1167, radiusMeters: 25000, days: 14 });

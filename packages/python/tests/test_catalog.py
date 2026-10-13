@@ -1,9 +1,9 @@
 import unittest
 
 from satellites_images import (
-    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, PlanetaryComputer, SatelliteCatalog, SatelliteError,
+    AsfSearch, CmrStac, CopernicusDataSpace, EarthSearch, JaxaGPortal, OpenAerialMap, PlanetaryComputer, SatelliteCatalog, SatelliteError,
     SearchQuery, UsgsLandsatLook, to_json,
-    bounds_around, coverage_percent, declared_imagery_access, list_sources,
+    bounds_around, coverage_percent, declared_imagery_access, list_sources, normalize_oam_record,
     polygon_boxes, radius_boxes, resolve_areas,
 )
 import json
@@ -23,6 +23,24 @@ SAMPLE = {
     ],
 }
 
+
+def oam_record(identifier, start, **overrides):
+    record = {
+        "_id": identifier,
+        "acquisition_start": start,
+        "acquisition_end": start,
+        "bbox": [5.847374, 50.87125, 5.847564, 50.871908],
+        "footprint": "POLYGON ((5.847374 50.87125, 5.847564 50.87125, 5.847564 50.871908, 5.847374 50.871908, 5.847374 50.87125))",
+        "geojson": {"type": "Polygon", "coordinates": [[[5.847374, 50.871908], [5.847564, 50.87125], [5.847374, 50.871908]]]},
+        "gsd": 0.0027583900000251026,
+        "platform": "uav",
+        "provider": "Showcase project",
+        "meta_uri": "https://oin-hotosm.s3.amazonaws.com/" + identifier + "/0/meta.json",
+        "uuid": "https://oin-hotosm.s3.amazonaws.com/" + identifier + "/0/" + identifier + ".tif",
+        "properties": {"tilejson": "https://tiles.openaerialmap.org/cog/tilejson.json?url=" + identifier},
+    }
+    record.update(overrides)
+    return record
 
 class CatalogTests(unittest.TestCase):
     def setUp(self):
@@ -126,6 +144,55 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(pages[0].items[0].preview_url, "https://example.test/asf-browse.png")
         self.assertEqual(pages[0].items[0].access, "authentication-required",
                          "ASF downloads need Earthdata login")
+
+    def test_open_aerial_map_adapter_pages_and_normalizes(self):
+        seen = []
+        page_one = {"meta": {"provided_by": "OpenAerialMap", "page": 1, "limit": 2, "found": 4},
+                    "results": [oam_record("a1", "2021-04-30T22:00:00.000Z"), oam_record("a2", "2021-05-01T22:00:00.000Z")]}
+        page_two = {"meta": {"provided_by": "OpenAerialMap", "page": 2, "limit": 2, "found": 4},
+                    "results": [oam_record("a2", "2021-05-01T22:00:00.000Z"), oam_record("a3", "2021-05-02T22:00:00.000Z")]}
+
+        def transport(url, method, body):
+            seen.append(url)
+            return page_one if len(seen) == 1 else page_two
+
+        query = SearchQuery(latitude=50.871, longitude=5.847, radius_meters=2000,
+                            start="2021-04-01", end="2021-06-30", limit=2)
+        pages = list(OpenAerialMap(limit=2, transport=transport).search(query))
+        self.assertTrue(seen[0].startswith("https://api.openaerialmap.org/meta?"))
+        self.assertIn("acquisition_from=2021-04-01", seen[0])
+        self.assertIn("acquisition_to=2021-06-30", seen[0])
+        self.assertIn("limit=2", seen[0])
+        self.assertIn("page=1", seen[0])
+        self.assertIn("page=2", seen[1])
+        self.assertEqual(len(pages), 2)
+        self.assertTrue(pages[0].has_next)
+        self.assertEqual(pages[0].matched, 4)
+        self.assertEqual(len(pages[1].items), 1, "the repeated id is dropped")
+        self.assertFalse(pages[1].has_next)
+        scene = pages[0].items[0]
+        self.assertEqual(scene.provider_id, "open-aerial-map")
+        self.assertEqual(scene.id, "a1")
+        self.assertEqual(scene.collection, "openaerialmap")
+        self.assertEqual(scene.acquired_at, "2021-04-30T22:00:00.000Z")
+        self.assertEqual(scene.mission, "uav")
+        self.assertEqual(scene.bbox, [5.847374, 50.87125, 5.847564, 50.871908])
+        self.assertEqual(scene.geometry["type"], "Polygon")
+        self.assertIsNone(scene.gsd_meters, "the provider's gsd is in degrees and inconsistently scaled")
+        self.assertEqual(scene.access, "unknown", "per-image licences vary")
+        self.assertIsNone(scene.preview_url)
+        tiles = next(asset for asset in scene.assets if "tiles" in asset.roles)
+        self.assertIn("tilejson", tiles.href)
+
+    def test_open_aerial_map_bbox_fallback_and_validation(self):
+        scene = normalize_oam_record(oam_record("b1", "2021-04-30T22:00:00.000Z", geojson=None))
+        self.assertEqual(scene.geometry["coordinates"][0][0], [5.847374, 50.871908])
+        with self.assertRaises(SatelliteError) as context:
+            normalize_oam_record({"_id": "no-date"})
+        self.assertEqual(context.exception.code, "INVALID_RESPONSE")
+        for limit in (0, 101):
+            with self.assertRaises(SatelliteError):
+                OpenAerialMap(limit=limit)
 
     def test_declared_imagery_access(self):
         # Registry-derived defaults.
