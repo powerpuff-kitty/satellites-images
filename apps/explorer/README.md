@@ -92,6 +92,10 @@ The "select any location" prompt disappears once a location is chosen, and scene
 **resolution** and **AOI coverage**, while planned datatakes show their **status** and
 **datatake window**.
 
+Filters cover satellite, collection, catalogue (which provider returned it), cloud range,
+hour range, resolution, orbit direction, native-resolution tiles, has-preview and
+unknown-cloud; the date range is clamped to `1970-01-01` … today + 1 year.
+
 A **coverage** line under the filters summarises the loaded result set from the availability
 summary: observations shown, days with data, months, and a per-catalogue split (a trailing `+`
 marks a catalogue that still advertises more pages).

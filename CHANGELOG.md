@@ -167,6 +167,14 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   overlay always covers the location. The matrix header pairs the metric links with
   right-aligned **quick filters** (**All / Image / Radar**) and a **··· More** menu holding
   extra metrics (**Resolution, Sensor, Time of day, Orbit**).
+- Explorer: the scene card's **Show scene footprint** button is gone — the footprint is drawn
+  on the map together with the image and cleared when the overlay closes. The preview **‹ / ›**
+  arrows now step only through the **filtered/visible** observations, not every loaded scene.
+- Explorer: the date range is **clamped** to data that can exist (`1970-01-01` … today + 1 year)
+  and the grid renders at most ~2 years of it, so an extreme selection like 1900→2100 can no
+  longer build ~147k SVG nodes.
+- Explorer: three more filters — **Catalogue** (which provider returned the scene), **Orbit**
+  (ascending/descending from `sat:orbit_state`) and **Native-resolution tiles only**.
 - Explorer: the Upcoming tab's **Days ahead** select is gone — the plan query now uses the same
   horizon as the loaded range (now → the range end, up to a year), and the SDKs allow an
   upcoming window of up to 366 days (previously capped at 31, which a widened day bound did

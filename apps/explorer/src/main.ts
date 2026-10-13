@@ -35,6 +35,9 @@ const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
 const missionFilter = element<HTMLSelectElement>("mission-filter");
 const collectionFilter = element<HTMLSelectElement>("collection-filter");
+const providerFilter = element<HTMLSelectElement>("provider-filter");
+const orbitFilter = element<HTMLSelectElement>("orbit-filter");
+const tilesOnly = element<HTMLInputElement>("tiles-only");
 const cloudMin = element<HTMLSelectElement>("cloud-min");
 const cloudMax = element<HTMLSelectElement>("cloud-max");
 const hourMin = element<HTMLSelectElement>("hour-min");
@@ -174,7 +177,10 @@ for (const el of [lat,lon]) el.addEventListener("change", () => {
   }
 });
 for (const el of [radius]) el.addEventListener("change", scheduleForTab);
-for (const el of [from,to]) el.addEventListener("change", scheduleSearch);
+for (const el of [from,to]) el.addEventListener("change", () => {
+  if(clampSearchRange()) status.textContent="Search range clamped to "+MIN_SEARCH_DATE+" \u2026 "+maxSearchDate()+".";
+  scheduleSearch();
+});
 
 function icon(cls:string):HTMLElement {
   const node=document.createElement("i");
@@ -208,15 +214,6 @@ function makeScene(scene: Scene): HTMLLIElement {
   if (scene.gsdMeters !== null) item.append(line("Resolution", scene.gsdMeters + " m/pixel"));
   if (scene.coveragePercent !== null) item.append(line("Covers your area", scene.coveragePercent.toFixed(0) + "%"));
   item.append(line("Image access",scene.access==="unknown"?"Not verified":scene.access));
-  if (scene.geometry?.type==="Polygon" || scene.geometry?.type==="MultiPolygon") {
-    const inspect = document.createElement("button");
-    inspect.type = "button";
-    inspect.className = "scene-inspect";
-    inspect.textContent = "Show scene footprint";
-    inspect.append(icon("fa-expand"));
-    inspect.addEventListener("click",()=>highlightScene(scene));
-    item.append(inspect);
-  }
   const previewHref = previewUrlFor(scene);
   if (previewHref) {
     try {
@@ -393,6 +390,7 @@ async function showMapPreview(index:number):Promise<void> {
       paint:{"raster-opacity":0.96}});
   };
   if(map.isStyleLoaded())apply();else map.once("load",apply);
+  highlightScene(scene);   // the footprint is shown with the image, not by a card button
   previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
     new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
   mapPreview.hidden=false;
@@ -402,13 +400,14 @@ function closeMapPreview():void {
   if(mapPreview.hidden)return;
   mapPreview.hidden=true;
   removePreviewLayer();
+  highlightScene(undefined);
 }
 function stepPreview(delta:number):void {
   if(!previewScenes.length)return;
   void showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
 }
 function openScenePreview(scene:Scene):void {
-  const withPreviews=loadedScenes.filter(canOverlay);
+  const withPreviews=visibleScenes().filter(canOverlay);
   const index=withPreviews.indexOf(scene);
   if(index<0)return;
   previewScenes=withPreviews;
@@ -517,12 +516,18 @@ function matrixCellKeydown(event:KeyboardEvent, day:string):void {
     focusMatrixCell(day);   // the grid is rebuilt, so restore focus
   }
 }
+const MATRIX_MAX_DAYS=731;   // ~2 years: beyond this the grid is not renderable
+let matrixTruncated=false;
 function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
   matrixSvg.replaceChildren();
   const scenes=matrixItems, metric=matrixMetric;
-  const windowStart=from.value;
+  let windowStart=from.value;
   const windowEnd=to.value;
+  const spanDays=Math.round((Date.parse(windowEnd+"T00:00:00Z")-Date.parse(windowStart+"T00:00:00Z"))/86400000)+1;
+  matrixTruncated=spanDays>MATRIX_MAX_DAYS;
+  if(matrixTruncated)
+    windowStart=new Date(Date.parse(windowEnd+"T00:00:00Z")-(MATRIX_MAX_DAYS-1)*86400000).toISOString().slice(0,10);
   const windowFrom=Date.parse(windowStart+"T00:00:00Z");
   const windowTo=Date.parse(windowEnd+"T00:00:00Z");
   // Always draw the window's grid, even when nothing was returned, so the year never
@@ -680,6 +685,21 @@ let pendingCollectionFilter="";
 let displayedLimit=40;
 let searchErrored=false;
 
+const MIN_SEARCH_DATE="1970-01-01";
+function maxSearchDate():string {
+  return new Date(Date.now()+365*86400000).toISOString().slice(0,10);
+}
+/** Keeps the range inside data that can exist, so the grid stays renderable. */
+function clampSearchRange():boolean {
+  const low=MIN_SEARCH_DATE, high=maxSearchDate();
+  let changed=false;
+  if(from.value<low){ from.value=low; changed=true; }
+  if(to.value<low){ to.value=low; changed=true; }
+  if(from.value>high){ from.value=high; changed=true; }
+  if(to.value>high){ to.value=high; changed=true; }
+  if(from.value>to.value){ const swap=from.value; from.value=to.value; to.value=swap; changed=true; }
+  return changed;
+}
 function validDate(input:string):boolean {
   if(!/^\d{4}-\d{2}-\d{2}$/.test(input))return false;
   const time=Date.parse(input+"T00:00:00Z");
@@ -704,6 +724,8 @@ function restoreSearchLink():void {
     from.value=year+"-01-01";
     to.value=year+"-12-31";
   }
+  clampSearchRange();
+  for(const input of [from,to]) input.max=maxSearchDate();
   const restoredDay=params.get("day");
   if(restoredDay&&validDate(restoredDay)&&restoredDay>=from.value&&restoredDay<=to.value) {
     initialPermalinkDay=restoredDay;
@@ -737,6 +759,11 @@ function restoreSearchLink():void {
   if(wantedMission)pendingMissionFilter=wantedMission;
   const wantedCollection=params.get("collection");
   if(wantedCollection)pendingCollectionFilter=wantedCollection;
+  const wantedCatalogue=params.get("catalogue");
+  if(wantedCatalogue)providerFilter.value=wantedCatalogue;
+  const wantedOrbit=params.get("orbit");
+  if(wantedOrbit)orbitFilter.value=wantedOrbit;
+  tilesOnly.checked=params.get("tiles")==="1";
   const sensor=params.get("sensor");
   if(sensor==="optical"||sensor==="radar"||sensor==="all")sensorFilter=sensor;
   const wantedAoi=params.get("aoi");
@@ -760,7 +787,8 @@ function restoreSearchLink():void {
   });
 }
 const MANAGED_PARAMS=["lat","lon","radius","from","to","day","zoom","tab","metric","sensor",
-  "mission","collection","cloudmin","cloudmax","hmin","hmax","maxgsd","preview","unknown","src","aoi"];
+  "mission","collection","catalogue","orbit","tiles","cloudmin","cloudmax","hmin","hmax","maxgsd",
+  "preview","unknown","src","aoi"];
 function storeSearchLink():void {
   const url=new URL(window.location.href);
   for(const name of MANAGED_PARAMS)url.searchParams.delete(name);
@@ -775,6 +803,9 @@ function storeSearchLink():void {
   url.searchParams.set("sensor",sensorFilter);
   if(missionFilter.value)url.searchParams.set("mission",missionFilter.value);
   if(collectionFilter.value)url.searchParams.set("collection",collectionFilter.value);
+  if(providerFilter.value)url.searchParams.set("catalogue",providerFilter.value);
+  if(orbitFilter.value)url.searchParams.set("orbit",orbitFilter.value);
+  if(tilesOnly.checked)url.searchParams.set("tiles","1");
   if(cloudMin.value!=="")url.searchParams.set("cloudmin",cloudMin.value);
   if(cloudMax.value!=="")url.searchParams.set("cloudmax",cloudMax.value);
   if(hourMin.value!=="0")url.searchParams.set("hmin",hourMin.value);
@@ -862,6 +893,13 @@ function passesFilters(scene:Scene):boolean {
   }
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
   if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
+  if (providerFilter.value && scene.providerId !== providerFilter.value) return false;
+  if (orbitFilter.value) {
+    const state=rawProperties(scene)["sat:orbit_state"];
+    const orbit=typeof state==="string"?state.toLowerCase():"unknown";
+    if(orbit !== orbitFilter.value) return false;
+  }
+  if (tilesOnly.checked && !tileAssetFor(scene) && !PLANETARY_COMPUTER_RENDER[scene.collection]) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
   if (cloudMin.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent < Number(cloudMin.value)) return false;
   if (cloudMax.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent > Number(cloudMax.value)) return false;
@@ -872,7 +910,8 @@ function passesFilters(scene:Scene):boolean {
   return true;
 }
 function hasActiveFilters():boolean {
-  return Boolean(sensorFilter!=="all" || missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
+  return Boolean(sensorFilter!=="all" || tilesOnly.checked || providerFilter.value || orbitFilter.value ||
+    missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
     resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
 }
@@ -901,6 +940,17 @@ function updateFilterChoices():void {
   }
   collectionFilter.replaceChildren(collectionFragment);
   collectionFilter.value=collections.includes(wasCollection)?wasCollection:"";
+  const wasProvider=providerFilter.value;
+  const providers=[...new Set(loadedScenes.map(scene=>scene.providerId).filter(Boolean))].sort();
+  const providerFragment=document.createDocumentFragment();
+  const allProviders=document.createElement("option");
+  allProviders.value=""; allProviders.textContent="All catalogues"; providerFragment.append(allProviders);
+  for(const provider of providers) {
+    const option=document.createElement("option"); option.value=provider; option.textContent=provider;
+    providerFragment.append(option);
+  }
+  providerFilter.replaceChildren(providerFragment);
+  providerFilter.value=providers.includes(wasProvider)?wasProvider:"";
 }
 function summaryFromScenes(scenes:Scene[]):AvailabilitySummary {
   const days=new Map<string,{count:number;missions:Record<string,number>;collections:Record<string,number>}>();
@@ -923,9 +973,13 @@ function summaryFromScenes(scenes:Scene[]):AvailabilitySummary {
     truncatedProviders:currentSummary?.truncatedProviders??[], erroredProviders:currentSummary?.erroredProviders??[],
   };
 }
-function renderLoadedScenes():void {
-  const visible=loadedScenes.filter(scene=>
+/** The scenes the app is currently showing: filters + optional selected day. */
+function visibleScenes():Scene[] {
+  return loadedScenes.filter(scene=>
     passesFilters(scene) && (!selectedDay || scene.acquiredAt.slice(0,10)===selectedDay));
+}
+function renderLoadedScenes():void {
+  const visible=visibleScenes();
   const selected=visible.slice(0,displayedLimit);
   const fragment=document.createDocumentFragment();
   for(const scene of selected)fragment.append(makeScene(scene));
@@ -952,6 +1006,7 @@ function renderCoverage():void {
     shown+" observation"+(shown===1?"":"s")+" shown",
     days+" day"+(days===1?"":"s")+" with data",
     months+" month"+(months===1?"":"s"),
+    matrixTruncated?"grid shows the last 2 years":
     catalogues.join(" \u00b7 "),
     failed.length?failed.join(", ")+" failed":"",
   ].filter((part)=>part.length>0).join(" \u00b7 ");
@@ -1015,7 +1070,8 @@ clearFilters.addEventListener("click",()=>{
   sensorFilter="all";
   for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
     button.setAttribute("aria-pressed",String(button.dataset.sensor==="all"));
-  missionFilter.value=""; collectionFilter.value=""; cloudMin.value=""; cloudMax.value="";
+  missionFilter.value=""; collectionFilter.value=""; providerFilter.value=""; orbitFilter.value="";
+  tilesOnly.checked=false; cloudMin.value=""; cloudMax.value="";
   hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;
   displayedLimit=40; redrawAvailability(); renderLoadedScenes();
 });
@@ -1034,7 +1090,7 @@ missionFilter.addEventListener("change",()=>{
   redrawAvailability();
   renderLoadedScenes();
 });
-for(const control of [missionFilter,collectionFilter,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown]) control.addEventListener("change",()=>{
+for(const control of [missionFilter,collectionFilter,providerFilter,orbitFilter,tilesOnly,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown]) control.addEventListener("change",()=>{
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();

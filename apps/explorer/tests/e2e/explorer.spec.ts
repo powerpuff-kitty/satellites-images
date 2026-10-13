@@ -131,6 +131,46 @@ test("the map prompt disappears once a location is chosen", async ({ page }) => 
   await expect(page.locator("#map-label")).toBeHidden();
 });
 
+test("an out-of-range date selection is clamped and the grid stays bounded", async ({ page }) => {
+  await page.route("**/search", (route) => respond(route, { json: collection(
+    [stacScene("c1", "2025-03-10T02:00:00Z")], [], 1) }));
+  await page.goto("/");
+  await page.locator("#date-from").fill("1900-01-01");
+  await page.locator("#date-to").fill("2100-12-31");
+  await page.locator("#date-to").dispatchEvent("change");
+  // Nothing optical predates Landsat-1, and nothing is published a year ahead.
+  await expect(page.locator("#date-from")).toHaveValue("1970-01-01");
+  // The grid renders at most ~2 years even though the range is much wider.
+  await expect.poll(async () => page.locator("#matrix-svg .matrix-cell").count()).toBeGreaterThan(700);
+  const cells = await page.locator("#matrix-svg .matrix-cell").count();
+  expect(cells).toBeLessThanOrEqual(750);
+  await expect(page.locator("#coverage")).toContainText(/last 2 years/);
+});
+
+test("catalogue, orbit and native-tile filters narrow the results", async ({ page }) => {
+  const a = stacScene("a1", "2025-03-10T02:00:00Z");
+  (a.properties as Record<string, unknown>)["sat:orbit_state"] = "ascending";
+  a.assets.tiles = { href: "https://example.test/tilejson.json", roles: ["tiles"], type: "application/json" };
+  // A collection with no Planetary Computer render mapping, so the tile filter can exclude it.
+  const b = { ...stacScene("b1", "2025-03-11T02:00:00Z"), collection: "landsat-c2-l1" };
+  (b.properties as Record<string, unknown>)["sat:orbit_state"] = "descending";
+  await page.route("**/search", (route) => respond(route, { json: collection([a, b], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  // The merged result keeps one copy per scene, so the catalogue filter lists that source.
+  expect(await page.locator("#provider-filter option").count()).toBeGreaterThan(1);
+  // Orbit comes from the catalogue metadata.
+  await page.selectOption("#orbit-filter", "descending");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.selectOption("#orbit-filter", "");
+  // Only the scene with a native-resolution tile set survives.
+  await page.locator("#tiles-only").check();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator("#tiles-only").uncheck();
+  await expect(page.locator("#results li")).toHaveCount(2);
+});
+
 test("the form defaults to the full calendar year", async ({ page }) => {
   await page.goto("/");
   const year = new Date().toISOString().slice(0, 4);
@@ -434,6 +474,26 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   expect(Number(new URL(page.url()).searchParams.get("zoom"))).toBe(zoomBefore);
   await page.keyboard.press("Escape");
   await expect(page.locator("#map-preview")).toBeHidden();
+});
+
+test("the arrows step only through the filtered observations", async ({ page }) => {
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("**/search", (route) => respond(route, { json: collection([
+    stacScene("a1", "2025-03-10T02:00:00Z"), stacScene("b1", "2025-03-11T02:00:00Z")], [], 2) }));
+  await page.goto("/");
+  await setRange(page, "2025-03-01", "2025-03-31");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  // The per-card footprint button is gone...
+  await expect(page.locator(".scene-inspect")).toHaveCount(0);
+  // ...and with one day selected the arrows stay inside the filtered set.
+  await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]').click();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.locator("#results img").click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  const caption = (await page.locator("#preview-caption").textContent()) ?? "";
+  await page.locator("#preview-next").click();
+  await expect(page.locator("#preview-caption")).toHaveText(caption);
 });
 
 test("the card and map preview prefer a higher-resolution provider asset", async ({ page }) => {

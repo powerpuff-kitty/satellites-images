@@ -30,8 +30,8 @@
 
           <section id="panel-historical" role="tabpanel" aria-labelledby="tab-historical">
             <div class="pair">
-              <label>From<input id="date-from" type="date" value="2025-01-01" required></label>
-              <label>To<input id="date-to" type="date" value="2025-12-31" required></label>
+              <label>From<input id="date-from" type="date" min="1970-01-01" value="2025-01-01" required></label>
+              <label>To<input id="date-to" type="date" min="1970-01-01" value="2025-12-31" required></label>
             </div>
             <section class="history-calendar" aria-label="Historical observation availability">
               <div class="heading">
@@ -40,6 +40,8 @@
               </div>
               <label class="mission-field">Satellite<select id="mission-filter" aria-label="Filter observations by satellite"><option value="">All satellites</option></select></label>
               <label class="mission-field">Collection<select id="collection-filter" aria-label="Filter observations by collection"><option value="">All collections</option></select></label>
+              <label class="mission-field">Catalogue<select id="provider-filter" aria-label="Filter observations by catalogue"><option value="">All catalogues</option></select></label>
+              <label class="mission-field">Orbit<select id="orbit-filter" aria-label="Filter observations by orbit direction"><option value="">Any orbit</option><option value="ascending">Ascending</option><option value="descending">Descending</option><option value="unknown">Unknown</option></select></label>
               <div class="pair filter-pair">
                 <label>Cloud ≥<select id="cloud-min" aria-label="Minimum scene cloud cover"></select></label>
                 <label>Cloud ≤<select id="cloud-max" aria-label="Maximum scene cloud cover"></select></label>
@@ -53,6 +55,7 @@
                 <label class="check-label"><input type="checkbox" id="has-preview"> Has preview</label>
               </div>
               <label class="check-label filters-unknown"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
+              <label class="check-label filters-tiles"><input type="checkbox" id="tiles-only"> Native-resolution tiles only</label>
               <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
               <p id="coverage" class="status" role="status"></p>
               <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>
