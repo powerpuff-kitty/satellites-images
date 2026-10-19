@@ -1,0 +1,455 @@
+{
+  "schemaVersion": 1,
+  "status": "passed",
+  "recordedAt": "2026-10-19T23:15:14.404950+00:00",
+  "scope": "Local Satellite explorer adoption of the verified private TCSN design system. No hosted CI, deployment, SDK publication or merge.",
+  "baseOwnerCheckpoint": "f1e8455f7b44cdc7b89629645842839512726b0e",
+  "designSystem": {
+    "name": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.7.0",
+    "sourceCommit": "06f2f1cdcfea5b5a080d509c6f765ca885f6fc22",
+    "integrity": "sha512-hRp2ZcKuMbqkr0j8oAfTncpo+LHvtJmi6Wn4plbh7VaJzUHasl4FAXBTSzuWhNm7IGFPYak3swlOLItREFggPg==",
+    "receipt": "tcsn-design-system/artifacts/releases/0.7.0/published.json",
+    "vueOptional": true,
+    "vueInstalled": false
+  },
+  "theme": {
+    "ink": "#102A43",
+    "background": "#EDF4F7",
+    "dataExceptions": [
+      "MapLibre basemap and location/footprint annotations",
+      "Original provider imagery when explicitly opened",
+      "Scientific calendar data colour scales"
+    ]
+  },
+  "adoption": [
+    "Canonical shared header/footer, Geist and 2400px frame",
+    "Shared inputs, checkbox/radio, tabs, buttons, dropdowns and native media buttons",
+    "Shared Font Awesome SVG icons including renderer navigation controls",
+    "Shared empty states, description lists, panels and labelled scroll regions",
+    "Persistent task statuses and indeterminate progress follow actual catalogue/ESA requests",
+    "Source/provider/legal attribution remains inside map or source metadata; native discovery contracts unchanged"
+  ],
+  "gates": [
+    {
+      "command": "npm ci",
+      "where": [
+        "original",
+        "isolated review"
+      ],
+      "result": "passed",
+      "vulnerabilities": 0
+    },
+    {
+      "command": "npm run check",
+      "runtime": "Node 24.22.0",
+      "result": "passed",
+      "typescriptSdkTests": 53,
+      "packageCheckerTests": 2,
+      "includes": [
+        "Registry generation",
+        "SDK and explorer builds",
+        "Explorer typecheck",
+        "Design dependency/style guard"
+      ]
+    },
+    {
+      "command": "npm run test:e2e -w @satellites-images/explorer",
+      "runtime": "Chromium through Playwright on Node 24.22.0",
+      "result": "passed",
+      "passed": 78,
+      "skipped": 2,
+      "skipReason": "Explicit opt-in live checks",
+      "newSharedSystemTests": 8,
+      "network": "External requests fulfilled by fixtures; unexpected requests fail offline fixture",
+      "regressions": [
+        "Five viewport shell/control checks with three populated cards and mobile footer clearance",
+        "Actual dropdown selection changes catalogue query",
+        "Keyboard tabs activate actual upcoming state",
+        "Mounted task status, indeterminate progress and quiet empty-list semantics",
+        "Existing preview keyboard/focus/escape and More metric callbacks preserved"
+      ]
+    },
+    {
+      "command": "PYTHONPATH=packages/python/src python3 -m unittest discover -s packages/python/tests",
+      "runtime": "Python 3.14.7",
+      "result": "passed",
+      "tests": 43
+    },
+    {
+      "command": "cargo test --locked --manifest-path crates/satellites-images/Cargo.toml",
+      "result": "passed",
+      "unitTests": 35,
+      "integrationTests": 2
+    },
+    {
+      "command": "cargo clippy --manifest-path crates/satellites-images/Cargo.toml --all-targets -- -D warnings",
+      "result": "passed"
+    },
+    {
+      "command": "cargo fmt --manifest-path crates/satellites-images/Cargo.toml --check",
+      "result": "passed"
+    },
+    {
+      "command": "npm run check:packages",
+      "result": "passed",
+      "scope": "Local archives and isolated consumers only; not published",
+      "checks": [
+        {
+          "ecosystem": "typescript",
+          "runtime": "v24.22.0",
+          "result": "passed",
+          "conformanceCases": 17,
+          "gates": [
+            "pack",
+            "isolated install",
+            "public exports",
+            "bundled registry",
+            "shared contracts",
+            "consumer typecheck"
+          ]
+        },
+        {
+          "ecosystem": "python",
+          "artifact": "satellites_images-0.3.0-py3-none-any.whl",
+          "runtime": "3.14.7",
+          "result": "passed",
+          "conformanceCases": 17,
+          "gates": [
+            "build",
+            "isolated install",
+            "public exports",
+            "bundled registry/py.typed",
+            "shared contracts"
+          ]
+        },
+        {
+          "ecosystem": "python",
+          "artifact": "satellites_images-0.3.0.tar.gz",
+          "runtime": "3.14.7",
+          "result": "passed",
+          "conformanceCases": 17,
+          "gates": [
+            "build",
+            "isolated install",
+            "public exports",
+            "bundled registry/py.typed",
+            "shared contracts"
+          ]
+        },
+        {
+          "ecosystem": "rust",
+          "runtime": "cargo 1.94.1 (29ea6fb6a 2026-03-24)",
+          "result": "passed",
+          "conformanceCases": 17,
+          "gates": [
+            "package verification",
+            "archive extraction",
+            "separate offline consumer",
+            "public exports",
+            "bundled registry",
+            "shared contracts"
+          ]
+        }
+      ],
+      "artifacts": [
+        {
+          "filename": "powerpuff-kitty-satellites-images-0.3.0.tgz",
+          "bytes": 45213,
+          "sha256": "5be033c73efe74877fa30a86b9d224694a438c5a012f0a7c4534dd6b23576710"
+        },
+        {
+          "filename": "satellites-images-0.3.0.crate",
+          "bytes": 49189,
+          "sha256": "93b95924aace139942250f641f4c0a37c009dda4bfaf1e79a19eca0d7a5ab8a3"
+        },
+        {
+          "filename": "satellites_images-0.3.0-py3-none-any.whl",
+          "bytes": 30441,
+          "sha256": "5dda0488e44c38817e08924032b257d8b5aea36fdbccd961b042a9e860e554cb"
+        },
+        {
+          "filename": "satellites_images-0.3.0.tar.gz",
+          "bytes": 38612,
+          "sha256": "90abacf8729b36e10f8d43bc5f0303f258aab806e3e05ecd69709ab0de8a19dd"
+        }
+      ]
+    },
+    {
+      "command": "LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep \"capture the live explorer\"",
+      "result": "passed",
+      "tests": 1,
+      "capture": {
+        "screenshot": "docs/assets/explorer.jpg",
+        "view": "Live catalogue metadata; imagery downloads blocked",
+        "blockedImageRequests": 1,
+        "scenes": 40,
+        "coverage": "230 observations shown \u00b7 138 days with data \u00b7 10 months \u00b7 earth-search 176 \u00b7 planetary-computer 227",
+        "result": "passed",
+        "noPreviewOpened": true,
+        "rasterAndImageRequestsBlocked": true,
+        "sha256": "a369b0cb866257c55188f3268699967d8260c8c562fc11dc68b379dbce458d1a"
+      }
+    }
+  ],
+  "renderedProof": {
+    "status": "passed",
+    "at": "2026-10-19T23:13:42.194Z",
+    "sdkVersion": "0.7.0",
+    "network": "All catalogue/map responses are synthetic and fulfilled locally; no imagery or live provider requests",
+    "results": [
+      {
+        "width": 320,
+        "shell": {
+          "status": "passed",
+          "gutter": 18,
+          "errors": []
+        },
+        "controls": {
+          "status": "passed",
+          "pair": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "controls": 36,
+          "elements": 271,
+          "violations": []
+        },
+        "metrics": {
+          "headerFont": "600 28px / 28px Geist, -apple-system, \"system-ui\", \"Segoe UI\", sans-serif",
+          "headerTracking": "-1.68px",
+          "headerPadding": "12px 18px",
+          "headerMaxWidth": "2400px",
+          "theme": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "footerLinks": [
+            "Contact"
+          ],
+          "copyright": "\u00a9 2026 TCSN",
+          "supportIcon": "mug-hot",
+          "scrollRegions": 3,
+          "descriptionLists": 3,
+          "fireflies": 0,
+          "footerClearance": 84,
+          "overflow": false
+        },
+        "errors": [],
+        "unexpectedRequests": []
+      },
+      {
+        "width": 390,
+        "shell": {
+          "status": "passed",
+          "gutter": 18,
+          "errors": []
+        },
+        "controls": {
+          "status": "passed",
+          "pair": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "controls": 36,
+          "elements": 271,
+          "violations": []
+        },
+        "metrics": {
+          "headerFont": "600 28px / 28px Geist, -apple-system, \"system-ui\", \"Segoe UI\", sans-serif",
+          "headerTracking": "-1.68px",
+          "headerPadding": "12px 18px",
+          "headerMaxWidth": "2400px",
+          "theme": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "footerLinks": [
+            "Contact"
+          ],
+          "copyright": "\u00a9 2026 TCSN",
+          "supportIcon": "mug-hot",
+          "scrollRegions": 3,
+          "descriptionLists": 3,
+          "fireflies": 0,
+          "footerClearance": 84,
+          "overflow": false
+        },
+        "errors": [],
+        "unexpectedRequests": []
+      },
+      {
+        "width": 768,
+        "shell": {
+          "status": "passed",
+          "gutter": 26.112000000000002,
+          "errors": []
+        },
+        "controls": {
+          "status": "passed",
+          "pair": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "controls": 36,
+          "elements": 271,
+          "violations": []
+        },
+        "metrics": {
+          "headerFont": "600 28px / 28px Geist, -apple-system, \"system-ui\", \"Segoe UI\", sans-serif",
+          "headerTracking": "-1.68px",
+          "headerPadding": "12px 26.112px",
+          "headerMaxWidth": "2400px",
+          "theme": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "footerLinks": [
+            "Contact"
+          ],
+          "copyright": "\u00a9 2026 TCSN",
+          "supportIcon": "mug-hot",
+          "scrollRegions": 3,
+          "descriptionLists": 3,
+          "fireflies": 0,
+          "footerClearance": -678,
+          "overflow": false
+        },
+        "errors": [],
+        "unexpectedRequests": []
+      },
+      {
+        "width": 1280,
+        "shell": {
+          "status": "passed",
+          "gutter": 43.52,
+          "errors": []
+        },
+        "controls": {
+          "status": "passed",
+          "pair": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "controls": 36,
+          "elements": 273,
+          "violations": []
+        },
+        "metrics": {
+          "headerFont": "600 28px / 28px Geist, -apple-system, \"system-ui\", \"Segoe UI\", sans-serif",
+          "headerTracking": "-1.68px",
+          "headerPadding": "12px 43.52px",
+          "headerMaxWidth": "2400px",
+          "theme": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "footerLinks": [
+            "Contact"
+          ],
+          "copyright": "\u00a9 2026 TCSN",
+          "supportIcon": "mug-hot",
+          "scrollRegions": 3,
+          "descriptionLists": 3,
+          "fireflies": 0,
+          "footerClearance": -522,
+          "overflow": false
+        },
+        "errors": [],
+        "unexpectedRequests": []
+      },
+      {
+        "width": 1440,
+        "shell": {
+          "status": "passed",
+          "gutter": 48,
+          "errors": []
+        },
+        "controls": {
+          "status": "passed",
+          "pair": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "controls": 36,
+          "elements": 273,
+          "violations": []
+        },
+        "metrics": {
+          "headerFont": "600 28px / 28px Geist, -apple-system, \"system-ui\", \"Segoe UI\", sans-serif",
+          "headerTracking": "-1.68px",
+          "headerPadding": "12px 48px",
+          "headerMaxWidth": "2400px",
+          "theme": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "footerLinks": [
+            "Contact"
+          ],
+          "copyright": "\u00a9 2026 TCSN",
+          "supportIcon": "mug-hot",
+          "scrollRegions": 3,
+          "descriptionLists": 3,
+          "fireflies": 0,
+          "footerClearance": -522,
+          "overflow": false
+        },
+        "errors": [],
+        "unexpectedRequests": []
+      },
+      {
+        "width": 1920,
+        "shell": {
+          "status": "passed",
+          "gutter": 48,
+          "errors": []
+        },
+        "controls": {
+          "status": "passed",
+          "pair": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "controls": 36,
+          "elements": 273,
+          "violations": []
+        },
+        "metrics": {
+          "headerFont": "600 28px / 28px Geist, -apple-system, \"system-ui\", \"Segoe UI\", sans-serif",
+          "headerTracking": "-1.68px",
+          "headerPadding": "12px 48px",
+          "headerMaxWidth": "2400px",
+          "theme": [
+            "rgb(237, 244, 247)",
+            "rgb(16, 42, 67)"
+          ],
+          "footerLinks": [
+            "Contact"
+          ],
+          "copyright": "\u00a9 2026 TCSN",
+          "supportIcon": "mug-hot",
+          "scrollRegions": 3,
+          "descriptionLists": 3,
+          "fireflies": 0,
+          "footerClearance": -522,
+          "overflow": false
+        },
+        "errors": [],
+        "unexpectedRequests": []
+      }
+    ]
+  },
+  "screenshots": {
+    "committedLiveCatalogue": "docs/assets/explorer.jpg",
+    "localMocked": ".local-ci/shared-system-0.7.0/satellites-{390,1440}.png",
+    "localHeaderFooter": ".local-ci/shared-system-0.7.0/{header,footer}-{390,1440}.png"
+  },
+  "limits": [
+    "Browser geometry and interaction evidence is Chromium on this machine, not a cross-browser claim",
+    "Native runtime compatibility below the actual local versions was not rerun",
+    "Rendered proof uses synthetic catalogue/map fixtures; the README image separately uses live catalogue metadata",
+    "Public satellite image previews were never opened for live capture; all image/raster requests were blocked",
+    "Native TypeScript/Python/Rust source, generated registries and workflows have no changes since owner checkpoint"
+  ]
+}

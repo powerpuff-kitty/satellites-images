@@ -7,8 +7,10 @@ import * as maplibregl from "maplibre-gl";
 // and the worker never started (no tiles, no sources). Import the worker as a build asset.
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import type { FeatureCollection, Geometry } from "geojson";
-import "maplibre-gl/dist/maplibre-gl.css";
 import "./style.css";
+import "@powerpuff-kitty/tcsn-design-system/styles.css";
+import "./shared-ui.css";
+import { initializeSharedUi, sharedIcon, sharedDescriptionList, sharedEmptyState, setTaskBusy, setTaskTone } from "./shared-ui.js";
 import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, asfSearch,
   cmrStac, jaxaGPortal, inpeCbers, esaSentinelPlans, listSources, AvailabilityAccumulator,
   type AvailabilitySummary,
@@ -16,6 +18,9 @@ import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, 
 import { shiftMonth, monthDates } from "./calendar.js";
 import { previewUrlFor, tileAssetFor, hasPublicPreview, canViewPreview,
   discoverPublicPreview, forgetPublicPreview, fetchOverlayImage, type PublicPreview } from "./public-previews.js";
+
+const disposeSharedUi = initializeSharedUi();
+if (import.meta.hot) import.meta.hot.dispose(disposeSharedUi);
 
 const element = <T extends Element>(id: string): T => {
   const item = document.getElementById(id);
@@ -62,9 +67,7 @@ const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
 const matrixQuick = element<HTMLElement>("matrix-quick");
-const matrixMoreToggle = element<HTMLButtonElement>("matrix-more");
-const matrixMoreLabel = element<HTMLElement>("matrix-more-label");
-const matrixMoreMenu = element<HTMLElement>("matrix-more-menu");
+const matrixMoreSelect = element<HTMLSelectElement>("matrix-more");
 const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
 const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
@@ -234,25 +237,11 @@ dateField.addEventListener("change", () => {
   scheduleSearch();
 });
 
-function externalLinkIcon():SVGSVGElement {
-  const node=document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  node.classList.add("icon");
-  node.setAttribute("aria-hidden","true");
-  node.setAttribute("focusable","false");
-  const use=document.createElementNS("http://www.w3.org/2000/svg", "use");
-  use.setAttribute("href", "./icons.svg#arrow-up-right-from-square");
-  node.append(use);
-  return node;
+function externalLinkIcon(): SVGSVGElement {
+  return sharedIcon("arrow-up-right-from-square");
 }
-function line(label: string, value: string): HTMLElement {
-  const wrapper = document.createElement("div");
-  wrapper.className = "meta-line";
-  const title = document.createElement("span");
-  title.textContent = label;
-  const content = document.createElement("span");
-  content.textContent = value;
-  wrapper.append(title, content);
-  return wrapper;
+function line(term: string, value: string): {term: string; value: string} {
+  return { term, value };
 }
 function makeScene(scene: Scene): HTMLLIElement {
   const item = document.createElement("li");
@@ -266,18 +255,20 @@ function makeScene(scene: Scene): HTMLLIElement {
   time.dateTime = scene.acquiredAt;
   heading.append(name,time);
   item.append(heading);
-  item.append(line("Scene",scene.id));
-  item.append(line("Collection",scene.collection));
-  item.append(line("Catalogues",sceneCatalogues(scene).join(", ")));
-  item.append(line("Satellite operator",isCommercialScene(scene)?"Commercial":"Public or unspecified"));
-  item.append(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
-  if (scene.gsdMeters !== null) item.append(line("Resolution", scene.gsdMeters + " m/pixel"));
-  if (scene.coveragePercent !== null) item.append(line("Covers your area", scene.coveragePercent.toFixed(0) + "%"));
+  const metadataItems: {term: string; value: string}[] = [];
+  metadataItems.push(line("Scene",scene.id));
+  metadataItems.push(line("Collection",scene.collection));
+  metadataItems.push(line("Catalogues",sceneCatalogues(scene).join(", ")));
+  metadataItems.push(line("Satellite operator",isCommercialScene(scene)?"Commercial":"Public or unspecified"));
+  metadataItems.push(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
+  if (scene.gsdMeters !== null) metadataItems.push(line("Resolution", scene.gsdMeters + " m/pixel"));
+  if (scene.coveragePercent !== null) metadataItems.push(line("Covers your area", scene.coveragePercent.toFixed(0) + "%"));
   const accessLabel = scene.access === "open" ? "Open (declared)"
     : scene.access === "authentication-required" ? "Account required"
     : scene.access === "payment-required" ? "Payment or entitlement required"
     : "Not verified";
-  item.append(line("Full image access", accessLabel));
+  metadataItems.push(line("Full image access", accessLabel));
+  item.append(sharedDescriptionList(metadataItems));
   const previewHref = previewUrlFor(scene);
   if (previewHref) {
     try {
@@ -288,21 +279,21 @@ function makeScene(scene: Scene): HTMLLIElement {
         image.alt = "Provider preview of satellite scene " + scene.id;
         image.loading = "lazy";
         image.referrerPolicy = "no-referrer";
-        image.tabIndex = 0;
-        image.setAttribute("role", "button");
-        image.title = "View public preview";
+        const previewButton = document.createElement("button");
+        previewButton.type = "button";
+        previewButton.className = "tcsn-button preview-thumbnail";
+        previewButton.dataset.appearance = "media";
+        previewButton.setAttribute("aria-label", "Open preview of satellite scene " + scene.id);
         image.addEventListener("error", () => {
-          image.remove();
+          previewButton.remove();
           item.dataset.previewFailed = "true";
           const note = item.querySelector(".preview-status");
           if (note) note.textContent = "Preview unavailable. Try the public preview lookup or open the catalogue.";
         });
         const open = () => openScenePreview(scene);
-        image.addEventListener("click", open);
-        image.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); open(); }
-        });
-        item.append(image);
+        previewButton.addEventListener("click", open);
+        previewButton.append(image);
+        item.append(previewButton);
       }
     } catch { /* Invalid preview: no link */ }
   }
@@ -513,7 +504,7 @@ element<HTMLButtonElement>("preview-retry").addEventListener("click",()=>{
   if(scene)forgetPublicPreview(scene);
   void showMapPreview(previewIndex);
 });
-document.addEventListener("keydown",(event)=>{ if(event.key==="Escape"&&!mapPreview.hidden)closeMapPreview(); });
+document.addEventListener("keydown",(event)=>{ if(!event.defaultPrevented&&event.key==="Escape"&&!mapPreview.hidden)closeMapPreview(); });
 element<HTMLButtonElement>("copy-paid-search").addEventListener("click",async()=>{
   const note=element<HTMLElement>("paid-search-status");
   const location=`Latitude: ${lat.value}, longitude: ${lon.value}, radius: ${radius.value} m`;
@@ -747,28 +738,14 @@ function setMatrixMetric(metric:MatrixMetric):void {
   matrixMetric=metric;
   for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
     link.setAttribute("aria-pressed",String(link.dataset.metric===metric));
-  for(const item of matrixMoreMenu.querySelectorAll<HTMLButtonElement>(".matrix-menu-item"))
-    item.setAttribute("aria-checked",String(item.dataset.metric===metric));
-  const extra=EXTRA_METRICS.find((entry)=>entry.metric===metric);
-  matrixMoreToggle.setAttribute("aria-pressed",String(Boolean(extra)));
-  matrixMoreLabel.textContent=extra?extra.label:"More";
-  matrixMoreMenu.hidden=true;
-  matrixMoreToggle.setAttribute("aria-expanded","false");
+  const extra = EXTRA_METRICS.find(entry => entry.metric === metric);
+  matrixMoreSelect.value = extra ? extra.metric : "";
   renderMatrix();
 }
 for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
   link.addEventListener("click",()=>setMatrixMetric((link.dataset.metric as MatrixMetric) ?? "total"));
-for(const item of matrixMoreMenu.querySelectorAll<HTMLButtonElement>(".matrix-menu-item"))
-  item.addEventListener("click",()=>setMatrixMetric((item.dataset.metric as MatrixMetric) ?? "total"));
-matrixMoreToggle.addEventListener("click",(event)=>{
-  event.stopPropagation();
-  const opening=matrixMoreMenu.hidden;
-  matrixMoreMenu.hidden=!opening;
-  matrixMoreToggle.setAttribute("aria-expanded",String(opening));
-});
-document.addEventListener("click",()=>{
-  matrixMoreMenu.hidden=true;
-  matrixMoreToggle.setAttribute("aria-expanded","false");
+matrixMoreSelect.addEventListener("change", () => {
+  if (matrixMoreSelect.value) setMatrixMetric(matrixMoreSelect.value as MatrixMetric);
 });
 // The grid is sized to the map pane, so a resize (or a pane-width change) must re-fit it.
 let matrixRefitTimer:number|undefined;
@@ -1147,20 +1124,19 @@ function renderLoadedScenes():void {
   if(!selected.length){
     // Selecting a pixel with no observations is a valid state: say so rather than showing
     // an empty panel.
-    const empty=document.createElement("li");
-    empty.className="empty";
-    if(satelliteTypeFilter.value==="commercial" && !loadedScenes.some(passesFilters)) {
-      empty.textContent="No commercial-satellite observations match these filters in the connected public catalogues. Full paid-archive search requires a provider account.";
-      if(loadedScenes.some(sceneMatchesLocation)){
-        const recover=document.createElement("button");
-        recover.type="button"; recover.className="text-button";
-        recover.textContent="Show all loaded observations";
-        recover.addEventListener("click",()=>{selectedDay=null;clearFilters.click();});
-        empty.append(recover);
-      }
-    }else empty.textContent = selectedDay
-      ? "No observations on "+selectedDay+" for this location. Pick another day on the matrix."
+    let description: string;
+    const canRecover = satelliteTypeFilter.value === "commercial" && !loadedScenes.some(passesFilters) && loadedScenes.some(sceneMatchesLocation);
+    if (satelliteTypeFilter.value === "commercial" && !loadedScenes.some(passesFilters)) {
+      description = "No commercial-satellite observations match these filters in the connected public catalogues. Full paid-archive search requires a provider account.";
+    } else description = selectedDay
+      ? "No observations on " + selectedDay + " for this location. Pick another day on the matrix."
       : "No observations match the current filters.";
+    const empty = sharedEmptyState(description, canRecover
+      ? [{label: "Show all loaded observations", action: "show-all-observations"}] : []);
+    empty.querySelector('[data-tcsn-action="show-all-observations"]')?.addEventListener("click", () => {
+      selectedDay = null;
+      clearFilters.click();
+    });
     fragment.append(empty);
   }
   results.replaceChildren(fragment);
@@ -1290,6 +1266,8 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     return;
   }
   session.fetching=true;
+  setTaskTone("info");
+  setTaskBusy(true);
   loadNextPagesButton.disabled=true;
   loadNextPagesButton.hidden=true;
   try {
@@ -1332,6 +1310,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     redrawAvailability();
     loadNextPagesButton.hidden=session.ended;
     if(summary.erroredProviders.length > 0){
+      setTaskTone("error");
       status.textContent="Catalogue search failed for "+summary.erroredProviders.join(", ")+
         ". Available results are incomplete.";
     }else if(summary.complete){
@@ -1351,6 +1330,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
       ? String(error.providerId ?? "unknown") : "unknown");
     currentSummary=session.accumulator.summary();
     redrawAvailability();
+    setTaskTone("error");
     status.textContent="Catalogue search failed: "+
       (error instanceof Error?error.message:String(error))+
       ". Previously loaded scenes may be incomplete.";
@@ -1359,6 +1339,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     session.fetching=false;
     if(session===activeScan){
       loadNextPagesButton.disabled=false;
+      setTaskBusy(false);
     }
   }
 }
@@ -1419,6 +1400,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     status.textContent="Searching public satellite catalogues…";
     calendarStatus.textContent="Loading UTC acquisition dates…";
     currentPlanSearch++;
+    setTaskBusy(false, "upcoming-status");
     plansResults.replaceChildren();
     displaySwaths([]);
     closeMapPreview();
@@ -1510,12 +1492,14 @@ function renderSources():void {
     type.textContent=source.type;
     heading.append(name,type);
     item.append(heading);
-    item.append(line("Search",source.searchAccess));
-    item.append(line("Imagery",source.imageryAccess));
+    const metadataItems: {term: string; value: string}[] = [];
+    metadataItems.push(line("Search",source.searchAccess));
+    metadataItems.push(line("Imagery",source.imageryAccess));
     const implemented=[source.implemented.typescript?"TS":null,
       source.implemented.python?"Python":null,source.implemented.rust?"Rust":null]
       .filter(Boolean).join(" / ");
-    item.append(line("SDK",implemented||"planned"));
+    metadataItems.push(line("SDK",implemented||"planned"));
+    item.append(sharedDescriptionList(metadataItems));
     const extra=EXTRA_SOURCES.find((candidate)=>candidate.id===source.id);
     if(extra){
       const label=document.createElement("label");
@@ -1564,16 +1548,18 @@ function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
   })+" UTC";
   heading.append(name,time);
   li.append(heading);
-  if (item.id) li.append(line("Scene",item.id));
-  if (item.mode) li.append(line("Acquisition mode",item.mode));
+  const metadataItems: {term: string; value: string}[] = [];
+  if (item.id) metadataItems.push(line("Scene",item.id));
+  if (item.mode) metadataItems.push(line("Acquisition mode",item.mode));
   if (typeof item.orbitRelative === "number")
-    li.append(line("Relative orbit",String(item.orbitRelative)));
-  if (item.status) li.append(line("Status", item.status));
+    metadataItems.push(line("Relative orbit",String(item.orbitRelative)));
+  if (item.status) metadataItems.push(line("Status", item.status));
   if (item.endAt) {
     const from=item.expectedAt.slice(11,16), until=item.endAt.slice(11,16);
-    li.append(line("Datatake window", from + "\u2013" + until + " UTC"));
+    metadataItems.push(line("Datatake window", from + "\u2013" + until + " UTC"));
   }
-  li.append(line("Image availability","Not yet acquired"));
+  metadataItems.push(line("Image availability","Not yet acquired"));
+  li.append(sharedDescriptionList(metadataItems));
   try {
     const source = new URL(item.sourceUrl);
     if (source.protocol === "https:") {
@@ -1644,6 +1630,8 @@ function planWindowLabel(plans:{startsAt:string;endsAt:string;fromCache?:boolean
 }
 async function runUpcoming():Promise<void>{
   const token=++currentPlanSearch;
+  setTaskTone("info", "upcoming-status");
+  setTaskBusy(true, "upcoming-status");
   plansResults.replaceChildren();
   upcomingStatus.textContent="Checking the latest ESA acquisition plans…";
   try {
@@ -1660,11 +1648,9 @@ async function runUpcoming():Promise<void>{
     const list=document.createDocumentFragment();
     for(const item of filtered) list.append(makePlanned(item));
     if(!filtered.length){
-      const empty=document.createElement("li");
-      empty.className="empty";
-      empty.textContent="No planned datatakes for this area in the next "+
-        upcomingHorizonDays()+" days. Try a larger radius." +
-        (diagnostics.status==="no-current-plan"?" No current ESA plan was published for that window.":"");
+      const empty = sharedEmptyState("No planned datatakes for this area in the next " +
+        upcomingHorizonDays() + " days. Try a larger radius." +
+        (diagnostics.status === "no-current-plan" ? " No current ESA plan was published for that window." : ""));
       list.append(empty);
     }
     plansResults.append(list);
@@ -1685,18 +1671,19 @@ async function runUpcoming():Promise<void>{
     upcomingStatus.textContent=parts.join(" · ");
   } catch(error) {
     if(token===currentPlanSearch){
-      const failed=document.createElement("li");
-      failed.className="empty";
-      failed.textContent="Could not load the ESA acquisition plan for this location.";
+      const failed = sharedEmptyState("Could not load the ESA acquisition plan for this location.");
       plansResults.replaceChildren(failed);
       matrixItems=[];
       renderMatrix();   // never leave the previous tab's data on the grid
+      setTaskTone("error", "upcoming-status");
       const timedOut=error instanceof Error && /abort/i.test(error.message);
       upcomingStatus.textContent=
         (timedOut?"ESA plan lookup timed out after "+(ESA_FETCH_TIMEOUT_MS/1000)+" s. "
           :"ESA plan lookup failed. "+(error instanceof Error?error.message:String(error)))+
         (esaProxy?"":" Browser CORS may require the optional ESA proxy.");
     }
+  } finally {
+    if (token === currentPlanSearch) setTaskBusy(false, "upcoming-status");
   }
 }
 function setTab(tab:"historical"|"upcoming"):void{

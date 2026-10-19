@@ -29,7 +29,7 @@ Upcoming shows the planned-datatake cards plus its own charts — a **published-
 planned** overlay, per-day counts **by mission** and **by acquisition mode** and **by
 relative orbit**, a **datatake-window** strip (Gantt, per mission), and a **time-of-day**
 heatmap. Charts that key on optional plan fields (`mode`, `orbitRelative`, `endAt`) bucket
-missing values as *unknown* rather than dropping rows. Searching is automatic (no button) — it runs on location select or any query change.
+missing values as _unknown_ rather than dropping rows. Searching is automatic (no button) — it runs on location select or any query change.
 
 ## Upcoming ESA plans and CORS
 
@@ -172,8 +172,44 @@ The explorer loads **one calendar year at a time**, following catalogue pages in
 batches up to its 50-page safety limit. Pick a date or use the year arrows above the
 matrix to load another year. Cloud cover is scene-wide metadata, not per-AOI.
 
-The production build separates MapLibre from application code for independent caching
-and uses seven local SVG icons instead of an icon font. The MapLibre worker remains an
-explicit asset. The icons are from Font Awesome Free by Fonticons, Inc., under
-[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); attribution is shipped in
-`public/THIRD_PARTY_NOTICES.txt` and `public/icons.svg`.
+## Shared interface
+
+The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.7.0`. Its shared header,
+footer, Geist fonts and 2400px page frame match the other TCSN apps. The satellite theme
+uses orbital navy `#102A43` on pale sky `#EDF4F7` as its two authored interface colours.
+Map imagery, basemap styling, footprints and scientific calendar colour scales retain their
+data colours; map/provider attribution stays visible beside the map.
+
+Inputs, checkboxes, buttons, tabs, native preview buttons and all visible dropdowns use
+shared primitives. The hidden native selects remain the form/value bridge for existing
+catalogue/filter state. The extra calendar metrics use that same dropdown rather than a
+separate menu. Scene, source and acquisition metadata use shared description lists; the
+existing details panels, empty/recovery states and labelled scroll regions use shared
+patterns. Persistent task status and indeterminate progress follow actual catalogue/ESA
+requests; unknown scan totals are never shown as invented percentages. Cancellation is
+not advertised for tasks without a user-facing cancel action.
+
+All authored interface icons, MapLibre navigation glyphs, dropdown/disclosure indicators
+and the date-field icon come from the shared Font Awesome Free SVG collection. No icon
+CDN, browser kit or icon web font is loaded. Native date-picker popup internals remain
+browser-owned. Icon attribution is in `public/THIRD_PARTY_NOTICES.txt`; the bundled Geist
+font license is `public/licenses/Geist-OFL.txt`.
+
+The footer contains © YEAR TCSN, Contact and the common cup support button. Portfolio
+links/socials and Fireflies remain exclusive to tcsn.io. Support validation checks the
+existing destination without opening checkout.
+
+Run `npm run design:check` for the deterministic dependency/style guard. The mocked E2E
+suite covers shared shell/control geometry and colour roles at 320/390/768/1280/1440px,
+visible dropdown query state, keyboard tabs and preview focus, task lifecycle, empty-state
+semantics, source credits and all existing imagery/catalogue interactions. It never sends
+provider requests. The opt-in README capture uses real catalogue metadata and vector-map
+context, blocks imagery downloads and writes `docs/assets/explorer.jpg`. Measured gate
+counts, the six-width rendered audit and the live capture are recorded in
+[`docs/evidence/shared-system-0.7.0.json`](../../docs/evidence/shared-system-0.7.0.json).
+
+The production build separates MapLibre from application code for independent caching;
+the MapLibre worker remains an explicit asset. npm registry scope mappings are committed;
+registry credentials belong only in per-user npm configuration. The private design package
+requires `read:packages` access. Native TypeScript/Python/Rust SDK contracts and package
+versions are independent of this UI adoption.

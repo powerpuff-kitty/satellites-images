@@ -15,6 +15,7 @@
     "check:packages": "node tools/release/check-packages.mjs",
     "test:package-checker": "node --test tools/release/check-packages.test.mjs",
     "bench": "node tools/bench/typescript.mjs && PYTHONPATH=packages/python/src python3 tools/bench/python.py && cargo run --release --example bench --manifest-path crates/satellites-images/Cargo.toml",
-    "check": "npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test && npm run test:package-checker"
+    "check": "npm run design:check && npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test && npm run test:package-checker",
+    "design:check": "node tools/check-explorer-design.mjs"
   }
 }

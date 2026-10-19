@@ -78,6 +78,19 @@ async function setDate(page: Page, date: string, keepDay = false) {
   if (!keepDay) await clearDay(page);
 }
 
+async function chooseOption(page: Page, selector: string, value: string) {
+  const native = page.locator(selector);
+  const label = await native.evaluate((element, target) => {
+    const option = [...(element as HTMLSelectElement).options].find(option => option.value === target);
+    if (!option) throw new Error("Missing option " + target);
+    return option.label;
+  }, value);
+  const dropdown = native.locator("..");
+  await dropdown.getByRole("combobox").click();
+  await dropdown.getByRole("option", { name: label, exact: true }).click();
+  await expect(native).toHaveValue(value);
+}
+
 test.beforeEach(async ({ page }) => {
   await page.route("https://tiles.openfreemap.org/**", (route) => respond(route, { json: MAP_STYLE }));
 });
@@ -155,7 +168,13 @@ test("a scene with no tile set still draws its preview via a fetched image", asy
   await expect(page.locator("#map-preview")).toBeVisible();
   await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "image");
   expect(previewRequests.length).toBeGreaterThan(0); // the page fetched the bytes itself
-  // Closing the preview revokes the overlay instead of leaving a stale source behind.
+  // An open dropdown consumes Escape before the page-level preview shortcut.
+  const radiusDropdown = page.locator("#radius").locator("..").getByRole("combobox");
+  await radiusDropdown.click();
+  await radiusDropdown.press("Escape");
+  await expect(radiusDropdown).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator("#map-preview")).toBeVisible();
+  // A second Escape still closes the preview and revokes its overlay.
   await page.keyboard.press("Escape");
   await expect(page.locator("#map-preview")).toBeHidden();
   await expect(page.locator("#map-container")).not.toHaveAttribute("data-preview-source", "image");
@@ -287,9 +306,9 @@ test("catalogue, orbit and native-tile filters narrow the results", async ({ pag
   // The merged result keeps one copy per scene, so the catalogue filter lists that source.
   expect(await page.locator("#provider-filter option").count()).toBeGreaterThan(1);
   // Orbit comes from the catalogue metadata.
-  await page.selectOption("#orbit-filter", "descending");
+  await chooseOption(page, "#orbit-filter", "descending");
   await expect(page.locator("#results li")).toHaveCount(1);
-  await page.selectOption("#orbit-filter", "");
+  await chooseOption(page, "#orbit-filter", "");
   // Only the scene with a native-resolution tile set survives.
   await page.locator("#tiles-only").check();
   await expect(page.locator("#results li")).toHaveCount(1);
@@ -565,19 +584,21 @@ test("the day matrix plots one square cell per day across the loaded range", asy
   await expect(page.locator("#matrix-svg .matrix-month")).toHaveCount(12);
 });
 
-test("the metric links and the ⋯ toggle share one row and baseline", async ({ page }) => {
+test("the metric links and shared dropdown align on a wide toolbar", async ({ page }) => {
+  await page.setViewportSize({width: 1920, height: 1000});
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#matrix-head")).toBeVisible();
-  const centres = await page.locator("#matrix-links .matrix-link, #matrix-links .matrix-more-toggle")
+  const centres = await page.locator("#matrix-links .matrix-link, #matrix-links .tcsn-dropdown__trigger")
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)));
   expect(centres.length).toBe(5);
   expect(new Set(centres).size).toBe(1);
 });
 
 test("the matrix data links switch the metric it shows", async ({ page }) => {
+  await page.setViewportSize({width: 1920, height: 1000});
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
@@ -616,7 +637,8 @@ test("matrix cells are 12 px when they fit and shrink to fit narrower panes", as
     return svg.width <= pane.width - 76 + 0.5;
   });
 
-  await page.setViewportSize({ width: 1600, height: 940 });
+  // The shared frame reserves its gutters; this viewport leaves room for 12px cells.
+  await page.setViewportSize({ width: 1920, height: 940 });
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
@@ -635,7 +657,7 @@ test("matrix cells are 12 px when they fit and shrink to fit narrower panes", as
   expect(side).toBeLessThan(12);
   expect(side).toBeGreaterThanOrEqual(6);
   // Resizing back restores the full-size grid.
-  await page.setViewportSize({ width: 1600, height: 940 });
+  await page.setViewportSize({ width: 1920, height: 940 });
   await expect.poll(async () => [...new Set(await sizesFor())]).toEqual(["12x12"]);
 });
 
@@ -735,7 +757,7 @@ test("cross-catalogue copies of one tile merge; different acquisitions stay", as
   // Product identity groups the copies while retaining both catalogues.
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#results li").filter({hasText:"es-copy"})).toContainText("planetary-computer");
-  await page.selectOption("#provider-filter", "planetary-computer");
+  await chooseOption(page, "#provider-filter", "planetary-computer");
   await expect(page.locator("#results li")).toHaveCount(2);
 });
 
@@ -992,13 +1014,14 @@ test("the More dropdown picks an extra metric", async ({ page }) => {
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(1);
-  await page.locator("#matrix-more").click();
-  await expect(page.locator("#matrix-more-menu")).toBeVisible();
-  await page.locator('.matrix-menu-item[data-metric="resolution"]').click();
-  await expect(page.locator("#matrix-more-menu")).toBeHidden();
-  await expect(page.locator("#matrix-more")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator("#matrix-more-label")).toHaveText("Resolution");
-  await expect(page.locator('.matrix-menu-item[data-metric="resolution"]')).toHaveAttribute("aria-checked", "true");
+  const dropdown = page.locator("#matrix-more").locator("..");
+  const cell = page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]');
+  const previousFill = await cell.getAttribute("fill");
+  await chooseOption(page, "#matrix-more", "resolution");
+  await expect(dropdown.getByRole("combobox")).toHaveText(/Resolution/);
+  await expect(dropdown.getByRole("combobox")).toHaveAttribute("aria-expanded", "false");
+  await expect(page.locator('.matrix-link[aria-pressed="true"]')).toHaveCount(0);
+  await expect(cell).not.toHaveAttribute("fill", previousFill!);
 });
 
 test("the Image/Radar quick filter narrows the view and sits right", async ({ page }) => {
@@ -1080,15 +1103,15 @@ test("cloud-cover and hour filters narrow the loaded results", async ({ page }) 
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#cloud-max", "10"); // scenes are 12.5% cloud
+  await chooseOption(page, "#cloud-max", "10"); // scenes are 12.5% cloud
   // Nothing matches: the panel says so rather than going blank.
   await expect(page.locator("#results li.empty")).toContainText(/No observations match/);
-  await page.selectOption("#cloud-max", "30");
+  await chooseOption(page, "#cloud-max", "30");
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#hour-min", "12"); // scenes are ~02:00 UTC
+  await chooseOption(page, "#hour-min", "12"); // scenes are ~02:00 UTC
   await expect(page.locator("#results li.empty")).toContainText(/No observations match/);
-  await page.selectOption("#hour-min", "0");
-  await page.selectOption("#hour-max", "6");
+  await chooseOption(page, "#hour-min", "0");
+  await chooseOption(page, "#hour-max", "6");
   await expect(page.locator("#results li")).toHaveCount(2);
 });
 
@@ -1101,7 +1124,7 @@ test("collection filter, reset, and timeline views", async ({ page }) => {
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#collection-filter", "landsat-c2-l2");
+  await chooseOption(page, "#collection-filter", "landsat-c2-l2");
   await expect(page.locator("#results li")).toHaveCount(1);
   await page.locator("#clear-filters").click();
   await expect(page.locator("#results li")).toHaveCount(2);
@@ -1195,7 +1218,9 @@ test("an unaligned public preview stays separate from the map and supports keybo
   await page.route("**/search", route => respond(route, { json: collection([stacScene("unaligned", "2025-03-10T02:00:00Z")], [], 1) }));
   await setDate(page, "2025-03-10");
   const image = page.locator("#results img");
-  await image.focus();
+  const previewButton = image.locator("..");
+  await expect(previewButton).toHaveAttribute("data-appearance", "media");
+  await previewButton.focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
   await expect(page.locator("#preview-still")).toBeVisible();
@@ -1203,7 +1228,7 @@ test("an unaligned public preview stays separate from the map and supports keybo
   await expect(page.locator("#map-container")).toHaveAttribute("data-footprint", "unaligned");
   await page.keyboard.press("Escape");
   await expect(page.locator("#preview-still")).toBeHidden();
-  await expect(image).toBeFocused();
+  await expect(previewButton).toBeFocused();
 });
 
 test("has-preview includes advertised tiles and excludes a GeoTIFF disguised as a JPEG", async ({ page }) => {
@@ -1370,7 +1395,7 @@ test("paid imagery and known commercial satellites from another catalogue can be
   await page.route("**/search",route=>respond(route,{json:collection([commercial,stacScene("sentinel","2025-03-10T02:00:00Z")],[],2)}));
   await setDate(page,"2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
-  await page.selectOption("#satellite-type-filter","public");
+  await chooseOption(page, "#satellite-type-filter","public");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#results li")).toContainText("sentinel");
 });
@@ -1402,14 +1427,14 @@ test("commercial-satellite filtering still updates the matrix, reloads and close
   await setDate(page,"2025-03-10");
   await page.locator('[data-scene-id="commercial"] img').click();
   await expect(page.locator("#map-preview")).toBeVisible();
-  await page.selectOption("#satellite-type-filter","public");
+  await chooseOption(page, "#satellite-type-filter","public");
   await expect(page.locator("#map-preview")).toBeHidden();
   await expect(page.locator("#counter")).toHaveText("1 / 2");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"] title')).toHaveText(/1 observations?/);
   await page.reload();
   await expect(page.locator("#satellite-type-filter")).toHaveValue("public");
   await expect(page.locator("#results li")).toHaveCount(1);
-  await page.selectOption("#satellite-type-filter","commercial");
+  await chooseOption(page, "#satellite-type-filter","commercial");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#results li")).toContainText("commercial");
   await page.locator("#clear-filters").click();

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@powerpuff-kitty/satellites-images": "0.3.0",
+    "@powerpuff-kitty/tcsn-design-system": "0.7.0",
     "maplibre-gl": "^6.14.0"
   },
   "devDependencies": {
