@@ -1,0 +1,275 @@
+TAP version 13
+# Subtest: extract official latest plan metadata without trusting external hrefs
+ok 1 - extract official latest plan metadata without trusting external hrefs
+  ---
+  duration_ms: 15.483916
+  ...
+# Subtest: parse real-shaped ExtendedData and ignore calibration/out-of-bounds strips
+ok 2 - parse real-shaped ExtendedData and ignore calibration/out-of-bounds strips
+  ---
+  duration_ms: 48.513084
+  ...
+# Subtest: the upcoming window accepts up to a year and rejects beyond it
+ok 3 - the upcoming window accepts up to a year and rejects beyond it
+  ---
+  duration_ms: 30.447042
+  ...
+# Subtest: future adapter selects newest plan per satellite with bounded queries
+ok 4 - future adapter selects newest plan per satellite with bounded queries
+  ---
+  duration_ms: 8.749333
+  ...
+# Subtest: reject malicious XML and invalid window without relying on network
+ok 5 - reject malicious XML and invalid window without relying on network
+  ---
+  duration_ms: 0.2185
+  ...
+# Subtest: transport failures are explicit, not an empty upcoming result
+ok 6 - transport failures are explicit, not an empty upcoming result
+  ---
+  duration_ms: 0.5
+  ...
+# Subtest: real ESA S2A 2024 KML datatake can be parsed with its original metadata
+ok 7 - real ESA S2A 2024 KML datatake can be parsed with its original metadata
+  ---
+  duration_ms: 1.455291
+  ...
+# Subtest: HTTP conditional 304 refreshes plan cache without re-downloading bodies
+ok 8 - HTTP conditional 304 refreshes plan cache without re-downloading bodies
+  ---
+  duration_ms: 5.892917
+  ...
+# Subtest: diagnostics distinguish no-current-plan from no-overlap
+ok 9 - diagnostics distinguish no-current-plan from no-overlap
+  ---
+  duration_ms: 1.895417
+  ...
+# Subtest: availability groups dates in UTC and deduplicates repeated STAC items
+ok 10 - availability groups dates in UTC and deduplicates repeated STAC items
+  ---
+  duration_ms: 83.534
+  ...
+# Subtest: provider identities are never collapsed into hypothetical physical duplicates
+ok 11 - provider identities are never collapsed into hypothetical physical duplicates
+  ---
+  duration_ms: 0.2135
+  ...
+# Subtest: partial pages from one provider remain partial after another provider finishes
+ok 12 - partial pages from one provider remain partial after another provider finishes
+  ---
+  duration_ms: 0.136166
+  ...
+# Subtest: empty availability summary does not claim completeness
+ok 13 - empty availability summary does not claim completeness
+  ---
+  duration_ms: 0.069792
+  ...
+# Subtest: catalog availability uses actual bounded provider result pages
+ok 14 - catalog availability uses actual bounded provider result pages
+  ---
+  duration_ms: 30.590708
+  ...
+# Subtest: shared cross-language scene, pagination and availability contracts
+ok 15 - shared cross-language scene, pagination and availability contracts
+  ---
+  duration_ms: 108.665125
+  ...
+# Subtest: INPE selects its fused collection and preserves absent item metadata
+ok 16 - INPE selects its fused collection and preserves absent item metadata
+  ---
+  duration_ms: 31.289583
+  ...
+# Subtest: STAC identity includes collection and removes repeats within a page
+ok 17 - STAC identity includes collection and removes repeats within a page
+  ---
+  duration_ms: 28.982833
+  ...
+# Subtest: availability retains healthy providers after a failure and never claims completeness
+ok 18 - availability retains healthy providers after a failure and never claims completeness
+  ---
+  duration_ms: 0.616
+  ...
+# Subtest: pending providers and invalid pages cannot corrupt availability
+ok 19 - pending providers and invalid pages cannot corrupt availability
+  ---
+  duration_ms: 0.615917
+  ...
+# Subtest: all scene adapters reject timezone-free and impossible acquisition timestamps
+ok 20 - all scene adapters reject timezone-free and impossible acquisition timestamps
+  ---
+  duration_ms: 1.2685
+  ...
+# Subtest: unusual mission and collection names stay ordinary count keys
+ok 21 - unusual mission and collection names stay ordinary count keys
+  ---
+  duration_ms: 0.34825
+  ...
+# Subtest: ASF and JAXA capped responses stay partial and deduplicate within their pages
+ok 22 - ASF and JAXA capped responses stay partial and deduplicate within their pages
+  ---
+  duration_ms: 1.374875
+  ...
+# Subtest: OpenAerialMap applies a page budget per box and preserves earlier truncation
+ok 23 - OpenAerialMap applies a page budget per box and preserves earlier truncation
+  ---
+  duration_ms: 2.388792
+  ...
+# Subtest: OpenAerialMap searches both sides when the first box has no more pages
+ok 24 - OpenAerialMap searches both sides when the first box has no more pages
+  ---
+  duration_ms: 0.747125
+  ...
+# Subtest: response limits cancel chunked bodies before buffering the entire document
+ok 25 - response limits cancel chunked bodies before buffering the entire document
+  ---
+  duration_ms: 0.721666
+  ...
+# Subtest: normalized scene, page, and availability satisfy the JSON schemas
+ok 26 - normalized scene, page, and availability satisfy the JSON schemas
+  ---
+  duration_ms: 19.601833
+  ...
+# Subtest: bbox validation and antimeridian failure
+ok 27 - bbox validation and antimeridian failure
+  ---
+  duration_ms: 1.109792
+  ...
+# Subtest: antimeridian and pole areas are split instead of rejected
+ok 28 - antimeridian and pole areas are split instead of rejected
+  ---
+  duration_ms: 0.405042
+  ...
+# Subtest: polygon AOI resolves to a precise STAC bbox and coverage score
+ok 29 - polygon AOI resolves to a precise STAC bbox and coverage score
+  ---
+  duration_ms: 0.319084
+  ...
+# Subtest: antimeridian polygon splits into two boxes without intersects
+ok 30 - antimeridian polygon splits into two boxes without intersects
+  ---
+  duration_ms: 0.177792
+  ...
+# Subtest: invalid AOI geometry is rejected with a typed error
+ok 31 - invalid AOI geometry is rejected with a typed error
+  ---
+  duration_ms: 0.110958
+  ...
+# Subtest: antimeridian split queries both boxes within a per-box page budget
+ok 32 - antimeridian split queries both boxes within a per-box page budget
+  ---
+  duration_ms: 21.486
+  ...
+# Subtest: registry reports implemented and planned sources accurately
+ok 33 - registry reports implemented and planned sources accurately
+  ---
+  duration_ms: 0.185417
+  ...
+# Subtest: STAC-reuse adapters target verified endpoints and normalize provider items
+ok 34 - STAC-reuse adapters target verified endpoints and normalize provider items
+  ---
+  duration_ms: 1.322792
+  ...
+# Subtest: ASF Search API adapter requests GeoJSON and normalizes SAR granules
+ok 35 - ASF Search API adapter requests GeoJSON and normalizes SAR granules
+  ---
+  duration_ms: 1.178708
+  ...
+# Subtest: JAXA G-Portal granule adapter maps acquisition time and browse
+ok 36 - JAXA G-Portal granule adapter maps acquisition time and browse
+  ---
+  duration_ms: 25.886167
+  ...
+# Subtest: retries transient 429 responses and honours Retry-After
+ok 37 - retries transient 429 responses and honours Retry-After
+  ---
+  duration_ms: 18.985917
+  ...
+# Subtest: a persistent 429 fails explicitly rather than an empty success
+ok 38 - a persistent 429 fails explicitly rather than an empty success
+  ---
+  duration_ms: 4.3835
+  ...
+# Subtest: a 403 metadata denial surfaces as an HTTP error, not empty results
+ok 39 - a 403 metadata denial surfaces as an HTTP error, not empty results
+  ---
+  duration_ms: 0.6085
+  ...
+# Subtest: expired-signed and metadata-only assets are recorded, never fetched
+ok 40 - expired-signed and metadata-only assets are recorded, never fetched
+  ---
+  duration_ms: 1.019792
+  ...
+# Subtest: STAC pagination, normalization, and precise acquisition times
+ok 41 - STAC pagination, normalization, and precise acquisition times
+  ---
+  duration_ms: 1.348625
+  ...
+# Subtest: a polygon AOI sends intersects instead of bbox
+ok 42 - a polygon AOI sends intersects instead of bbox
+  ---
+  duration_ms: 0.677584
+  ...
+# Subtest: falls back to the item thumbnail link when the asset preview is not http(s)
+ok 43 - falls back to the item thumbnail link when the asset preview is not http(s)
+  ---
+  duration_ms: 0.433167
+  ...
+# Subtest: rejects cross-origin pagination before requesting the next page
+ok 44 - rejects cross-origin pagination before requesting the next page
+  ---
+  duration_ms: 0.666167
+  ...
+# Subtest: bounds page count, rejects bad dates, fails explicitly for future acquisitions
+ok 45 - bounds page count, rejects bad dates, fails explicitly for future acquisitions
+  ---
+  duration_ms: 0.762875
+  ...
+# Subtest: provider failures are not misreported as empty scenes
+ok 46 - provider failures are not misreported as empty scenes
+  ---
+  duration_ms: 0.2645
+  ...
+# Subtest: STAC POST next body replaces the query when merge is absent
+ok 47 - STAC POST next body replaces the query when merge is absent
+  ---
+  duration_ms: 4.111916
+  ...
+# Subtest: retry options are validated and bounded
+ok 48 - retry options are validated and bounded
+  ---
+  duration_ms: 0.2225
+  ...
+# Subtest: a truncated antimeridian box marks the split search incomplete
+ok 49 - a truncated antimeridian box marks the split search incomplete
+  ---
+  duration_ms: 1.15825
+  ...
+# Subtest: planetary computer also queries the radar and aerial collections
+ok 50 - planetary computer also queries the radar and aerial collections
+  ---
+  duration_ms: 0.359708
+  ...
+# Subtest: declared imagery access reflects the registry and verified per-collection behaviour
+ok 51 - declared imagery access reflects the registry and verified per-collection behaviour
+  ---
+  duration_ms: 0.092625
+  ...
+# Subtest: OpenAerialMap adapter pages the catalogue and normalises aerial imagery
+ok 52 - OpenAerialMap adapter pages the catalogue and normalises aerial imagery
+  ---
+  duration_ms: 0.844291
+  ...
+# Subtest: OpenAerialMap falls back to a bbox rectangle and rejects unusable records
+ok 53 - OpenAerialMap falls back to a bbox rectangle and rejects unusable records
+  ---
+  duration_ms: 0.258541
+  ...
+1..53
+# tests 53
+# suites 0
+# pass 53
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 495.09375

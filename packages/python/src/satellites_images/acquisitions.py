@@ -13,10 +13,10 @@ from datetime import datetime, date, timedelta, timezone
 from html.parser import HTMLParser
 from typing import Callable, Any
 from urllib.parse import urljoin, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request
 from urllib.error import URLError, HTTPError
 
-from .catalog import SatelliteError, bounds_around, _port_or_default
+from .catalog import SatelliteError, bounds_around, _http_opener, _acquisition_time
 
 ORIGIN = "https://sentinels.copernicus.eu"
 INDEXES = {
@@ -138,7 +138,7 @@ def _parse_time(text: str) -> datetime:
     value = text.strip()
     if not re.search(r"(Z|[+-]\d\d:\d\d)$", value, re.I):
         value += "Z"
-    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    parsed = _acquisition_time(value)
     if parsed.tzinfo is None:
         raise ValueError("Missing timezone")
     return parsed.astimezone(timezone.utc)
@@ -295,15 +295,14 @@ def _http_text(url: str, max_bytes: int, etag: str | None = None,
         headers["If-Modified-Since"] = last_modified
     req = Request(url, headers=headers)
     try:
-        with urlopen(req, timeout=25) as result:
-            if _port_or_default(urlsplit(result.geturl())) != _port_or_default(urlsplit(url)):
-                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing a cross-origin or downgraded redirect")
+        with _http_opener.open(req, timeout=25) as result:
             if int(result.headers.get("Content-Length", "0") or "0") > max_bytes:
                 raise SatelliteError("INVALID_RESPONSE", "ESA document too large")
             body = result.read(max_bytes + 1)
             return (body.decode("utf-8", errors="replace"),
                     result.headers.get("ETag"), result.headers.get("Last-Modified"), False)
     except HTTPError as exc:
+        exc.close()
         if exc.code == 304:
             return "", None, None, True
         raise SatelliteError("HTTP_ERROR", "ESA returned HTTP " + str(exc.code)) from exc

@@ -1,5 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { boundsAround, SatelliteError, type BoundingBox, type AcquisitionOpportunity } from "./index.js";
+import { readTextBounded } from "./transport.js";
 
 const ESA_ORIGIN = "https://sentinels.copernicus.eu";
 const INDEXES = [
@@ -301,10 +302,7 @@ export class ESAPlansProvider {
       return {text:cached.text,fromCache:true};
     }
     if(!response.ok) throw new SatelliteError("HTTP_ERROR","ESA returned HTTP "+response.status,this.id);
-    const length=Number(response.headers.get("content-length"));
-    if(length>maxBytes) throw new SatelliteError("INVALID_RESPONSE","ESA document exceeds size limit",this.id);
-    const value=await response.text();
-    if(value.length>maxBytes) throw new SatelliteError("INVALID_RESPONSE","ESA document exceeds size limit",this.id);
+    const value=await readTextBounded(response,maxBytes,this.id);
     if(this.cache.size>=12) this.cache.delete(this.cache.keys().next().value!);
     this.cache.set(url,{until:now+this.ttl(url),text:value,
       etag:response.headers.get("etag")??undefined,

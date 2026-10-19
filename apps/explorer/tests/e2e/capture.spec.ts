@@ -8,19 +8,22 @@ import { test, expect } from "@playwright/test";
 test.skip(!process.env.LIVE, "opt-in: run with LIVE=1");
 
 test("capture the live explorer", async ({ page }) => {
+  test.setTimeout(90_000);
   await page.setViewportSize({ width: 1600, height: 940 });
   // End a few days back: the overlay prefers Planetary Computer's tile set, which ingests later
   // than the live catalogues, so the newest scene can have no displayable raster.
   const until = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
   await page.goto("/");
-  // The view used in the README: a scene over Sumbawa, with its year loaded.
+  // The view used in the README: a scene over Lombok, with its year loaded.
   await page.locator("#latitude").fill("-8.5833");
   await page.locator("#longitude").fill("116.1170");
   // One date loads its calendar year; clear the auto-selected pixel so every scene is listed.
   await page.locator("#date").fill(until);
   await page.locator("#date").dispatchEvent("change");
   const allDays = page.locator("#show-all-days");
-  if (await allDays.isVisible()) await allDays.click();
+  await expect(page.locator("#status")).toHaveText("", { timeout: 25_000 });
+  await expect(allDays).toBeVisible();
+  await allDays.click();
   await expect.poll(async () => page.locator("#results li").count(), { timeout: 25_000 })
     .toBeGreaterThan(0);
   await expect(page.locator("#coverage")).toContainText(/planetary-computer|earth-search/, { timeout: 25_000 });
@@ -38,9 +41,12 @@ test("capture the live explorer", async ({ page }) => {
     });
   }, [cutoff, "sentinel-2-l2a"] as [string, string]);
   expect(index).toBeGreaterThanOrEqual(0);
-  await page.locator("#results img").nth(index).click();
+  await page.locator("#results li").nth(index).getByRole("button", {name:"View public preview",exact:true}).click();
   await expect(page.locator("#map-preview")).toBeVisible();
   await page.waitForTimeout(6000);
+  // Clicking the "show all" control can scroll the left panel; restore the main controls.
+  await page.locator(".panel").evaluate(panel => { panel.scrollTop = 0; });
+  await expect(page.locator("h1")).toBeInViewport();
   await page.screenshot({ path: "../../docs/assets/explorer.png" });
   console.log("saved docs/assets/explorer.png |", await page.locator("#coverage").textContent(),
     "| overlay index", index, "for cutoff", cutoff);

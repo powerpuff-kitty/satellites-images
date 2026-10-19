@@ -1,0 +1,76 @@
+{
+  "checkedAt": "2026-10-16T02:04:54.028Z",
+  "query": {
+    "aoi": {
+      "type": "Polygon",
+      "coordinates": [
+        [
+          [
+            -38.626225,
+            -7.652426
+          ],
+          [
+            -37.620458,
+            -7.652426
+          ],
+          [
+            -37.620458,
+            -6.674514
+          ],
+          [
+            -38.626225,
+            -6.674514
+          ],
+          [
+            -38.626225,
+            -7.652426
+          ]
+        ]
+      ]
+    },
+    "from": "2026-10-13",
+    "to": "2026-10-13",
+    "limit": 2,
+    "maxPages": 3
+  },
+  "pages": [
+    {
+      "pageNumber": 1,
+      "items": [
+        {
+          "id": "CBERS4A_WPM_PCA_RGB321_20261013_196_122",
+          "acquiredAt": "2026-10-13T00:00:00.000Z",
+          "mission": null,
+          "gsdMeters": null,
+          "cloudCoverPercent": null,
+          "access": "open"
+        },
+        {
+          "id": "CBERS4A_WPM_PCA_RGB321_20261013_196_123",
+          "acquiredAt": "2026-10-13T00:00:00.000Z",
+          "mission": null,
+          "gsdMeters": null,
+          "cloudCoverPercent": null,
+          "access": "open"
+        }
+      ],
+      "matched": 3,
+      "hasNext": true
+    },
+    {
+      "pageNumber": 2,
+      "items": [
+        {
+          "id": "CBERS4A_WPM_PCA_RGB321_20261013_196_121",
+          "acquiredAt": "2026-10-13T00:00:00.000Z",
+          "mission": null,
+          "gsdMeters": null,
+          "cloudCoverPercent": null,
+          "access": "open"
+        }
+      ],
+      "matched": 3,
+      "hasNext": false
+    }
+  ]
+}

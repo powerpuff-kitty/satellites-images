@@ -1,0 +1,96 @@
+{
+  "type": "Feature",
+  "id": "CBERS4A_WPM_PCA_RGB321_20261013_196_122",
+  "collection": "CB4A-WPM-PCA-FUSED-1",
+  "bbox": [
+    -38.626225,
+    -7.652426,
+    -37.620458,
+    -6.674514
+  ],
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+      [
+        [
+          -38.63414,
+          -7.688332
+        ],
+        [
+          -38.63414,
+          -6.638492
+        ],
+        [
+          -37.610655,
+          -6.638492
+        ],
+        [
+          -37.610655,
+          -7.688332
+        ],
+        [
+          -38.63414,
+          -7.688332
+        ]
+      ]
+    ]
+  },
+  "properties": {
+    "datetime": "2026-10-13T00:00:00.000000Z",
+    "start_datetime": "2026-10-13T00:00:00.000000Z",
+    "end_datetime": "2026-10-13T00:00:00.000000Z",
+    "created": "2026-10-15T05:20:17.455819Z",
+    "updated": "2026-10-15T05:20:17.452252Z",
+    "eo:cloud_cover": null
+  },
+  "assets": {
+    "tci": {
+      "href": "https://data.inpe.br/bdc/data/CB4A-WPM-PCA-FUSED/v001/196/122/2026/10/CBERS4A_WPM_PCA_RGB321_20261013_196_122.tif",
+      "type": "image/tiff; application=geotiff; profile=cloud-optimized",
+      "roles": [
+        "data"
+      ],
+      "created": "2026-10-15T05:19:37",
+      "updated": "2026-10-15T05:20:17",
+      "bdc:size": 6117496108,
+      "bdc:chunk_size": {
+        "x": 512,
+        "y": 512
+      },
+      "bdc:raster_size": {
+        "x": 56397,
+        "y": 57930
+      },
+      "checksum:multihash": "12204cd39d9c845cdf0839a7d269be9a88269d55d80288674ef2f73544630926cf26"
+    },
+    "thumbnail": {
+      "href": "https://data.inpe.br/bdc/data/CB4A-WPM-PCA-FUSED/v001/196/122/2026/10/CBERS4A_WPM_PCA_RGB321_20261013_196_122.png",
+      "type": "image/png",
+      "roles": [
+        "thumbnail"
+      ],
+      "created": "2026-10-15T05:20:11",
+      "updated": "2026-10-15T05:20:17",
+      "bdc:size": 364231,
+      "checksum:multihash": "12203be825081ca67d6ac366af2d61ebb265a7abc3ffbc5fb70551a2548ed2b05da7"
+    }
+  },
+  "links": [
+    {
+      "href": "https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1/items/CBERS4A_WPM_PCA_RGB321_20261013_196_122",
+      "rel": "self"
+    },
+    {
+      "href": "https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1",
+      "rel": "parent"
+    },
+    {
+      "href": "https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1",
+      "rel": "collection"
+    },
+    {
+      "href": "https://data.inpe.br/bdc/stac/v1/",
+      "rel": "root"
+    }
+  ]
+}

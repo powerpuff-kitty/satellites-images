@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/powerpuff-kitty/satellites-images/blob/main/specs/scene.schema.json",
   "title": "Satellite scene (normalized)",
-  "$comment": "Canonical JSON uses camelCase. The Python and Rust packages serialize their native dataclasses/structs (snake_case) directly; JSON contracts are validated for the TypeScript package. See specs/README.md.",
+  "$comment": "Canonical JSON uses camelCase. Rust structs serialize with camelCase field names; Python offers to_camel/to_json for its native snake_case dataclasses. TypeScript contract tests enforce date-time formats. See specs/README.md.",
   "type": "object",
   "required": [
     "providerId",

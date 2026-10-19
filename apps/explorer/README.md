@@ -9,9 +9,15 @@ npm run build -w @powerpuff-kitty/satellites-images
 npm run dev -w @satellites-images/explorer
 ```
 
-Click the map or type decimal GPS coordinates; choose radius, dates and one supported STAC provider; then browse actual historical scene metadata and available previews. The **upcoming planned acquisitions** section queries ESA's latest Sentinel-1/2 KML plans and outlines matching swaths, without claiming image publication. All results are real remote catalogue responses, not mock satellite images. A search scans bounded catalogue pages (five at a time, up to a 50-page limit) and does not claim an exhaustive historical archive. Actual raster images are **not** drawn on the map; comparison and automatic satellite scheduling remain roadmap items.
+Click the map or type decimal GPS coordinates; choose radius, dates and one supported STAC provider; then browse actual historical scene metadata and available previews. The **upcoming planned acquisitions** section queries ESA's latest Sentinel-1/2 KML plans and outlines matching swaths, without claiming image publication. All results are real remote catalogue responses, not mock satellite images. A search scans bounded catalogue pages (five at a time, up to a 50-page limit) and does not claim an exhaustive historical archive. Available public tile sets and explicitly aligned images can be drawn on the map; scientific comparison and automatic satellite scheduling remain roadmap items.
 
 Uses **OpenFreeMap**'s keyless, open-source "Liberty" vector style by default (OpenStreetMap data); set `VITE_MAP_STYLE_URL` to use VersaTiles, a self-hosted Protomaps/PMTiles style, or another provider. No API key is bundled.
+
+MapLibre is the map renderer; OpenFreeMap supplies the default basemap tiles.
+The optional OpenFreeMap name is omitted from the map attribution, as permitted
+by its [attribution guidance](https://openfreemap.org/#attribution). Required
+OpenMapTiles/OpenStreetMap credits remain in a plain footer below the map, with no
+floating attribution badge. Custom-provider credits use the same footer.
 
 ## Tabs
 
@@ -41,29 +47,39 @@ The Worker is intentionally **not deployed by this repository**. Check ESA's sit
    or more corners and **Finish area** to search that polygon instead.
 2. Choose a date range; the search runs automatically (the explorer fetches on any input change and when you pick a location on the map — there is no search button).
 3. Read the **day matrix** under the map (a cell per day); click a cell to filter to that day.
-4. Filter to a satellite platform or day to display its observation cards; click a card's image to place it on the map (with its footprint).
+4. Filter to a satellite platform or day to display its observation cards; open a card's public preview; georeferenced tiles appear on the map, while unaligned quicklooks appear beside the footprint.
 5. Use the **‹ / › year stepper** beside the matrix to move the window a year at a time. Searches load their whole window up front, so the
    **Load next 5 catalogue pages** button only appears if a scan was cut short.
 6. Copy the browser URL to share the state: `lat`/`lon` (search point), `radius`,
    `from`/`to` (period), `day` (selected day), `zoom` (map zoom), `tab`, `metric`, `sensor`,
-   the active filters (`mission`, `collection`, `cloudmin`/`cloudmax`, `hmin`/`hmax`,
+   the active filters (`satellites` for public/commercial satellite inclusion, `mission`, `collection`, `cloudmin`/`cloudmax`, `hmin`/`hmax`,
    `maxgsd`, `preview`, `unknown`), `src` (extra catalogues), `aoi` (a drawn area) and `scene`
    (the image currently on the map, so a refresh restores it) — the URL updates on every map
    move and when an image is opened or closed.
 
 The explorer loads **one year at a time** (the current calendar year by default), queried from
-**both Earth Search and Planetary Computer together** — one request per catalogue for the whole
-window; the same scene returned by both is shown once — merged on collection + platform +
-UTC day + a 0.5°-snapped footprint, because the catalogues disagree slightly on the timestamp
-(seconds for Landsat, ~25 minutes for an identical Sentinel-2 tile) and on the footprint
-rounding. Different tiles of one overpass stay separate. Earth Search covers
+**Earth Search and Planetary Computer together** — one request per catalogue for the whole
+window; proven copies are grouped by collection/product identity, including Sentinel-2's
+shared product URI, with catalogue provenance retained. Dates and approximate footprints
+alone do not collapse acquisitions. Different tiles of one overpass stay separate. Earth Search covers
 Sentinel-2 L2A and Landsat C2 L2; Planetary Computer adds **Sentinel-1 RTC** radar (~10 m,
 grayscale backscatter, no cloud cover) and **NAIP** aerial imagery (**0.6 m**, US). A search loads every provider page (in five-page
 batches, up to a 50-page safety cap) so the day matrix covers the full year without manual
 paging. If the cap is reached, the UI says **partial**, and zero-count dates are not proof
 that no imagery exists. Changing the location/dates starts a new search.
 
-The calendar is a catalogue discovery view, not an imagery renderer or scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
+The calendar is a catalogue discovery view with public previews; it is not a scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
+
+Under **Data sources**, opt into **INPE CBERS-4A (Brazil)** to search the fused visual
+collection. Platform, resolution and cloud fields absent from its items stay unknown.
+The **Additional satellites** switches beside the date also enable INPE or ASF,
+stay synchronized with Data sources and persist in shared URLs. The satellite
+dropdown filters loaded observations, so an enabled mission only appears when
+the catalogue returns matching records for the location and year.
+The **ASF** option includes **Sentinel-1, NISAR and ALOS-2**; NISAR/ALOS-2 records are
+classified as radar even when their processing-level names omit the mission. Full ASF
+result caps remain partial. The [source review](../../docs/FREE_SOURCES_REVIEW.md)
+records live checks and explains which additional providers need adapters or layer support.
 
 ## Filters and the day matrix
 
@@ -101,7 +117,7 @@ The "select any location" prompt disappears once a location is chosen, and scene
 
 Filters cover satellite, collection, catalogue (which provider returned it), cloud range,
 hour range, resolution, orbit direction, native-resolution tiles, has-preview and
-unknown-cloud; the date range is clamped to `1970-01-01` … today + 1 year.
+unknown-cloud, and commercial-satellite inclusion; the date range is clamped to `1970-01-01` … today + 1 year.
 
 Scene cards show the **STAC scene id** and the acquisition time **to the second** — two
 genuinely different scenes can overlap one location (Landsat adjacent rows are acquired
@@ -111,37 +127,53 @@ A **coverage** line under the filters summarises the loaded result set from the 
 summary: observations shown, days with data, months, and a per-catalogue split (a trailing `+`
 marks a catalogue that still advertises more pages).
 
-The end-to-end suite is fully mocked; for a real check run
+The end-to-end suite is fully mocked: a context route intercepts all external requests,
+and missing fixtures fail the test without reaching the network. Live checks use the
+standard Playwright fixtures and require `LIVE=1`. For a real check run
 `LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "live search"` (it performs
 a live point search and a live drawn-area search and prints the coverage rollup), and
 `node tools/smoke/live.mjs` for provider-level reachability.
+
+The **Satellite type** filter can exclude recognized commercial satellites or show
+only those returned by the connected public catalogues. It persists in shared links
+and closes an excluded observation's preview. Full paid-archive search requires a
+provider account. Maxar scanning was removed after full-year checks found no browser
+preview URLs, including in a known release. See [evidence](../../docs/PUBLIC_PREVIEWS.md).
 
 A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
 knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which
 SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex** radar, **NASA CMR-STAC (ASF)**,
 **JAXA G-Portal** ALOS) are opt-in there and are queried in addition to Earth Search and
-Planetary Computer.
+Planetary Computer. A failed catalogue retains its earlier results, reports incomplete
+coverage, and lets the other configured catalogues finish.
 
 ## Layout
 
 Published observations live in an independent, scrollable **right-hand panel** (the left
 controls and the map stay accessible). Its header is **sticky** and holds the result
 counter and status; the loaded observations are summarised by the **day matrix** at the
-bottom of the map (see above). Clicking a scene **preview image overlays it on the map**
-so you can pan/zoom with the map; the **‹ / ›** arrows step through the loaded images and
-**Esc** closes the overlay. Opening an image leaves the camera alone (no zoom change). The
-image is the best the source publishes — a provider **rendered tile set** where one exists
-(Planetary Computer's true-colour tiles, full resolution) or the largest **displayable
-preview** asset, overlaid on the footprint. When a provider's asset hrefs are not http(s)
-(Landsat's are `s3://` requester-pays), the item's **`thumbnail` link** is used instead.
-For the **map overlay** the image must also be CORS-enabled, which Earth Search's Landsat
-browse is not — so the overlay falls back to the **Planetary Computer** render of the same
-item id (a CORS-enabled PNG). Earth Search's Sentinel-2 only publishes a fixed-size
-`preview.jpg`, so its quality is capped by the source. Note the imagery's own resolution:
-**Landsat 9 is 30 m/pixel** and **Sentinel-2 is 10 m/pixel** (visible bands), so individual
-houses (~10 m across) are not resolvable — expect settlement, road and field patterns, not
-buildings. The overlay uses the provider's **tile set** where one is available, so zooming
-shows the imagery at its native resolution instead of an upscaled whole-scene preview. The explorer loads **one year at a time** in a **single
-request**: use the **month navigation above the calendar** (← / → and the month field) to
-move the visible month; stepping past the edge of what's loaded fetches the next year and
-appends it. Cloud cover is scene-wide metadata, not per-AOI.
+bottom of the map (see above). **View public preview** opens advertised imagery, with
+**‹ / ›** navigation and **Esc** to close. Opening a preview leaves the camera unchanged.
+Provider tile sets appear on the map. Still images require explicit WGS84 image bounds
+and a north-up transform to be placed there; unaligned quicklooks appear in a separate
+panel beside the footprint. Image or tile failures have visible recovery states.
+
+Copernicus can discover an exact Sentinel-2 product's public OData quicklook on demand
+when its STAC preview is absent or fails. Earth Search can use advertised Planetary
+Computer render assets from a verified product match. GeoTIFF/JP2 assets are not image
+URLs, and another acquisition is not substituted just because it has a similar time.
+
+**Paid imagery maps** links open SkyFi or UP42 in a new tab. Copy the current location,
+dates and drawn area for their search using **Copy location and dates**. Accounts and
+purchases remain with the provider. See [public preview routes, safeguards and live
+observations](../../docs/PUBLIC_PREVIEWS.md).
+
+The explorer loads **one calendar year at a time**, following catalogue pages in five-page
+batches up to its 50-page safety limit. Pick a date or use the year arrows above the
+matrix to load another year. Cloud cover is scene-wide metadata, not per-AOI.
+
+The production build separates MapLibre from application code for independent caching
+and uses seven local SVG icons instead of an icon font. The MapLibre worker remains an
+explicit asset. The icons are from Font Awesome Free by Fonticons, Inc., under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/); attribution is shipped in
+`public/THIRD_PARTY_NOTICES.txt` and `public/icons.svg`.

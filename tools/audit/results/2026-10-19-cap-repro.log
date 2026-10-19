@@ -1,0 +1,19 @@
+{
+  "pagesScanned": 50,
+  "complete": true,
+  "stoppedByExplorer": true,
+  "status": "",
+  "calendarTruncatedProviders": [],
+  "unconsumedPageExists": true,
+  "omittedScenes": [
+    "omitted-west-scene"
+  ],
+  "extraRequestsToExposeOmittedPage": 1,
+  "lastRequest": {
+    "id": "earth-search",
+    "box": "west",
+    "number": 1
+  }
+}
+(node:67031) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

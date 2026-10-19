@@ -2,10 +2,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import Ajv2020 from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
 import { StacProvider, summarizeAvailability } from "../dist/index.js";
 
 const load = (name) => JSON.parse(readFileSync(new URL("../../../specs/" + name, import.meta.url), "utf8"));
 const ajv = new Ajv2020({ strict: false, allErrors: true });
+addFormats(ajv);
 ajv.addSchema(load("scene.schema.json"));
 ajv.addSchema(load("acquisition.schema.json"));
 const validateScene = ajv.getSchema("https://github.com/powerpuff-kitty/satellites-images/blob/main/specs/scene.schema.json");
@@ -38,4 +40,6 @@ test("normalized scene, page, and availability satisfy the JSON schemas", async 
   assert.ok(validatePage(pages[0]), JSON.stringify(validatePage.errors));
   const summary = summarizeAvailability(pages);
   assert.ok(validateAvailability(summary), JSON.stringify(validateAvailability.errors));
+  assert.equal(validateScene({ ...pages[0].items[0], acquiredAt: "definitely-not-a-date" }), false);
+  assert.equal(validateScene({ ...pages[0].items[0], acquiredAt: "2025-02-30T02:00:00Z" }), false);
 });

@@ -1,0 +1,17 @@
+{
+  "pagesScanned": 50,
+  "complete": true,
+  "stoppedByExplorer": true,
+  "status": "",
+  "calendarTruncatedProviders": [],
+  "unconsumedPageExists": true,
+  "omittedScenes": [
+    "omitted-west-scene"
+  ],
+  "extraRequestsToExposeOmittedPage": 1,
+  "lastRequest": {
+    "id": "earth-search",
+    "box": "west",
+    "number": 1
+  }
+}

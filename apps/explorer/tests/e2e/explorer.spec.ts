@@ -1,4 +1,5 @@
-import { test, expect, type Page, type Route } from "@playwright/test";
+import { test, expect } from "./offline.js";
+import type { Page, Route } from "@playwright/test";
 
 // Every response is intercepted: no live catalogue, map-tile or ESA request is made,
 // and no credentials or fixture dates are presented as live data.
@@ -55,6 +56,8 @@ const collection = (features: unknown[], links: unknown[], matched: number) =>
  * picked day had no observations: that selection is dropped automatically.
  */
 async function clearDay(page: Page) {
+  // The final provider can remove an empty auto-selected day; wait for the scan to settle.
+  await expect(page.locator("#status")).not.toContainText(/^(Searching|Scanned)/);
   const selected = page.locator("#matrix-svg .matrix-cell.selected");
   if (await selected.count() === 0) return;
   await selected.click();
@@ -103,17 +106,20 @@ test("the built app serves the maplibre worker as javascript", async ({ page }) 
   expect(errors.filter((text) => /Worker failed to load/i.test(text))).toEqual([]);
 });
 
-test("the required basemap attribution is not covered by the day matrix", async ({ page }) => {
+test("map credits appear below the map without a floating attribution badge", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("a1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await expect(page.locator("#map-matrix")).toBeVisible();
+  await expect(page.locator("#map .maplibregl-ctrl-attrib")).toHaveCount(0);
+  await expect(page.locator("#map-credits")).toContainText("Test basemap");
   const boxes = await page.evaluate(() => {
     const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect() ?? null;
     const attribution = rect(".maplibregl-ctrl-attrib");
     const matrix = rect("#map-matrix");
     const pane = rect("#map-container");
-    return { attribution, matrix, pane, text: document.querySelector(".maplibregl-ctrl-attrib-inner")?.textContent ?? "" };
+    const canvas = rect("#map");
+    return { attribution, matrix, pane, canvas, text: document.querySelector(".maplibregl-ctrl-attrib-inner")?.textContent ?? "" };
   });
   expect(boxes.text).toContain("Test basemap");
   const overlaps = boxes.attribution && boxes.matrix
@@ -123,13 +129,14 @@ test("the required basemap attribution is not covered by the day matrix", async 
   // It also stays inside the map, rather than being pushed out of the pane.
   expect(boxes.attribution!.left).toBeGreaterThanOrEqual(boxes.pane!.left);
   expect(boxes.attribution!.right).toBeLessThanOrEqual(boxes.pane!.right + 1);
+  expect(boxes.attribution!.top).toBeGreaterThanOrEqual(boxes.canvas!.bottom);
 });
 
 test("a scene with no tile set still draws its preview via a fetched image", async ({ page }) => {
   // Earth Search Sentinel-2 previews can be read as a plain CORS fetch but fail MapLibre's own
   // image request, so the app fetches the bytes and hands over an object URL. Without that the
   // map showed a caption with no raster.
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   const previewRequests: string[] = [];
   await page.route("https://example.test/**", (route) => {
     previewRequests.push(route.request().url());
@@ -137,8 +144,10 @@ test("a scene with no tile set still draws its preview via a fetched image", asy
   });
   // The tile service has not ingested this item, so no tile set can be resolved.
   await page.route("https://planetarycomputer.microsoft.com/**", (route) => respond(route, { json: { type: "FeatureCollection", features: [], links: [] } }));
-  await page.route("**/search", (route) => respond(route, { json: collection(
-    [stacScene("no-tiles", "2025-03-10T02:00:00Z")], [], 1) }));
+  const aligned = stacScene("no-tiles", "2025-03-10T02:00:00Z");
+  Object.assign(aligned.assets.thumbnail, { "proj:code": "EPSG:4326", "proj:bbox": aligned.bbox,
+    "proj:transform": [0.1, 0, 116, 0, -0.1, -8.4] });
+  await page.route("**/search", (route) => respond(route, { json: collection([aligned], [], 1) }));
   await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
   await clearDay(page);
   await expect(page.locator("#results img")).toHaveCount(1);
@@ -152,26 +161,19 @@ test("a scene with no tile set still draws its preview via a fetched image", asy
   await expect(page.locator("#map-container")).not.toHaveAttribute("data-preview-source", "image");
 });
 
-test("a scene whose preview cannot be fetched says so instead of an empty overlay", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-  let calls = 0;
-  await page.route("https://example.test/**", (route) => {
-    calls += 1;
-    // The card's own <img> loads; the overlay's CORS fetch of the same URL is refused.
-    return calls === 1 ? route.fulfill({ contentType: "image/png", body: png })
-      : route.fulfill({ status: 403, body: "forbidden" });
-  });
+test("a blocked still preview reports unavailable without an empty raster overlay", async ({ page }) => {
+  await page.route("https://example.test/**", route => route.fulfill({ status: 403, body: "forbidden" }));
   await page.route("https://planetarycomputer.microsoft.com/**", (route) => respond(route, { json: { type: "FeatureCollection", features: [], links: [] } }));
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("blocked", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31");
   await clearDay(page);
-  await expect(page.locator("#results img")).toHaveCount(1);
-  await expect.poll(async () => page.locator("#results img").first()
-    .evaluate((image) => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  await page.locator("#results img").first().click();
-  await expect(page.locator("#map-preview")).toBeHidden();
-  await expect(page.locator("#status")).toContainText(/cannot be drawn on the map/);
+  await expect(page.locator("#results img")).toHaveCount(0);
+  await expect(page.locator(".preview-status")).toContainText("Preview unavailable");
+  await page.getByRole("button", {name:"View public preview",exact:true}).click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
+  await expect(page.locator("#preview-still-status")).toContainText("Public preview unavailable");
 });
 
 test("coordinate search builds a calendar and result cards", async ({ page }) => {
@@ -296,8 +298,10 @@ test("catalogue, orbit and native-tile filters narrow the results", async ({ pag
 });
 
 test("the form defaults to today, loads its year and selects that pixel", async ({ page }) => {
-  await page.goto("/");
   const today = new Date().toISOString().slice(0, 10);
+  await page.route("**/search", route => respond(route, { json: collection(
+    [stacScene("today", today + "T02:00:00Z")], [], 1) }));
+  await page.goto("/");
   await expect(page.locator("#date")).toHaveValue(today);
   await expect(page.locator("#date-from")).toHaveValue(today.slice(0, 4) + "-01-01");
   await expect(page.locator("#date-to")).toHaveValue(today.slice(0, 4) + "-12-31");
@@ -366,6 +370,18 @@ test("a mid-scan catalogue failure is reported and keeps partial results", async
   await expect(page.locator("#status")).toContainText(/failed/i);
 });
 
+test("a failed catalogue does not prevent the other catalogue from loading", async ({ page }) => {
+  await page.route("https://planetarycomputer.microsoft.com/api/stac/v1/search", route =>
+    respond(route, { status: 503, body: "unavailable", contentType: "text/plain" }));
+  await page.route("https://earth-search.aws.element84.com/v1/search", route =>
+    respond(route, { json: collection([stacScene("healthy", "2025-03-10T02:00:00Z")], [], 1) }));
+  await setDate(page, "2025-03-10");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#status")).toContainText(/failed.*planetary-computer/i);
+  await expect(page.locator("#calendar-status")).toContainText(/incomplete/i);
+  await expect(page.locator("#coverage")).toContainText("earth-search");
+});
+
 test("deep link restores the location, range and selected day and replays the search", async ({ page }) => {
   const scene = stacScene("d", "2025-03-10T02:00:00Z");
   scene.geometry = { type: "Polygon", coordinates: [[[103.7, 1.2], [104.0, 1.2], [104.0, 1.5], [103.7, 1.5], [103.7, 1.2]]] };
@@ -407,6 +423,7 @@ test("left tabs switch between historical and upcoming views", async ({ page }) 
 });
 
 test("planned ESA acquisitions are shown separately from published scenes", async ({ page }) => {
+  await page.route("**/search", route => respond(route, { json: collection([], [], 0) }));
   const now = Date.now();
   const stamp = (d: Date) => new Date(d).toISOString().replace(/[-:]/g, "").slice(0, 15);
   const observation = new Date(now + 2 * 86400000).toISOString().slice(0, 19);
@@ -665,7 +682,7 @@ test("icon-only buttons centre their glyph", async ({ page }) => {
   await expect(page.locator("#map-matrix")).toBeVisible();
   for (const id of ["#matrix-prev-year", "#matrix-next-year"]) {
     const box = (await page.locator(id).boundingBox())!;
-    const glyph = (await page.locator(id + " .fa-solid").boundingBox())!;
+    const glyph = (await page.locator(id + " .icon").boundingBox())!;
     expect(Math.abs((glyph.x + glyph.width / 2) - (box.x + box.width / 2))).toBeLessThan(1.5);
     expect(Math.abs((glyph.y + glyph.height / 2) - (box.y + box.height / 2))).toBeLessThan(1.5);
     expect(Math.round(box.width)).toBe(Math.round(box.height)); // square
@@ -676,7 +693,7 @@ test("icon-only buttons centre their glyph", async ({ page }) => {
 });
 
 test("clicking a preview overlays the image on the map with prev/next navigation", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("img-a", "2025-03-09T02:00:00Z"), stacScene("img-b", "2025-03-12T02:00:00Z")], [], 2) }));
@@ -707,17 +724,23 @@ test("cross-catalogue copies of one tile merge; different acquisitions stay", as
   // footprint that differs by a rounding-sized amount.
   const earthSearch = stacScene("es-copy", "2025-03-10T02:40:00Z");
   const planetary = { ...stacScene("pc-copy", "2025-03-10T02:16:00Z"), bbox: [116.0, -8.7, 116.3, -8.41] };
+  const product = "S2A_MSIL2A_20250310T021600_N0513_R003_T50LMR_20250310T055857.SAFE";
+  Object.assign(earthSearch.properties, { "s2:product_uri": product });
+  Object.assign(planetary.properties, { "s2:product_uri": product });
   const otherDay = stacScene("other-day", "2025-03-11T02:16:00Z");
   await page.route("**/search", (route) => respond(route, { json: collection(
     [earthSearch, planetary, otherDay], [], 3) }));
   await page.goto("/");
   await setDate(page, "2025-03-10");
-  // The two copies collapse; the second acquisition is kept.
+  // Product identity groups the copies while retaining both catalogues.
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await expect(page.locator("#results li").filter({hasText:"es-copy"})).toContainText("planetary-computer");
+  await page.selectOption("#provider-filter", "planetary-computer");
   await expect(page.locator("#results li")).toHaveCount(2);
 });
 
 test("the image on the map is restored from the permalink", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("s1", "2025-03-10T02:00:00Z"), stacScene("s2", "2025-03-11T02:00:00Z")], [], 2) }));
@@ -734,7 +757,7 @@ test("the image on the map is restored from the permalink", async ({ page }) => 
 });
 
 test("the previewed image's card is highlighted with a left border", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("h1", "2025-03-10T02:00:00Z"), stacScene("h2", "2025-03-11T02:00:00Z")], [], 2) }));
@@ -756,7 +779,7 @@ test("the previewed image's card is highlighted with a left border", async ({ pa
 });
 
 test("a day cell draws no footprint; opening the image does", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("f1", "2025-03-10T02:00:00Z")], [], 1) }));
@@ -774,7 +797,7 @@ test("a day cell draws no footprint; opening the image does", async ({ page }) =
 });
 
 test("the arrows step only through the filtered observations", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("**/search", (route) => respond(route, { json: collection([
     stacScene("a1", "2025-03-10T02:00:00Z"), stacScene("b1", "2025-03-11T02:00:00Z")], [], 2) }));
@@ -794,7 +817,7 @@ test("the arrows step only through the filtered observations", async ({ page }) 
 });
 
 test("the card and map preview prefer a higher-resolution provider asset", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   const scene = stacScene("hq", "2025-03-10T02:00:00Z");
   // A rendered preview (overview role) should win over the small thumbnail.
@@ -807,12 +830,15 @@ test("the card and map preview prefer a higher-resolution provider asset", async
 });
 
 test("a Landsat-style scene uses the item thumbnail link for its image", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   const renderUrls: string[] = [];
   await page.route("https://planetarycomputer.microsoft.com/**", (route) => {
     const url = route.request().url();
     renderUrls.push(url);
+    if (url.includes("/collections/landsat-c2-l2/items/")) return respond(route, { json: {
+      ...item, assets: { tilejson: { href: "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?item=LC09_1", roles: ["tiles"], type: "application/json" } }
+    } });
     return url.includes("tilejson")
       ? respond(route, { json: { tiles: ["https://planetarycomputer.microsoft.com/api/data/v1/item/tiles/WebMercatorQuad/{z}/{x}/{y}@1x?item=LC09_1"], minzoom: 0, maxzoom: 22, tileSize: 256 } })
       : route.fulfill({ contentType: "image/png", body: png });
@@ -845,7 +871,7 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
 });
 
 test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   const requested: string[] = [];
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   const scene = stacScene("s2a", "2025-03-10T02:00:00Z");
@@ -856,7 +882,9 @@ test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", a
   await page.route("https://planetarycomputer.microsoft.com/api/stac/v1/search", (route) => {
     requested.push("search");
     return respond(route, { json: { features: [
-      { id: "S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000", properties: { datetime: "2025-03-10T02:00:00Z" } }] } });
+      { id: "S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000", collection: "sentinel-2-l2a",
+        properties: { datetime: "2025-03-10T02:00:00Z", "s2:mgrs_tile": "50MRV" },
+        assets: { tilejson: { href: "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?item=S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000", roles: ["tiles"], type: "application/json" } } }] } });
   });
   await page.route("https://planetarycomputer.microsoft.com/api/data/v1/**", (route) => {
     const url = route.request().url();
@@ -912,6 +940,52 @@ test("the Data sources panel lists the registry and enables extra catalogues", a
   await expect.poll(() => requests.some((url) => url.includes("cmr.earthdata.nasa.gov"))).toBe(true);
 });
 
+test("INPE opt-in searches its collection and displays observations", async ({ page }) => {
+  const requested: string[][] = [];
+  await page.route("**/search", async route => {
+    if (!route.request().url().includes("data.inpe.br")) return respond(route,{json:collection([],[],0)});
+    const body = route.request().postDataJSON();
+    requested.push(body.collections);
+    const base = stacScene("cbers", "2025-03-10T00:00:00Z");
+    const scene = {...base,collection:"CB4A-WPM-PCA-FUSED-1",
+      properties:{datetime:"2025-03-10T00:00:00Z"}};
+    return respond(route,{json:collection([scene],[],1)});
+  });
+  await page.goto("/?date=2025-03-10");
+  const quickSource=page.locator('[data-source-toggle="inpe-cbers"]');
+  await expect(quickSource).toBeVisible();
+  expect(requested).toHaveLength(0);
+  await quickSource.check();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results")).toContainText("CB4A-WPM-PCA-FUSED-1");
+  expect(requested).toContainEqual(["CB4A-WPM-PCA-FUSED-1"]);
+  await expect(page.locator('#source-list input[data-source="inpe-cbers"]')).toBeChecked();
+  await page.reload();
+  await expect(quickSource).toBeChecked();
+  await expect(page.locator("#results")).toContainText("CB4A-WPM-PCA-FUSED-1");
+  await page.locator("#sources summary").click();
+  await page.locator('#source-list input[data-source="inpe-cbers"]').uncheck();
+  await expect(quickSource).not.toBeChecked();
+});
+
+test("ASF opt-in includes NISAR and ALOS-2 and classifies NISAR as radar", async ({ page }) => {
+  await page.route("**/search",route=>respond(route,{json:collection([],[],0)}));
+  let platforms: string[] = [];
+  await page.route("https://api.daac.asf.alaska.edu/**",route=>{
+    platforms = new URL(route.request().url()).searchParams.get("platform")!.split(",");
+    return respond(route,{json:collection([{type:"Feature",
+      geometry:stacScene("shape","2025-03-10T00:00:00Z").geometry,
+      properties:{sceneName:"nisar",platform:"NISAR",processingLevel:"RSLC",startTime:"2025-03-10T02:00:00Z"},
+    }],[],1)});
+  });
+  await page.goto("/?date=2025-03-10&src=asf-vertex");
+  await expect(page.locator('[data-source-toggle="asf-vertex"]')).toBeChecked();
+  await expect(page.locator("#results")).toContainText("NISAR");
+  expect(platforms).toEqual(["SENTINEL-1","NISAR","ALOS-2"]);
+  await page.locator('.matrix-chip[data-sensor="radar"]').click();
+  await expect(page.locator("#results")).toContainText("NISAR");
+});
+
 test("the More dropdown picks an extra metric", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
@@ -952,7 +1026,7 @@ test("the Image/Radar quick filter narrows the view and sits right", async ({ pa
 });
 
 test("a radar scene renders its tile set and is listed in the collection filter", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   await page.route("https://example.test/**", (route) => {
     const url = route.request().url();
     return url.includes("tilejson")
@@ -982,7 +1056,7 @@ test("a radar scene renders its tile set and is listed in the collection filter"
 });
 
 test("a provider tile set is used when the scene exposes one", async ({ page }) => {
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   let tilejsonRequests = 0;
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   await page.route("https://example.test/tilejson.json**", (route) => {
@@ -1115,4 +1189,230 @@ test("clicking a matrix cell toggles the selected day", async ({ page }) => {
   await page.locator('#matrix-svg .matrix-cell[data-day="2025-03-12"]').click();
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(0);
   await expect(page.locator("#results li")).toHaveCount(2);
+});
+
+test("an unaligned public preview stays separate from the map and supports keyboard close", async ({ page }) => {
+  await page.route("**/search", route => respond(route, { json: collection([stacScene("unaligned", "2025-03-10T02:00:00Z")], [], 1) }));
+  await setDate(page, "2025-03-10");
+  const image = page.locator("#results img");
+  await image.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
+  await expect(page.locator("#preview-still")).toBeVisible();
+  await expect(page.locator("#preview-still-status")).toContainText("Map alignment is unknown");
+  await expect(page.locator("#map-container")).toHaveAttribute("data-footprint", "unaligned");
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#preview-still")).toBeHidden();
+  await expect(image).toBeFocused();
+});
+
+test("has-preview includes advertised tiles and excludes a GeoTIFF disguised as a JPEG", async ({ page }) => {
+  const bad = stacScene("geotiff", "2025-03-10T02:00:00Z");
+  bad.assets.thumbnail.type = "image/tiff; application=geotiff";
+  const tiled = stacScene("tiles-only", "2025-03-11T02:00:00Z");
+  (tiled as { assets: unknown }).assets = { tilejson: { href: "https://example.test/tilejson.json", roles: ["tiles"], type: "application/json" } };
+  await page.route("**/search", route => respond(route, { json: collection([bad, tiled], [], 2) }));
+  await setDate(page, "2025-03-10");
+  await expect(page.locator("#results img")).toHaveCount(0);
+  await page.locator("#has-preview").check();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText("tiles-only");
+});
+
+const ODATA_PRODUCT = "S2B_MSIL2A_20250310T020000_N0513_R003_T50LMR_20250310T055857";
+const ODATA_ASSET = "https://catalogue.dataspace.copernicus.eu/odata/v1/Assets(3b55eb2e-c778-4171-8b23-3862e9b70a47)/$value";
+async function copernicusWithoutPreview(page: Page) {
+  const scene = stacScene(ODATA_PRODUCT, "2025-03-10T02:00:00Z");
+  (scene as { assets: unknown }).assets = {};
+  await page.route("**/search", route => respond(route, { json: collection(
+    route.request().url().includes("dataspace.copernicus.eu") ? [scene] : [], [], 1) }));
+  await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31&src=copernicus");
+  await expect(page.locator("#results li")).toHaveCount(1);
+}
+function odataProduct(assets: unknown[], name = ODATA_PRODUCT + ".SAFE") {
+  return { value: [{ Name: name, Id: "0c65ef71-e70d-4ecd-98c7-bc813f41f48d", Assets: assets }] };
+}
+
+test("Copernicus discovers an exact product quicklook on demand and reuses it", async ({ page }) => {
+  const requests: URL[] = [];
+  await page.route("**/odata/v1/Products?**", route => {
+    requests.push(new URL(route.request().url()));
+    return respond(route, { json: odataProduct([{ Type: "QUICKLOOK", DownloadLink: ODATA_ASSET }]) });
+  });
+  await page.route(ODATA_ASSET, route => route.fulfill({ contentType: "application/octet-stream",
+    body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64") }));
+  await copernicusWithoutPreview(page);
+  expect(requests).toHaveLength(0);
+  await page.getByRole("button", { name: "View public preview", exact: true }).click();
+  await expect(page.locator("#preview-caption")).toContainText("Copernicus OData");
+  await expect.poll(() => page.locator("#preview-still-image").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+  expect(requests).toHaveLength(1);
+  expect(requests[0].searchParams.get("$filter")).toBe("Name eq '" + ODATA_PRODUCT + ".SAFE'");
+  expect(requests[0].searchParams.get("$expand")).toBe("Assets");
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "View public preview", exact: true }).click();
+  await expect(page.locator("#preview-caption")).toContainText("Copernicus OData");
+  expect(requests).toHaveLength(1);
+});
+
+for (const scenario of ["missing", "wrong product", "unapproved host", "account required", "oversized"] as const) {
+  test("Copernicus preview lookup handles " + scenario, async ({ page }) => {
+    await page.route("**/odata/v1/Products?**", route => {
+      if (scenario === "account required") return respond(route, { status: 403 });
+      if (scenario === "oversized") return route.fulfill({ headers: { ...CORS, "content-length": "1048577" }, body: "{}" });
+      const assets = [{ Type: "QUICKLOOK", DownloadLink: scenario === "unapproved host" ? "https://unapproved.test/preview.jpg" : ODATA_ASSET }];
+      return respond(route, { json: scenario === "missing" ? { value: [] } : odataProduct(assets,
+        scenario === "wrong product" ? "OTHER_PRODUCT.SAFE" : ODATA_PRODUCT + ".SAFE") });
+    });
+    await copernicusWithoutPreview(page);
+    await page.getByRole("button", { name: "View public preview", exact: true }).click();
+    await expect(page.locator("#map-preview")).toBeHidden();
+    await expect(page.locator("#status")).toContainText(scenario === "account required" ? "requires an account"
+      : scenario === "oversized" ? "too large" : "No public preview");
+    await page.locator("#paid-maps summary").click();
+    await expect(page.getByRole("link", { name: "Open SkyFi map" })).toBeVisible();
+  });
+}
+
+test("closing a pending preview cancels it without reopening a stale view", async ({ page }) => {
+  let finish!: () => void;
+  const gate = new Promise<void>(resolve => { finish = resolve; });
+  let requested = false;
+  await page.route("**/odata/v1/Products?**", async route => {
+    requested = true;
+    await gate;
+    await respond(route, { json: odataProduct([]) }).catch(() => {});
+  });
+  await copernicusWithoutPreview(page);
+  await page.getByRole("button", { name: "View public preview", exact: true }).click();
+  await expect.poll(() => requested).toBe(true);
+  await expect(page.locator("#preview-caption")).toHaveText("Loading public preview…");
+  await page.keyboard.press("Escape");
+  finish();
+  await page.waitForLoadState("networkidle");
+  await expect(page.locator("#map-preview")).toBeHidden();
+  await expect(page.locator("#status")).not.toContainText("No public preview");
+});
+
+test("a nearby Planetary Computer acquisition cannot replace the selected scene", async ({ page }) => {
+  const scene = stacScene("selected-original", "2025-03-10T02:00:00Z");
+  Object.assign(scene.properties, { "s2:mgrs_tile": "50LMR" });
+  await page.route("**/search", route => respond(route, { json: collection([scene], [], 1) }));
+  await page.route("https://planetarycomputer.microsoft.com/api/stac/v1/search", route => {
+    const nearby = stacScene("different-acquisition", "2025-03-10T02:05:00Z");
+    Object.assign(nearby.properties, { "s2:mgrs_tile": "50LMR" });
+    (nearby as { assets: unknown }).assets = { tilejson: { href: "https://never-request.test/tilejson.json", roles: ["tiles"] } };
+    return respond(route, { json: collection([nearby], [], 1) });
+  });
+  await setDate(page, "2025-03-10");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.locator('[data-scene-id="selected-original"] img').click();
+  await expect(page.locator("#preview-still-image")).toHaveAttribute("src", /thumb-selected-original/);
+  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
+});
+
+test("paid map links open only on request and copied search context contains the selected area and dates", async ({ page, context }) => {
+  await page.route("**/search", route => respond(route, { json: collection([], [], 0) }));
+  const visited: string[] = [];
+  await context.route("https://app.skyfi.com/**", route => {
+    visited.push(route.request().url());
+    expect(route.request().headers()["referer"]).toBeUndefined();
+    return route.fulfill({ contentType: "text/html", body: "<h1>Provider map fixture</h1>" });
+  });
+  await page.addInitScript(() => Object.defineProperty(navigator.clipboard, "writeText", { value: async (text: string) => {
+    (window as unknown as { copiedSearch: string }).copiedSearch = text;
+  } }));
+  await page.goto("/?lat=-8.5833&lon=116.1167&radius=5000&from=2025-03-01&to=2025-03-31");
+  await page.locator("#paid-maps summary").click();
+  const link = page.getByRole("link", { name: "Open SkyFi map" });
+  await expect(link).toHaveAttribute("href", "https://app.skyfi.com/");
+  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  await expect(page.getByRole("link", { name: "Open UP42 map" })).toHaveAttribute("href", "https://console.up42.com/");
+  expect(visited).toHaveLength(0);
+  await page.getByRole("button", { name: "Copy location and dates" }).click();
+  const copied = await page.evaluate(() => (window as unknown as { copiedSearch: string }).copiedSearch);
+  expect(copied).toContain("Latitude: -8.58330, longitude: 116.11670, radius: 5000 m");
+  expect(copied).toContain("Dates: 2025-01-01 to 2025-12-31 (UTC)");
+  const popupPromise = page.waitForEvent("popup");
+  await link.click();
+  const popup = await popupPromise;
+  await popup.waitForLoadState();
+  expect(popup.url()).toBe("https://app.skyfi.com/");
+  expect(visited).toEqual(["https://app.skyfi.com/"]);
+  await popup.close();
+});
+
+test("a public tile-service failure falls back to the scene's unaligned still preview", async ({ page }) => {
+  const scene = stacScene("tile-failure", "2025-03-10T02:00:00Z");
+  (scene.assets as Record<string, unknown>).tilejson = { href: "https://example.test/unavailable-tilejson.json", type: "application/json", roles: ["tiles"] };
+  await page.route("**/search", route => respond(route, { json: collection([scene], [], 1) }));
+  await page.route("https://example.test/unavailable-tilejson.json", route => respond(route, { status: 503 }));
+  await setDate(page, "2025-03-10");
+  await page.getByRole("button", { name: "View public preview", exact: true }).click();
+  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
+  await expect(page.locator("#preview-still-image")).toHaveAttribute("src", /thumb-tile-failure/);
+  await expect(page.locator("#preview-still-status")).toContainText("Map alignment is unknown");
+  await expect(page.getByRole("button", { name: "Retry public preview", exact: true })).toBeVisible();
+});
+
+test("a thumbnail with declared authentication is not offered as a public image", async ({ page }) => {
+  const scene = stacScene("private-thumbnail", "2025-03-10T02:00:00Z");
+  Object.assign(scene.assets.thumbnail, { "auth:refs": ["oidc"] });
+  await page.route("**/search", route => respond(route, { json: collection([scene], [], 1) }));
+  await setDate(page, "2025-03-10");
+  await expect(page.locator("#results img")).toHaveCount(0);
+  await page.locator("#has-preview").check();
+  await expect(page.locator("#results li.empty")).toContainText("No observations match");
+});
+
+test("paid imagery and known commercial satellites from another catalogue can be excluded", async ({page})=>{
+  const commercial=stacScene("worldview-from-other-source","2025-03-10T02:00:00Z","WorldView-2");
+  await page.route("**/search",route=>respond(route,{json:collection([commercial,stacScene("sentinel","2025-03-10T02:00:00Z")],[],2)}));
+  await setDate(page,"2025-03-10");
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await page.selectOption("#satellite-type-filter","public");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText("sentinel");
+});
+
+test("commercial preview catalogue scans are removed even from old Maxar links", async ({page})=>{
+  const requests:string[]=[];
+  page.on("request",request=>{if(request.url().includes("maxar-opendata"))requests.push(request.url())});
+  await page.route("**/search",route=>respond(route,{json:collection([stacScene("public-sentinel","2026-07-21T02:00:00Z")],[],1)}));
+  await page.goto("/?lat=-8.48823&lon=116.10846&radius=5000&date=2026-10-13&day=2026-07-20&satellites=commercial&src=maxar-open-data");
+  await expect(page.locator("#status")).toHaveText("");
+  await expect(page.locator("#results li.empty")).toContainText("connected public catalogues");
+  await expect(page.locator("#results li.empty")).toContainText("requires a provider account");
+  await expect(page.locator("#counter")).toHaveText("0 / 1");
+  await expect(page.locator('input[data-source="maxar-open-data"]')).toHaveCount(0);
+  await page.getByRole("button",{name:"Show all loaded observations"}).click();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText("public-sentinel");
+  await expect(page.locator("#satellite-type-filter")).toHaveValue("");
+  await expect(page).not.toHaveURL(/satellites=commercial/);
+  await expect(page).not.toHaveURL(/day=2026-07-20/);
+  await page.reload();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  expect(requests).toEqual([]);
+});
+
+test("commercial-satellite filtering still updates the matrix, reloads and closes excluded previews", async ({page})=>{
+  const commercial=stacScene("commercial","2025-03-10T02:00:00Z","WV03");
+  await page.route("**/search",route=>respond(route,{json:collection([commercial,stacScene("public","2025-03-10T02:00:00Z")],[],2)}));
+  await setDate(page,"2025-03-10");
+  await page.locator('[data-scene-id="commercial"] img').click();
+  await expect(page.locator("#map-preview")).toBeVisible();
+  await page.selectOption("#satellite-type-filter","public");
+  await expect(page.locator("#map-preview")).toBeHidden();
+  await expect(page.locator("#counter")).toHaveText("1 / 2");
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"] title')).toHaveText(/1 observations?/);
+  await page.reload();
+  await expect(page.locator("#satellite-type-filter")).toHaveValue("public");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await page.selectOption("#satellite-type-filter","commercial");
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect(page.locator("#results li")).toContainText("commercial");
+  await page.locator("#clear-filters").click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  await expect(page).not.toHaveURL(/satellites=/);
 });

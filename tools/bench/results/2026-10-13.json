@@ -1,0 +1,855 @@
+{
+  "date": "2026-10-13",
+  "baselineCommit": "139ab2963d28d5317f3608a6d635ef07465f2b68",
+  "comparison": "Working tree containing the audit fixes, before commit",
+  "environment": {
+    "cpu": "Apple M1 Max",
+    "architecture": "arm64",
+    "os": "macOS 26.7",
+    "node": "24.19.0",
+    "python": "3.14.7",
+    "rust": "1.94.1"
+  },
+  "methodology": {
+    "command": "npm run bench",
+    "runs": 3,
+    "summary": "Median of three sequential runs; each script warms up 10% of iterations; synthetic network-free inputs. Rust uses release optimization.",
+    "caveats": [
+      "The fixed implementations enforce stricter date validation than the baseline.",
+      "Rust now uses black_box to prevent benchmark computation elimination; comparisons are indicative.",
+      "Short geometry timings are noisy. No provider latency, UI responsiveness or memory benchmark is implied."
+    ]
+  },
+  "results": [
+    {
+      "operation": "polygon_bounds",
+      "language": "typescript",
+      "before": {
+        "medianOperationsPerSecond": 6530790,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 15.3,
+            "operationsPerSecond": 6530790
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 15.4,
+            "operationsPerSecond": 6489696
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 15.2,
+            "operationsPerSecond": 6598555
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 6455743,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 15.1,
+            "operationsPerSecond": 6623229
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 15.5,
+            "operationsPerSecond": 6455743
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 16.7,
+            "operationsPerSecond": 5999295
+          }
+        ]
+      },
+      "throughputRatio": 0.989
+    },
+    {
+      "operation": "antimeridian_bounds",
+      "language": "typescript",
+      "before": {
+        "medianOperationsPerSecond": 3901950,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 25.6,
+            "operationsPerSecond": 3901950
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 25.9,
+            "operationsPerSecond": 3863614
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 25.5,
+            "operationsPerSecond": 3922165
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 3921159,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 25.5,
+            "operationsPerSecond": 3921159
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 25.2,
+            "operationsPerSecond": 3974280
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 25.8,
+            "operationsPerSecond": 3873992
+          }
+        ]
+      },
+      "throughputRatio": 1.005
+    },
+    {
+      "operation": "coverage_percent",
+      "language": "typescript",
+      "before": {
+        "medianOperationsPerSecond": 27883308,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 3.6,
+            "operationsPerSecond": 27883308
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 3.7,
+            "operationsPerSecond": 26863364
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 3.6,
+            "operationsPerSecond": 27978876
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 25279656,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 3.5,
+            "operationsPerSecond": 28227991
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 4.1,
+            "operationsPerSecond": 24205749
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 4.0,
+            "operationsPerSecond": 25279656
+          }
+        ]
+      },
+      "throughputRatio": 0.907
+    },
+    {
+      "operation": "availability_5000_scenes",
+      "language": "typescript",
+      "before": {
+        "medianOperationsPerSecond": 429,
+        "trials": [
+          {
+            "iterations": 200,
+            "elapsedMs": 465.8,
+            "operationsPerSecond": 429
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 479.0,
+            "operationsPerSecond": 418
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 455.8,
+            "operationsPerSecond": 439
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 469,
+        "trials": [
+          {
+            "iterations": 200,
+            "elapsedMs": 439.0,
+            "operationsPerSecond": 456
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 426.0,
+            "operationsPerSecond": 469
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 424.3,
+            "operationsPerSecond": 471
+          }
+        ]
+      },
+      "throughputRatio": 1.093
+    },
+    {
+      "operation": "normalize_jaxa",
+      "language": "typescript",
+      "before": {
+        "medianOperationsPerSecond": 856727,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 116.7,
+            "operationsPerSecond": 856727
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 112.2,
+            "operationsPerSecond": 891290
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 117.6,
+            "operationsPerSecond": 850523
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 737150,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 132.8,
+            "operationsPerSecond": 753176
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 135.7,
+            "operationsPerSecond": 737150
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 147.4,
+            "operationsPerSecond": 678446
+          }
+        ]
+      },
+      "throughputRatio": 0.86
+    },
+    {
+      "operation": "normalize_asf",
+      "language": "typescript",
+      "before": {
+        "medianOperationsPerSecond": 1086094,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 92.1,
+            "operationsPerSecond": 1086094
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 90.2,
+            "operationsPerSecond": 1108869
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 94.9,
+            "operationsPerSecond": 1054102
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 987465,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 100.8,
+            "operationsPerSecond": 991617
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 101.3,
+            "operationsPerSecond": 987465
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 104.9,
+            "operationsPerSecond": 953053
+          }
+        ]
+      },
+      "throughputRatio": 0.909
+    },
+    {
+      "operation": "polygon_bounds",
+      "language": "python",
+      "before": {
+        "medianOperationsPerSecond": 214550,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 466.1,
+            "operationsPerSecond": 214550
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 469.9,
+            "operationsPerSecond": 212832
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 454.6,
+            "operationsPerSecond": 219961
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 217895,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 457.1,
+            "operationsPerSecond": 218794
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 459.8,
+            "operationsPerSecond": 217506
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 458.9,
+            "operationsPerSecond": 217895
+          }
+        ]
+      },
+      "throughputRatio": 1.016
+    },
+    {
+      "operation": "antimeridian_bounds",
+      "language": "python",
+      "before": {
+        "medianOperationsPerSecond": 225684,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 443.1,
+            "operationsPerSecond": 225684
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 443.7,
+            "operationsPerSecond": 225387
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 433.7,
+            "operationsPerSecond": 230564
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 226328,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 439.5,
+            "operationsPerSecond": 227510
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 443.3,
+            "operationsPerSecond": 225566
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 441.8,
+            "operationsPerSecond": 226328
+          }
+        ]
+      },
+      "throughputRatio": 1.003
+    },
+    {
+      "operation": "coverage_percent",
+      "language": "python",
+      "before": {
+        "medianOperationsPerSecond": 604267,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 166.1,
+            "operationsPerSecond": 601917
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 165.5,
+            "operationsPerSecond": 604267
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 161.7,
+            "operationsPerSecond": 618359
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 606623,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 164.5,
+            "operationsPerSecond": 607825
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 164.8,
+            "operationsPerSecond": 606623
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 168.8,
+            "operationsPerSecond": 592592
+          }
+        ]
+      },
+      "throughputRatio": 1.004
+    },
+    {
+      "operation": "availability_5000_scenes",
+      "language": "python",
+      "before": {
+        "medianOperationsPerSecond": 174,
+        "trials": [
+          {
+            "iterations": 200,
+            "elapsedMs": 1148.2,
+            "operationsPerSecond": 174
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 1201.4,
+            "operationsPerSecond": 166
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 1140.0,
+            "operationsPerSecond": 175
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 179,
+        "trials": [
+          {
+            "iterations": 200,
+            "elapsedMs": 1110.3,
+            "operationsPerSecond": 180
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 1118.4,
+            "operationsPerSecond": 179
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 1135.5,
+            "operationsPerSecond": 176
+          }
+        ]
+      },
+      "throughputRatio": 1.029
+    },
+    {
+      "operation": "normalize_jaxa",
+      "language": "python",
+      "before": {
+        "medianOperationsPerSecond": 13206,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 7572.2,
+            "operationsPerSecond": 13206
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 7151.6,
+            "operationsPerSecond": 13983
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 7731.4,
+            "operationsPerSecond": 12934
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 169172,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 589.9,
+            "operationsPerSecond": 169512
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 595.8,
+            "operationsPerSecond": 167852
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 591.1,
+            "operationsPerSecond": 169172
+          }
+        ]
+      },
+      "throughputRatio": 12.81
+    },
+    {
+      "operation": "normalize_asf",
+      "language": "python",
+      "before": {
+        "medianOperationsPerSecond": 14058,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 7113.5,
+            "operationsPerSecond": 14058
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 7033.6,
+            "operationsPerSecond": 14218
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 7282.2,
+            "operationsPerSecond": 13732
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 183513,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 544.9,
+            "operationsPerSecond": 183513
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 569.2,
+            "operationsPerSecond": 175686
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 541.9,
+            "operationsPerSecond": 184521
+          }
+        ]
+      },
+      "throughputRatio": 13.054
+    },
+    {
+      "operation": "polygon_bounds",
+      "language": "rust",
+      "before": {
+        "medianOperationsPerSecond": 8451419,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 12.6,
+            "operationsPerSecond": 7919146
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 11.7,
+            "operationsPerSecond": 8520095
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 11.8,
+            "operationsPerSecond": 8451419
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 6216248,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 20.2,
+            "operationsPerSecond": 4943724
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 11.8,
+            "operationsPerSecond": 8442113
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 16.1,
+            "operationsPerSecond": 6216248
+          }
+        ]
+      },
+      "throughputRatio": 0.736
+    },
+    {
+      "operation": "antimeridian_bounds",
+      "language": "rust",
+      "before": {
+        "medianOperationsPerSecond": 7978140,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 13.5,
+            "operationsPerSecond": 7393670
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 12.5,
+            "operationsPerSecond": 7978140
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 11.5,
+            "operationsPerSecond": 8708842
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 7043411,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 16.0,
+            "operationsPerSecond": 6260124
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 11.8,
+            "operationsPerSecond": 8488994
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 14.2,
+            "operationsPerSecond": 7043411
+          }
+        ]
+      },
+      "throughputRatio": 0.883
+    },
+    {
+      "operation": "coverage_percent",
+      "language": "rust",
+      "before": {
+        "medianOperationsPerSecond": 45704716,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 2.5,
+            "operationsPerSecond": 39742990
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 2.2,
+            "operationsPerSecond": 45704716
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 2.1,
+            "operationsPerSecond": 46890569
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 39828736,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 2.8,
+            "operationsPerSecond": 36337764
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 2.3,
+            "operationsPerSecond": 43528716
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 2.5,
+            "operationsPerSecond": 39828736
+          }
+        ]
+      },
+      "throughputRatio": 0.871
+    },
+    {
+      "operation": "availability_5000_scenes",
+      "language": "rust",
+      "before": {
+        "medianOperationsPerSecond": 190,
+        "trials": [
+          {
+            "iterations": 200,
+            "elapsedMs": 1055.1,
+            "operationsPerSecond": 190
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 1122.1,
+            "operationsPerSecond": 178
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 1041.0,
+            "operationsPerSecond": 192
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 306,
+        "trials": [
+          {
+            "iterations": 200,
+            "elapsedMs": 632.2,
+            "operationsPerSecond": 316
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 653.0,
+            "operationsPerSecond": 306
+          },
+          {
+            "iterations": 200,
+            "elapsedMs": 670.5,
+            "operationsPerSecond": 298
+          }
+        ]
+      },
+      "throughputRatio": 1.611
+    },
+    {
+      "operation": "normalize_jaxa",
+      "language": "rust",
+      "before": {
+        "medianOperationsPerSecond": 363040,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 275.5,
+            "operationsPerSecond": 363040
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 281.1,
+            "operationsPerSecond": 355782
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 271.6,
+            "operationsPerSecond": 368248
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 361720,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 273.9,
+            "operationsPerSecond": 365120
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 277.1,
+            "operationsPerSecond": 360873
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 276.5,
+            "operationsPerSecond": 361720
+          }
+        ]
+      },
+      "throughputRatio": 0.996
+    },
+    {
+      "operation": "normalize_asf",
+      "language": "rust",
+      "before": {
+        "medianOperationsPerSecond": 599056,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 169.1,
+            "operationsPerSecond": 591329
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 165.9,
+            "operationsPerSecond": 602640
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 166.9,
+            "operationsPerSecond": 599056
+          }
+        ]
+      },
+      "after": {
+        "medianOperationsPerSecond": 597807,
+        "trials": [
+          {
+            "iterations": 100000,
+            "elapsedMs": 167.3,
+            "operationsPerSecond": 597807
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 170.0,
+            "operationsPerSecond": 588142
+          },
+          {
+            "iterations": 100000,
+            "elapsedMs": 166.8,
+            "operationsPerSecond": 599449
+          }
+        ]
+      },
+      "throughputRatio": 0.998
+    }
+  ],
+  "explorerBuild": {
+    "units": "decimal KB reported by Vite",
+    "before": {
+      "mainJs": 1185.25,
+      "mainJsGzip": 329.49,
+      "css": 162.41,
+      "cssGzip": 35.34,
+      "fontAssets": 1022.95
+    },
+    "after": {
+      "applicationJs": 136.96,
+      "applicationJsGzip": 45.82,
+      "maplibreJs": 1047.38,
+      "maplibreJsGzip": 284.09,
+      "cssTotal": 92.7,
+      "cssGzipTotal": 13.48,
+      "fontAssets": 0
+    },
+    "note": "MapLibre is independently cacheable. Total JavaScript transfer is approximately unchanged; the font payload is removed and gzip CSS falls by about 62%."
+  }
+}

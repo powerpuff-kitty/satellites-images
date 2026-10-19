@@ -1,0 +1,106 @@
+{
+  "date": "2026-10-16",
+  "scope": "Coordinator-recorded process exit statuses and preserved logs for current dirty tree; no remote CI run",
+  "commit": "139ab2963d28d5317f3608a6d635ef07465f2b68",
+  "runtimes": {
+    "nodeCurrent": "v25.5.0",
+    "nodeMinimum": "v20.19.0",
+    "nodeExplorer": "v22.23.3",
+    "pythonCurrent": "Python 3.14.7",
+    "pythonMinimum": "Python 3.10.19",
+    "rustCurrent": "rustc 1.94.1 (e408947bf 2026-03-25)",
+    "rustMinimum": "rustc 1.88.0 (6b00bc388 2025-06-23)"
+  },
+  "checks": [
+    {
+      "command": "npm run check",
+      "exitCode": 0,
+      "evidence": "2026-10-16-check.log",
+      "result": "53 TS + 2 package-checker tests, builds/typecheck/registry passed"
+    },
+    {
+      "command": "npm run test:e2e -w @satellites-images/explorer",
+      "exitCode": 0,
+      "evidence": "2026-10-16-e2e.log",
+      "result": "70 passed; 2 opt-in live tests skipped"
+    },
+    {
+      "command": "PYTHONPATH=packages/python/src python3 -m unittest discover -s packages/python/tests",
+      "exitCode": 0,
+      "evidence": "2026-10-16-python.log",
+      "result": "43 passed"
+    },
+    {
+      "command": "PYTHONPATH=packages/python/src uv run --python 3.10 --no-project --no-config -- python -m unittest discover -s packages/python/tests",
+      "exitCode": 0,
+      "evidence": "2026-10-16-python310.log",
+      "result": "43 passed"
+    },
+    {
+      "command": "cargo test --manifest-path crates/satellites-images/Cargo.toml",
+      "exitCode": 0,
+      "evidence": "2026-10-16-rust.log",
+      "result": "37 passed"
+    },
+    {
+      "command": "cargo +1.88.0 test --locked --manifest-path crates/satellites-images/Cargo.toml",
+      "exitCode": 0,
+      "evidence": "2026-10-16-rust188.log",
+      "result": "37 passed"
+    },
+    {
+      "command": "cargo clippy --manifest-path crates/satellites-images/Cargo.toml --all-targets -- -D warnings",
+      "exitCode": 0,
+      "evidence": "2026-10-16-clippy.log",
+      "result": "passed"
+    },
+    {
+      "command": "cargo fmt --manifest-path crates/satellites-images/Cargo.toml --check",
+      "exitCode": 0,
+      "evidence": "2026-10-16-fmt.log",
+      "result": "passed"
+    },
+    {
+      "command": "/tmp/satellites-audit-2026-10-16/node20/node_modules/node/bin/node --test packages/typescript/tests/*.test.mjs",
+      "exitCode": 0,
+      "evidence": "2026-10-16-node20-verified.log",
+      "result": "53 passed under actual Node20.19.0"
+    },
+    {
+      "command": "PATH=/tmp/satellites-audit-2026-10-16/node22/node_modules/node/bin:$PATH npm run build -w @satellites-images/explorer",
+      "exitCode": 0,
+      "evidence": "2026-10-16-node22-explorer.log",
+      "result": "passed under actual Node22.23.3"
+    },
+    {
+      "command": "npm run check:packages",
+      "exitCode": 0,
+      "evidence": "2026-10-16-packages.log",
+      "result": "npm/wheel/sdist/crate passed isolated consumers;17 cases per artifact"
+    },
+    {
+      "command": "npm audit --json",
+      "exitCode": 0,
+      "evidence": "2026-10-16-npm-audit.json",
+      "result": "zero reported vulnerabilities"
+    },
+    {
+      "command": "cargo audit --json --file crates/satellites-images/Cargo.lock",
+      "exitCode": 1,
+      "evidence": "2026-10-16-cargo-audit.json",
+      "result": "four advisories; applicability assessment in code audit"
+    },
+    {
+      "command": "node tools/bench/audit.mjs --out tools/bench/results/2026-10-16-audit.json",
+      "exitCode": 0,
+      "evidence": "2026-10-16-bench-final.log",
+      "result": "final3 sequential trials/language captured"
+    }
+  ],
+  "notes": [
+    "Nominal npm exec node@20 run returned actual Node25.5 and is excluded from minimum-runtime evidence",
+    "Node20/22 binaries were installed only in the temporary audit directory",
+    "Cargo advisory exit1 is a recorded scanner finding, not a passing scan",
+    "No full runtime/platform CI matrix was executed"
+  ]
+}

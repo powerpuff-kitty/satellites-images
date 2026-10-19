@@ -1,0 +1,38 @@
+{
+  "checkedAt": "2026-10-13T15:15:24.126Z",
+  "scope": "Anonymous Maxar public-release preview discovery; no credentials or GeoTIFF downloads",
+  "results": [
+    {
+      "name": "Screenshot location, full 2026",
+      "latitude": -8.48823,
+      "longitude": 116.10846,
+      "radiusMeters": 5000,
+      "from": "2026-01-01",
+      "to": "2026-12-31",
+      "metadataRequests": 56,
+      "pages": 1,
+      "observations": 0,
+      "complete": true,
+      "previewCandidates": [],
+      "previewFetches": [],
+      "rasterAssets": 0,
+      "elapsedMs": 10896
+    },
+    {
+      "name": "Known Maui release, full 2023",
+      "latitude": 20.88,
+      "longitude": -156.68,
+      "radiusMeters": 1000,
+      "from": "2023-01-01",
+      "to": "2023-12-31",
+      "metadataRequests": 112,
+      "pages": 2,
+      "observations": 4,
+      "complete": true,
+      "previewCandidates": [],
+      "previewFetches": [],
+      "rasterAssets": 12,
+      "elapsedMs": 20629
+    }
+  ]
+}

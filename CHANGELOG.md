@@ -11,6 +11,24 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 ## [Unreleased]
 
 ### Added
+- Visible additional-satellite search switches beside the explorer date, synchronized with
+  source settings and shared URLs; optional OpenFreeMap branding omitted while map-data
+  attribution remains visible in a plain footer below the map, without a floating badge.
+- INPE CBERS-4A STAC preset in all three SDKs and an opt-in explorer source; ASF explorer
+  searches also include NISAR and ALOS-2. Dated, reproducible review of 25 free-data sources;
+  Wyvern, Capella and Umbra recorded as static-STAC candidates without implemented adapters.
+- Anonymous Maxar Open Data static STAC readers in all three SDKs, with extent pruning,
+  page/document budgets, safe link traversal, relative asset resolution and shared contracts.
+- Explorer commercial-satellite filters with URL/reset support and explicit operator labels.
+- Explorer public preview actions, on-demand exact-product Copernicus OData quicklooks,
+  source imagery terms, and links to SkyFi/UP42 maps with copied search context.
+- Shared cross-language conformance fixtures for scene normalization, UTC timestamps,
+  identity, pagination, truncation, provider provenance and availability serialization.
+- Local package acceptance (`npm run check:packages`): npm tarball, Python wheel/source
+  distribution and Rust crate installs in fresh consumers, shared contract checks,
+  consumer typechecks and SHA-256 manifests. Candidate artifacts are retained for review.
+- CI matrices for minimum/current runtimes, strict Rust formatting/Clippy, and package
+  acceptance with uploaded candidate archives and reports.
 - OpenAerialMap adapter (crowdsourced aerial imagery, drone/aircraft) in TypeScript, Python and
   Rust: anonymous `/meta` search with a bbox and a server-side acquisition window
   (`acquisition_from`/`acquisition_to`), `page`/`limit` paging driven by the provider's
@@ -52,6 +70,20 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
 - Playwright browser E2E suite with fully offline fixtures, wired into CI.
 
 ### Changed
+- Removed Maxar catalogue scans from the explorer after full-year checks found no browser
+  preview URLs. Metadata-only SDK adapters remain; commercial empty states explain public
+  coverage and recover loaded observations. Filter counters show matches versus loaded totals.
+- Explorer uses advertised Planetary Computer render assets from a verified product match.
+  Unaligned quicklooks stay beside the map; a footprint no longer supplies guessed image
+  coordinates. Cross-catalogue grouping uses product identity and retains provenance.
+- Minimum SDK runtimes are Node 20.19, Python 3.10 and Rust 1.88; minimum-runtime
+  checks are documented for local verification.
+- Python caches the bundled registry and provider access lookup while preserving
+  detached `list_sources()` results. Rust availability counting avoids cloning scenes.
+- Explorer separates MapLibre into a cached vendor chunk and replaces the icon font
+  dependency with seven local SVG symbols, retaining their attribution.
+- Rust sources follow rustfmt; strict Clippy checks are documented alongside tests.
+
 - Explorer: an auto-selected date whose day holds **no observations** no longer hides the loaded
   results — the pixel is dropped and the year's observations stay listed. Picking an empty day by
   clicking it still shows the deliberate "no observations" state.
@@ -85,6 +117,24 @@ releases share the same version number as the repository tag (`vMAJOR.MINOR.PATC
   asserts it is served as JavaScript rather than as the HTML fallback.
 
 ### Fixed
+- Python camelCase serialization preserves dictionary keys in geometry extensions and
+  mission/collection counts; only dataclass field names are converted. Python and Rust
+  reject empty STAC scene IDs consistently with TypeScript.
+- All SDKs deduplicate catalogue identities by collection and item ID, retain healthy
+  providers after a failure, and never report complete availability while providers
+  are pending, failed or truncated. Invalid pages do not mutate accumulator counters.
+- Python refuses HTTP redirects before contacting their destinations and closes error
+  responses. RFC 3339 fractional seconds work on Python 3.10 as well as current Python.
+- TypeScript rejects impossible or timezone-free acquisition dates; JSON Schema tests
+  now enforce date-time formats. ESA document byte limits apply while streaming.
+- ASF capped results remain partial with an unknown total; JAXA caps also preserve
+  partial status. Duplicate items within one response are removed.
+- OpenAerialMap obeys per-box page budgets in every SDK and searches both sides of the
+  antimeridian, preserving truncation and partial pages after later failures.
+- Mocked browser tests block unhandled external requests. The live browser check uses
+  the visible date control and waits for completed scans. Live smoke timings include
+  the requests, and failures produce a nonzero exit code.
+
 - Explorer: a scene with no usable tile set could leave the map **showing a preview caption with
   no image** and a console error. The cause is a cache interaction, not the provider: the result
   cards load the provider preview as a plain `<img>`, caching an opaque (no-CORS) response for

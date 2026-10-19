@@ -16,7 +16,7 @@ A cross-language, open-source satellite **catalogue discovery SDK**. Search exis
 The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deployment is a
 **manually dispatched, reviewed** build (`npm run check` runs first), not every push.
 
-![The explorer for a point off Sumbawa with a 2026 window: a left panel with location, radius, a single date (its whole year is loaded) and filters; a MapLibre map with a satellite scene placed on its footprint, a marker, the basemap attribution, and a full-year day matrix with month labels, metric links and All/Image/Radar quick filters; and a right panel of result cards listing scene id, collection, cloud cover, resolution, coverage and image access](docs/assets/explorer.jpg)
+![The explorer for a point on Lombok with a 2026 window: a left panel with location, radius, a single date (its whole year is loaded) and filters; a MapLibre map with a satellite scene placed on its footprint, a marker, the basemap attribution, and a full-year day matrix with month labels, metric links and All/Image/Radar quick filters; and a right panel of result cards listing scene id, collection, cloud cover, resolution, coverage and image access](docs/assets/explorer.jpg)
 
 ## What it does
 
@@ -28,17 +28,23 @@ The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deploymen
 - Bound searches by date, area, number of result pages and providers; preserve raw provider metadata.
 - Summarize historical STAC search results into UTC month/day availability counts, with explicit complete/partial pagination signals.
 - Browse historical observations by day and satellite in a map explorer, with resumable page loading and shareable GPS/date URLs.
+- Filter commercial satellites out of the explorer. SDKs additionally support metadata-only discovery of selected Maxar public releases.
+- Open public previews and available georeferenced tiles; follow SkyFi/UP42 map links for commercial imagery.
 
 This package does **not** process pixels, guarantee coverage, promise free downloads, price commercial imagery, or list every image ever taken.
 
 ## Coverage
 
-The registry records **16 catalogues**, **9 searchable today**; it is the source of truth for what
+The registry records **21 sources**, **10 searchable today** plus official ESA acquisition plans; it is the source of truth for what
 each source exposes, how its imagery may be accessed, and why the remaining ones are not
 implemented ([`sources/registry.json`](sources/registry.json), [docs/SOURCES.md](docs/SOURCES.md)).
 EUMETSAT Data Store needs a registered account; Planet, SkyFi, UP42 and Vantor need paid or
 entitled credentials; NASA GIBS and NOAA GOES are tile and object-storage imagery services rather
 than scene catalogues.
+
+INPE CBERS-4A is available as an opt-in Brazil-focused source. The ASF option also searches
+NISAR and ALOS-2. See the [25-source live review](docs/FREE_SOURCES_REVIEW.md) for tested
+endpoints, restrictions and candidates that still need adapters.
 
 ## Packages
 

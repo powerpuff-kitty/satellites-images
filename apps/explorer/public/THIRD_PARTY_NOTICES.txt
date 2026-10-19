@@ -1,0 +1,7 @@
+Font Awesome Free icons by Fonticons, Inc.
+Source: https://fontawesome.com/
+License: Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+The seven SVG paths in icons.svg are unchanged copies from Font Awesome Free.
+They are arranged as SVG symbols for use by the explorer.

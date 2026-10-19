@@ -12,7 +12,9 @@
     "build": "npm run build -w @powerpuff-kitty/satellites-images && npm run build -w @satellites-images/explorer",
     "test": "npm run test -w @powerpuff-kitty/satellites-images",
     "test:e2e": "npm run test:e2e -w @satellites-images/explorer",
+    "check:packages": "node tools/release/check-packages.mjs",
+    "test:package-checker": "node --test tools/release/check-packages.test.mjs",
     "bench": "node tools/bench/typescript.mjs && PYTHONPATH=packages/python/src python3 tools/bench/python.py && cargo run --release --example bench --manifest-path crates/satellites-images/Cargo.toml",
-    "check": "npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test"
+    "check": "npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test && npm run test:package-checker"
   }
 }

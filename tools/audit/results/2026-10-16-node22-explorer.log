@@ -1,0 +1,22 @@
+
+> @satellites-images/explorer@0.3.0 build
+> vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 56 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                 13.40 kB │ gzip:   3.22 kB
+dist/assets/maplibre-gl-worker-DxGNRm0a.mjs    508.31 kB
+dist/assets/index-B2Gwg44M.css                  10.74 kB │ gzip:   2.98 kB
+dist/assets/maplibre-DBE96hFo.css               82.93 kB │ gzip:  10.72 kB
+dist/assets/index-DQ2QeGyk.js                  149.18 kB │ gzip:  49.77 kB
+dist/assets/maplibre-CDVTGlnq.js             1,047.38 kB │ gzip: 284.09 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 349ms

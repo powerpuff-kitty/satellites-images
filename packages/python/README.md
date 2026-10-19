@@ -2,6 +2,9 @@
 
 Lightweight synchronous Python imagery discovery using public STAC APIs. No native raster or PySTAC dependency required for the initial Earth Search adapter.
 
+Requires Python 3.10 or newer. Provider redirects are refused before another request
+is sent. The bundled registry is cached; `list_sources()` returns detached copies.
+
 **Not published on PyPI.** Install this checkout with `python -m pip install -e packages/python` at repo root.
 
 ```py
@@ -25,6 +28,10 @@ for observation in planned:
 
 The client raises `SatelliteError` on network errors and malformed catalogue results, instead of silently presenting an empty availability list. Asset rights are unknown until separately verified. Only official ESA Sentinel-1/-2 acquisition plans are implemented; orbital predictions are not.
 
+`InpeCbers()` searches the Brazil-focused `CB4A-WPM-PCA-FUSED-1` visual collection.
+`AsfSearch(platforms=("SENTINEL-1", "NISAR", "ALOS-2"))` opts into additional radar
+missions. See [live checks and metadata limitations](../../docs/FREE_SOURCES_REVIEW.md).
+
 ## Historical availability by month and UTC date
 
 ```python
@@ -41,3 +48,11 @@ print("Fully paginated:", summary.complete)
 ```
 
 Counts are of *unique provider-native STAC items actually scanned*. If `complete` is false, the scan ended while a provider still advertised a next page.
+
+## Maxar public releases
+
+`MaxarOpenData()` accepts the usual `SearchQuery` and reads selected public event
+releases without an account. Optional `collections` selects event release IDs;
+`maxar-open-data` selects all releases. `max_documents` defaults to 2000, and each
+page reads at most 100 metadata documents. Pending work sets `has_next`; GeoTIFF
+assets are recorded, never downloaded. See [limits, licence and live evidence](../../docs/PUBLIC_PREVIEWS.md).

@@ -1,0 +1,63 @@
+   Compiling satellites-images v0.3.0 (/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 4.72s
+     Running unittests src/lib.rs (crates/satellites-images/target/debug/deps/satellites_images-cb4870f0b0aa3543)
+
+running 35 tests
+test availability::tests::empty_summary_is_not_complete ... ok
+test acquisitions::tests::reject_doctype_and_bad_query ... ok
+test tests::bounds_validate ... ok
+test availability::tests::grouping_and_duplication_keep_utc_dates ... ok
+test acquisitions::tests::real_esa_kml_observation_fixture ... ok
+test acquisitions::tests::kml_extended_data_and_nominal_mode ... ok
+test availability::tests::invalid_page_does_not_mutate_counts_and_offsets_use_utc ... ok
+test availability::tests::different_providers_are_not_falsely_collapsed ... ok
+test availability::tests::pending_and_failed_providers_prevent_completeness ... ok
+test tests::date_validate ... ok
+test tests::declared_imagery_access_maps_registry_and_refinements ... ok
+test tests::asf_feature_normalizes ... ok
+test tests::future_plan_is_explicitly_unavailable ... ok
+test tests::jaxa_feature_normalizes ... ok
+test tests::oam_record_normalizes_aerial_imagery ... ok
+test tests::parse_stac_scene ... ok
+test tests::polygon_aoi_and_coverage ... ok
+test tests::query_accepts_radar_and_aerial_collections ... ok
+test tests::oam_mid_scan_failure_retains_earlier_pages ... ok
+test tests::http_merge_defaults_to_body_replacement ... ok
+test tests::registry_marks_unsupported_providers ... ok
+test tests::availability_reports_failed_provider_and_keeps_the_next_one ... ok
+test tests::retry_delay_prefers_retry_after ... ok
+test tests::http_pagination_loop_is_rejected ... ok
+test tests::catalog_aggregates_and_rejects_duplicates ... ok
+test tests::rejects_insecure_provider_url ... ok
+test tests::rejects_malformed_multipolygon ... ok
+test tests::capped_asf_and_jaxa_results_are_partial ... ok
+test tests::scene_serializes_camel_case ... ok
+test tests::stac_preview_falls_back_to_thumbnail_link ... ok
+test tests::stac_reuse_adapters ... ok
+test tests::http_retries_429_then_succeeds ... ok
+test tests::stac_deduplicates_by_collection_and_id ... ok
+test tests::oam_searches_both_boxes_and_preserves_truncation ... ok
+test acquisitions::tests::official_index_filters_host_and_dates ... ok
+
+test result: ok. 35 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+     Running tests/conformance.rs (crates/satellites-images/target/debug/deps/conformance-af81fd0f40d6ab26)
+
+running 1 test
+test shared_cross_language_contracts ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.12s
+
+     Running tests/inpe.rs (crates/satellites-images/target/debug/deps/inpe-eefa298e41a194f9)
+
+running 1 test
+test recorded_inpe_item_preserves_unknowns_and_real_asset_keys ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+
+   Doc-tests satellites_images
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

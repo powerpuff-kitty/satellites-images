@@ -13,13 +13,20 @@ downloaded, and nothing is uploaded.
 
 ```bash
 npm run check                     # registry generation + SDK build + explorer typecheck + TS tests
-npm run test                      # TypeScript SDK tests (vitest via node:test runner)
+npm run test                      # TypeScript SDK tests (node:test)
 npm run test:e2e -w @satellites-images/explorer   # mocked Playwright E2E (offline)
 npm run bench                     # optional micro-benchmarks
 
 PYTHONPATH=packages/python/src python3 -m unittest discover -s packages/python/tests
 cargo test --manifest-path crates/satellites-images/Cargo.toml
+cargo clippy --manifest-path crates/satellites-images/Cargo.toml --all-targets -- -D warnings
+cargo fmt --manifest-path crates/satellites-images/Cargo.toml --check
+npm run check:packages             # local archives + isolated install/conformance checks; never publishes
 ```
+
+Minimum SDK runtimes: Node 20.19, Python 3.10 and Rust 1.88. The explorer toolchain
+uses Node 22 in CI. See `CONTRIBUTING.md` for minimum-runtime checks.
+CI tests Node 20.19/22/24, Python 3.10/3.12/3.14, and Rust 1.88/stable.
 
 ### Refresh the README screenshot
 
@@ -61,6 +68,7 @@ LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "live search"
 
 ## Evidence expectations
 
+- `tests/fixtures/conformance/stac.json` is shared contract evidence, not generated SDK output.
 - State what was actually run and its result; a skipped or mocked check is not a pass.
 - Cite exact files and reproducible commands. Distinguish measured facts from inference.
 - Provider behaviour (CORS, preview assets, collection coverage) is verified against the

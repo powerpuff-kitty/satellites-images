@@ -1,0 +1,3971 @@
+{
+  "version": 1,
+  "providerId": "conformance",
+  "stacCases": [
+    {
+      "name": "scene-identity-utc-and-native-metadata",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "id": "shared",
+              "collection": "collection_a",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "properties": {
+                "datetime": "2025-02-01T00:30:00.50+02:00",
+                "platform": "mission_with_underscore",
+                "gsd": 10,
+                "eo:cloud_cover": 12.5
+              },
+              "assets": {
+                "data": {
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data",
+                    7
+                  ]
+                },
+                "thumbnail": {
+                  "href": "https://example.test/thumb.jpg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "type": "image/jpeg"
+                }
+              },
+              "links": [
+                {
+                  "rel": "self",
+                  "href": "https://example.test/items/shared"
+                }
+              ],
+              "bbox": [
+                0,
+                0,
+                0.5,
+                1
+              ],
+              "provider_meta": {
+                "original_key": "unchanged",
+                "nested_record": {
+                  "another_key": true
+                }
+              }
+            },
+            {
+              "type": "Feature",
+              "id": "shared",
+              "collection": "collection_b",
+              "geometry": null,
+              "properties": {
+                "datetime": "2025-02-01T02:00:00Z",
+                "platform": "mission_with_underscore",
+                "gsd": -1,
+                "eo:cloud_cover": 101
+              },
+              "assets": {},
+              "links": []
+            },
+            {
+              "type": "Feature",
+              "id": "shared",
+              "collection": "collection_a",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "properties": {
+                "datetime": "2025-02-01T00:30:00.50+02:00",
+                "platform": "mission_with_underscore",
+                "gsd": 10,
+                "eo:cloud_cover": 12.5
+              },
+              "assets": {
+                "data": {
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data",
+                    7
+                  ]
+                },
+                "thumbnail": {
+                  "href": "https://example.test/thumb.jpg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "type": "image/jpeg"
+                }
+              },
+              "links": [
+                {
+                  "rel": "self",
+                  "href": "https://example.test/items/shared"
+                }
+              ],
+              "bbox": [
+                0,
+                0,
+                0.5,
+                1
+              ],
+              "provider_meta": {
+                "original_key": "unchanged",
+                "nested_record": {
+                  "another_key": true
+                }
+              }
+            }
+          ],
+          "links": [],
+          "context": {
+            "matched": 3
+          }
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [
+            {
+              "providerId": "conformance",
+              "id": "shared",
+              "collection": "collection_a",
+              "acquiredAt": "2025-01-31T22:30:00.500Z",
+              "mission": "mission_with_underscore",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "bbox": [
+                0.0,
+                0.0,
+                0.5,
+                1.0
+              ],
+              "cloudCoverPercent": 12.5,
+              "gsdMeters": 10.0,
+              "coveragePercent": 50.0,
+              "previewUrl": "https://example.test/thumb.jpg",
+              "access": "unknown",
+              "assets": [
+                {
+                  "key": "data",
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "thumbnail",
+                  "href": "https://example.test/thumb.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://example.test/items/shared",
+              "raw": {
+                "type": "Feature",
+                "id": "shared",
+                "collection": "collection_a",
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        0.5,
+                        0
+                      ],
+                      [
+                        0.5,
+                        1
+                      ],
+                      [
+                        0,
+                        1
+                      ],
+                      [
+                        0,
+                        0
+                      ]
+                    ]
+                  ],
+                  "provider_extension": {
+                    "tile_code": "keep_me"
+                  }
+                },
+                "properties": {
+                  "datetime": "2025-02-01T00:30:00.50+02:00",
+                  "platform": "mission_with_underscore",
+                  "gsd": 10,
+                  "eo:cloud_cover": 12.5
+                },
+                "assets": {
+                  "data": {
+                    "href": "s3://example/data.tif",
+                    "type": "image/tiff",
+                    "roles": [
+                      "data",
+                      7
+                    ]
+                  },
+                  "thumbnail": {
+                    "href": "https://example.test/thumb.jpg",
+                    "roles": [
+                      "thumbnail"
+                    ],
+                    "type": "image/jpeg"
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "self",
+                    "href": "https://example.test/items/shared"
+                  }
+                ],
+                "bbox": [
+                  0,
+                  0,
+                  0.5,
+                  1
+                ],
+                "provider_meta": {
+                  "original_key": "unchanged",
+                  "nested_record": {
+                    "another_key": true
+                  }
+                }
+              }
+            },
+            {
+              "providerId": "conformance",
+              "id": "shared",
+              "collection": "collection_b",
+              "acquiredAt": "2025-02-01T02:00:00.000Z",
+              "mission": "mission_with_underscore",
+              "geometry": null,
+              "bbox": null,
+              "cloudCoverPercent": null,
+              "gsdMeters": null,
+              "coveragePercent": null,
+              "previewUrl": null,
+              "access": "unknown",
+              "assets": [],
+              "sourceUrl": null,
+              "raw": {
+                "type": "Feature",
+                "id": "shared",
+                "collection": "collection_b",
+                "geometry": null,
+                "properties": {
+                  "datetime": "2025-02-01T02:00:00Z",
+                  "platform": "mission_with_underscore",
+                  "gsd": -1,
+                  "eo:cloud_cover": 101
+                },
+                "assets": {},
+                "links": []
+              }
+            }
+          ],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": 3,
+          "skipped": 0
+        }
+      ],
+      "expectedSummary": {
+        "days": [
+          {
+            "date": "2025-01-31",
+            "count": 1,
+            "missions": {
+              "mission_with_underscore": 1
+            },
+            "collections": {
+              "collection_a": 1
+            }
+          },
+          {
+            "date": "2025-02-01",
+            "count": 1,
+            "missions": {
+              "mission_with_underscore": 1
+            },
+            "collections": {
+              "collection_b": 1
+            }
+          }
+        ],
+        "months": [
+          {
+            "month": "2025-01",
+            "count": 1,
+            "daysWithObservations": 1,
+            "missions": {
+              "mission_with_underscore": 1
+            }
+          },
+          {
+            "month": "2025-02",
+            "count": 1,
+            "daysWithObservations": 1,
+            "missions": {
+              "mission_with_underscore": 1
+            }
+          }
+        ],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 1,
+            "rawItems": 2,
+            "uniqueItems": 2,
+            "matched": 3,
+            "hasMore": false
+          }
+        ],
+        "pagesScanned": 1,
+        "rawItems": 2,
+        "uniqueItems": 2,
+        "complete": true,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "post-body-replacement",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [
+            {
+              "rel": "next",
+              "href": "/search",
+              "method": "POST",
+              "body": {
+                "token": "two"
+              }
+            }
+          ],
+          "context": {
+            "matched": 7
+          }
+        },
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [],
+          "numberMatched": 7
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "token": "two"
+          }
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": 7,
+          "skipped": 0
+        },
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 2,
+          "hasNext": false,
+          "matched": 7,
+          "skipped": 0
+        }
+      ],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 2,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": 7,
+            "hasMore": false
+          }
+        ],
+        "pagesScanned": 2,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": true,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "post-body-merge",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [
+            {
+              "rel": "next",
+              "href": "/search",
+              "method": "POST",
+              "body": {
+                "token": "two"
+              },
+              "merge": true
+            }
+          ],
+          "context": {
+            "matched": 7
+          }
+        },
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [],
+          "numberMatched": 7
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            },
+            "token": "two"
+          }
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": 7,
+          "skipped": 0
+        },
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 2,
+          "hasNext": false,
+          "matched": 7,
+          "skipped": 0
+        }
+      ],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 2,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": 7,
+            "hasMore": false
+          }
+        ],
+        "pagesScanned": 2,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": true,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "get-next-link",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [
+            {
+              "rel": "next",
+              "href": "/search?cursor=two"
+            }
+          ],
+          "context": {
+            "matched": 7
+          }
+        },
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [],
+          "numberMatched": 7
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        },
+        {
+          "method": "GET",
+          "path": "/search?cursor=two",
+          "body": null
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": 7,
+          "skipped": 0
+        },
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 2,
+          "hasNext": false,
+          "matched": 7,
+          "skipped": 0
+        }
+      ],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 2,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": 7,
+            "hasMore": false
+          }
+        ],
+        "pagesScanned": 2,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": true,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "bounded-page-budget",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 1
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [
+            {
+              "rel": "next",
+              "href": "/search",
+              "method": "POST",
+              "body": {
+                "token": "unread"
+              }
+            }
+          ],
+          "context": {
+            "matched": 20
+          }
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": 20,
+          "skipped": 0
+        }
+      ],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 1,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": 20,
+            "hasMore": true
+          }
+        ],
+        "pagesScanned": 1,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": false,
+        "truncatedProviders": [
+          "conformance"
+        ],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "split-antimeridian-retains-truncation",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                179,
+                -1
+              ],
+              [
+                -179,
+                -1
+              ],
+              [
+                -179,
+                1
+              ],
+              [
+                179,
+                1
+              ],
+              [
+                179,
+                -1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 1
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": [
+            {
+              "rel": "next",
+              "href": "/search",
+              "method": "POST",
+              "body": {
+                "token": "unread"
+              }
+            }
+          ]
+        },
+        {
+          "type": "FeatureCollection",
+          "features": [],
+          "links": []
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "bbox": [
+              -180.0,
+              -1.0,
+              -179.0,
+              1.0
+            ]
+          }
+        },
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "bbox": [
+              179.0,
+              -1.0,
+              180.0,
+              1.0
+            ]
+          }
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": null,
+          "skipped": 0
+        },
+        {
+          "providerId": "conformance",
+          "items": [],
+          "pageNumber": 2,
+          "hasNext": true,
+          "matched": null,
+          "skipped": 0
+        }
+      ],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 2,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": null,
+            "hasMore": true
+          }
+        ],
+        "pagesScanned": 2,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": false,
+        "truncatedProviders": [
+          "conformance"
+        ],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "invalid-items-and-preview-fallback",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                0,
+                0
+              ],
+              [
+                1,
+                0
+              ],
+              [
+                1,
+                1
+              ],
+              [
+                0,
+                1
+              ],
+              [
+                0,
+                0
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-02-28",
+        "collections": [
+          "collection_a",
+          "collection_b"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "responses": [
+        {
+          "type": "FeatureCollection",
+          "features": [
+            {
+              "type": "Feature",
+              "id": "invalid-date",
+              "collection": "collection_a",
+              "geometry": null,
+              "properties": {
+                "datetime": "2025-02-30T02:00:00Z"
+              },
+              "assets": {},
+              "links": []
+            },
+            {
+              "type": "Feature",
+              "id": "naive",
+              "collection": "collection_a",
+              "geometry": null,
+              "properties": {
+                "datetime": "2025-01-10T02:00:00"
+              },
+              "assets": {},
+              "links": []
+            },
+            {
+              "type": "Feature",
+              "id": "",
+              "collection": "collection_a",
+              "geometry": null,
+              "properties": {
+                "datetime": "2025-01-10T02:00:00Z"
+              },
+              "assets": {},
+              "links": []
+            },
+            {
+              "properties": {
+                "datetime": "2025-01-10T02:00:00Z"
+              }
+            },
+            {
+              "type": "Feature",
+              "id": "fallback",
+              "collection": "collection_a",
+              "geometry": null,
+              "properties": {
+                "datetime": null,
+                "start_datetime": "2025-01-10T02:00:00Z"
+              },
+              "assets": {
+                "thumbnail": {
+                  "href": "s3://example/thumbnail.jpg",
+                  "roles": [
+                    "thumbnail"
+                  ]
+                }
+              },
+              "links": [
+                {
+                  "rel": "thumbnail",
+                  "href": "https://example.test/fallback.jpg"
+                }
+              ]
+            }
+          ],
+          "links": [],
+          "numberMatched": 5
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "POST",
+          "path": "/search",
+          "body": {
+            "datetime": "2025-01-01T00:00:00Z/2025-02-28T23:59:59Z",
+            "collections": [
+              "collection_a",
+              "collection_b"
+            ],
+            "limit": 2,
+            "intersects": {
+              "type": "Polygon",
+              "coordinates": [
+                [
+                  [
+                    0,
+                    0
+                  ],
+                  [
+                    1,
+                    0
+                  ],
+                  [
+                    1,
+                    1
+                  ],
+                  [
+                    0,
+                    1
+                  ],
+                  [
+                    0,
+                    0
+                  ]
+                ]
+              ]
+            }
+          }
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "conformance",
+          "items": [
+            {
+              "providerId": "conformance",
+              "id": "fallback",
+              "collection": "collection_a",
+              "acquiredAt": "2025-01-10T02:00:00.000Z",
+              "mission": null,
+              "geometry": null,
+              "bbox": null,
+              "cloudCoverPercent": null,
+              "gsdMeters": null,
+              "coveragePercent": null,
+              "previewUrl": "https://example.test/fallback.jpg",
+              "access": "unknown",
+              "assets": [
+                {
+                  "key": "thumbnail",
+                  "href": "s3://example/thumbnail.jpg",
+                  "type": null,
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": null,
+              "raw": {
+                "type": "Feature",
+                "id": "fallback",
+                "collection": "collection_a",
+                "geometry": null,
+                "properties": {
+                  "datetime": null,
+                  "start_datetime": "2025-01-10T02:00:00Z"
+                },
+                "assets": {
+                  "thumbnail": {
+                    "href": "s3://example/thumbnail.jpg",
+                    "roles": [
+                      "thumbnail"
+                    ]
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "thumbnail",
+                    "href": "https://example.test/fallback.jpg"
+                  }
+                ]
+              }
+            }
+          ],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": 5,
+          "skipped": 4
+        }
+      ],
+      "expectedSummary": {
+        "days": [
+          {
+            "date": "2025-01-10",
+            "count": 1,
+            "missions": {
+              "unknown": 1
+            },
+            "collections": {
+              "collection_a": 1
+            }
+          }
+        ],
+        "months": [
+          {
+            "month": "2025-01",
+            "count": 1,
+            "daysWithObservations": 1,
+            "missions": {
+              "unknown": 1
+            }
+          }
+        ],
+        "providers": [
+          {
+            "id": "conformance",
+            "pagesScanned": 1,
+            "rawItems": 1,
+            "uniqueItems": 1,
+            "matched": 5,
+            "hasMore": false
+          }
+        ],
+        "pagesScanned": 1,
+        "rawItems": 1,
+        "uniqueItems": 1,
+        "complete": true,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    }
+  ],
+  "availabilityCases": [
+    {
+      "name": "provider-collection-identity-and-dictionary-keys",
+      "pages": [
+        {
+          "providerId": "catalog_one",
+          "items": [
+            {
+              "providerId": "catalog_one",
+              "id": "shared",
+              "collection": "collection_a",
+              "acquiredAt": "2025-01-31T22:30:00.500Z",
+              "mission": "mission_with_underscore",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "bbox": [
+                0.0,
+                0.0,
+                0.5,
+                1.0
+              ],
+              "cloudCoverPercent": 12.5,
+              "gsdMeters": 10.0,
+              "coveragePercent": 50.0,
+              "previewUrl": "https://example.test/thumb.jpg",
+              "access": "unknown",
+              "assets": [
+                {
+                  "key": "data",
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "thumbnail",
+                  "href": "https://example.test/thumb.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://example.test/items/shared",
+              "raw": {
+                "type": "Feature",
+                "id": "shared",
+                "collection": "collection_a",
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        0.5,
+                        0
+                      ],
+                      [
+                        0.5,
+                        1
+                      ],
+                      [
+                        0,
+                        1
+                      ],
+                      [
+                        0,
+                        0
+                      ]
+                    ]
+                  ],
+                  "provider_extension": {
+                    "tile_code": "keep_me"
+                  }
+                },
+                "properties": {
+                  "datetime": "2025-02-01T00:30:00.50+02:00",
+                  "platform": "mission_with_underscore",
+                  "gsd": 10,
+                  "eo:cloud_cover": 12.5
+                },
+                "assets": {
+                  "data": {
+                    "href": "s3://example/data.tif",
+                    "type": "image/tiff",
+                    "roles": [
+                      "data",
+                      7
+                    ]
+                  },
+                  "thumbnail": {
+                    "href": "https://example.test/thumb.jpg",
+                    "roles": [
+                      "thumbnail"
+                    ],
+                    "type": "image/jpeg"
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "self",
+                    "href": "https://example.test/items/shared"
+                  }
+                ],
+                "bbox": [
+                  0,
+                  0,
+                  0.5,
+                  1
+                ],
+                "provider_meta": {
+                  "original_key": "unchanged",
+                  "nested_record": {
+                    "another_key": true
+                  }
+                }
+              }
+            },
+            {
+              "providerId": "catalog_one",
+              "id": "shared",
+              "collection": "collection_b",
+              "acquiredAt": "2025-01-31T22:30:00.500Z",
+              "mission": "mission_with_underscore",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "bbox": [
+                0.0,
+                0.0,
+                0.5,
+                1.0
+              ],
+              "cloudCoverPercent": 12.5,
+              "gsdMeters": 10.0,
+              "coveragePercent": 50.0,
+              "previewUrl": "https://example.test/thumb.jpg",
+              "access": "unknown",
+              "assets": [
+                {
+                  "key": "data",
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "thumbnail",
+                  "href": "https://example.test/thumb.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://example.test/items/shared",
+              "raw": {
+                "type": "Feature",
+                "id": "shared",
+                "collection": "collection_a",
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        0.5,
+                        0
+                      ],
+                      [
+                        0.5,
+                        1
+                      ],
+                      [
+                        0,
+                        1
+                      ],
+                      [
+                        0,
+                        0
+                      ]
+                    ]
+                  ],
+                  "provider_extension": {
+                    "tile_code": "keep_me"
+                  }
+                },
+                "properties": {
+                  "datetime": "2025-02-01T00:30:00.50+02:00",
+                  "platform": "mission_with_underscore",
+                  "gsd": 10,
+                  "eo:cloud_cover": 12.5
+                },
+                "assets": {
+                  "data": {
+                    "href": "s3://example/data.tif",
+                    "type": "image/tiff",
+                    "roles": [
+                      "data",
+                      7
+                    ]
+                  },
+                  "thumbnail": {
+                    "href": "https://example.test/thumb.jpg",
+                    "roles": [
+                      "thumbnail"
+                    ],
+                    "type": "image/jpeg"
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "self",
+                    "href": "https://example.test/items/shared"
+                  }
+                ],
+                "bbox": [
+                  0,
+                  0,
+                  0.5,
+                  1
+                ],
+                "provider_meta": {
+                  "original_key": "unchanged",
+                  "nested_record": {
+                    "another_key": true
+                  }
+                }
+              }
+            }
+          ],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": 2,
+          "skipped": 0
+        },
+        {
+          "providerId": "catalog_one",
+          "items": [
+            {
+              "providerId": "catalog_one",
+              "id": "shared",
+              "collection": "collection_a",
+              "acquiredAt": "2025-01-31T22:30:00.500Z",
+              "mission": "mission_with_underscore",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "bbox": [
+                0.0,
+                0.0,
+                0.5,
+                1.0
+              ],
+              "cloudCoverPercent": 12.5,
+              "gsdMeters": 10.0,
+              "coveragePercent": 50.0,
+              "previewUrl": "https://example.test/thumb.jpg",
+              "access": "unknown",
+              "assets": [
+                {
+                  "key": "data",
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "thumbnail",
+                  "href": "https://example.test/thumb.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://example.test/items/shared",
+              "raw": {
+                "type": "Feature",
+                "id": "shared",
+                "collection": "collection_a",
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        0.5,
+                        0
+                      ],
+                      [
+                        0.5,
+                        1
+                      ],
+                      [
+                        0,
+                        1
+                      ],
+                      [
+                        0,
+                        0
+                      ]
+                    ]
+                  ],
+                  "provider_extension": {
+                    "tile_code": "keep_me"
+                  }
+                },
+                "properties": {
+                  "datetime": "2025-02-01T00:30:00.50+02:00",
+                  "platform": "mission_with_underscore",
+                  "gsd": 10,
+                  "eo:cloud_cover": 12.5
+                },
+                "assets": {
+                  "data": {
+                    "href": "s3://example/data.tif",
+                    "type": "image/tiff",
+                    "roles": [
+                      "data",
+                      7
+                    ]
+                  },
+                  "thumbnail": {
+                    "href": "https://example.test/thumb.jpg",
+                    "roles": [
+                      "thumbnail"
+                    ],
+                    "type": "image/jpeg"
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "self",
+                    "href": "https://example.test/items/shared"
+                  }
+                ],
+                "bbox": [
+                  0,
+                  0,
+                  0.5,
+                  1
+                ],
+                "provider_meta": {
+                  "original_key": "unchanged",
+                  "nested_record": {
+                    "another_key": true
+                  }
+                }
+              }
+            }
+          ],
+          "pageNumber": 2,
+          "hasNext": false,
+          "matched": 2,
+          "skipped": 0
+        },
+        {
+          "providerId": "catalog_two",
+          "items": [
+            {
+              "providerId": "catalog_two",
+              "id": "shared",
+              "collection": "collection_a",
+              "acquiredAt": "2025-01-31T22:30:00.500Z",
+              "mission": "mission_with_underscore",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      0,
+                      0
+                    ],
+                    [
+                      0.5,
+                      0
+                    ],
+                    [
+                      0.5,
+                      1
+                    ],
+                    [
+                      0,
+                      1
+                    ],
+                    [
+                      0,
+                      0
+                    ]
+                  ]
+                ],
+                "provider_extension": {
+                  "tile_code": "keep_me"
+                }
+              },
+              "bbox": [
+                0.0,
+                0.0,
+                0.5,
+                1.0
+              ],
+              "cloudCoverPercent": 12.5,
+              "gsdMeters": 10.0,
+              "coveragePercent": 50.0,
+              "previewUrl": "https://example.test/thumb.jpg",
+              "access": "unknown",
+              "assets": [
+                {
+                  "key": "data",
+                  "href": "s3://example/data.tif",
+                  "type": "image/tiff",
+                  "roles": [
+                    "data"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "thumbnail",
+                  "href": "https://example.test/thumb.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://example.test/items/shared",
+              "raw": {
+                "type": "Feature",
+                "id": "shared",
+                "collection": "collection_a",
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        0,
+                        0
+                      ],
+                      [
+                        0.5,
+                        0
+                      ],
+                      [
+                        0.5,
+                        1
+                      ],
+                      [
+                        0,
+                        1
+                      ],
+                      [
+                        0,
+                        0
+                      ]
+                    ]
+                  ],
+                  "provider_extension": {
+                    "tile_code": "keep_me"
+                  }
+                },
+                "properties": {
+                  "datetime": "2025-02-01T00:30:00.50+02:00",
+                  "platform": "mission_with_underscore",
+                  "gsd": 10,
+                  "eo:cloud_cover": 12.5
+                },
+                "assets": {
+                  "data": {
+                    "href": "s3://example/data.tif",
+                    "type": "image/tiff",
+                    "roles": [
+                      "data",
+                      7
+                    ]
+                  },
+                  "thumbnail": {
+                    "href": "https://example.test/thumb.jpg",
+                    "roles": [
+                      "thumbnail"
+                    ],
+                    "type": "image/jpeg"
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "self",
+                    "href": "https://example.test/items/shared"
+                  }
+                ],
+                "bbox": [
+                  0,
+                  0,
+                  0.5,
+                  1
+                ],
+                "provider_meta": {
+                  "original_key": "unchanged",
+                  "nested_record": {
+                    "another_key": true
+                  }
+                }
+              }
+            }
+          ],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": null,
+          "skipped": 0
+        }
+      ],
+      "expectedProviders": [],
+      "erroredProviders": [],
+      "expectedSummary": {
+        "days": [
+          {
+            "date": "2025-01-31",
+            "count": 3,
+            "missions": {
+              "mission_with_underscore": 3
+            },
+            "collections": {
+              "collection_a": 2,
+              "collection_b": 1
+            }
+          }
+        ],
+        "months": [
+          {
+            "month": "2025-01",
+            "count": 3,
+            "daysWithObservations": 1,
+            "missions": {
+              "mission_with_underscore": 3
+            }
+          }
+        ],
+        "providers": [
+          {
+            "id": "catalog_one",
+            "pagesScanned": 2,
+            "rawItems": 3,
+            "uniqueItems": 2,
+            "matched": 2,
+            "hasMore": false
+          },
+          {
+            "id": "catalog_two",
+            "pagesScanned": 1,
+            "rawItems": 1,
+            "uniqueItems": 1,
+            "matched": null,
+            "hasMore": false
+          }
+        ],
+        "pagesScanned": 3,
+        "rawItems": 4,
+        "uniqueItems": 3,
+        "complete": true,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "pending-provider",
+      "pages": [
+        {
+          "providerId": "catalog_one",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": 0,
+          "skipped": 0
+        }
+      ],
+      "expectedProviders": [
+        "catalog_one",
+        "catalog_two"
+      ],
+      "erroredProviders": [],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "catalog_one",
+            "pagesScanned": 1,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": 0,
+            "hasMore": false
+          },
+          {
+            "id": "catalog_two",
+            "pagesScanned": 0,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": null,
+            "hasMore": true
+          }
+        ],
+        "pagesScanned": 1,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": false,
+        "truncatedProviders": [
+          "catalog_two"
+        ],
+        "erroredProviders": []
+      }
+    },
+    {
+      "name": "failed-provider",
+      "pages": [
+        {
+          "providerId": "catalog_one",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": 0,
+          "skipped": 0
+        }
+      ],
+      "expectedProviders": [
+        "catalog_one",
+        "catalog_two"
+      ],
+      "erroredProviders": [
+        "catalog_two"
+      ],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [
+          {
+            "id": "catalog_one",
+            "pagesScanned": 1,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": 0,
+            "hasMore": false
+          },
+          {
+            "id": "catalog_two",
+            "pagesScanned": 0,
+            "rawItems": 0,
+            "uniqueItems": 0,
+            "matched": null,
+            "hasMore": true
+          }
+        ],
+        "pagesScanned": 1,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": false,
+        "truncatedProviders": [
+          "catalog_two"
+        ],
+        "erroredProviders": [
+          "catalog_two"
+        ]
+      }
+    },
+    {
+      "name": "empty-summary",
+      "pages": [],
+      "expectedProviders": [],
+      "erroredProviders": [],
+      "expectedSummary": {
+        "days": [],
+        "months": [],
+        "providers": [],
+        "pagesScanned": 0,
+        "rawItems": 0,
+        "uniqueItems": 0,
+        "complete": false,
+        "truncatedProviders": [],
+        "erroredProviders": []
+      }
+    }
+  ],
+  "maxarCases": [
+    {
+      "name": "static-pruning-relative-assets-and-native-metadata",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                -0.1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-01-31",
+        "collections": [
+          "maxar-open-data"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "options": {},
+      "responses": [
+        {
+          "type": "Catalog",
+          "id": "maxar-opendata",
+          "links": [
+            {
+              "rel": "child",
+              "href": "outside.json"
+            },
+            {
+              "rel": "child",
+              "href": "old.json"
+            },
+            {
+              "rel": "child",
+              "href": "release.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "outside",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  10,
+                  10,
+                  11,
+                  11
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/outside.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "old",
+          "extent": {
+            "temporal": {
+              "interval": [
+                [
+                  "2020-01-01 00:00:00Z",
+                  "2020-12-31 23:59:59Z"
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/old.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "release_live",
+          "license": "CC-BY-NC-4.0",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ]
+              ]
+            },
+            "temporal": {
+              "interval": [
+                [
+                  "2025-01-01 00:00:00Z",
+                  null
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "child",
+              "href": "acquisition.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "acquisition-id",
+          "links": [
+            {
+              "rel": "item",
+              "href": "bad.json"
+            },
+            {
+              "rel": "item",
+              "href": "a.json"
+            },
+            {
+              "rel": "item",
+              "href": "b.json"
+            },
+            {
+              "rel": "item",
+              "href": "c.json"
+            },
+            {
+              "rel": "item",
+              "href": "a.json"
+            }
+          ]
+        },
+        {
+          "type": "Feature",
+          "id": "bad",
+          "bbox": [
+            -1,
+            -1,
+            1,
+            1
+          ],
+          "properties": {
+            "datetime": "bad"
+          },
+          "assets": {}
+        },
+        {
+          "type": "Feature",
+          "id": "tile/a",
+          "bbox": [
+            -1,
+            -1,
+            1,
+            1
+          ],
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -1,
+                  -1
+                ],
+                [
+                  1,
+                  -1
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  -1,
+                  1
+                ],
+                [
+                  -1,
+                  -1
+                ]
+              ]
+            ]
+          },
+          "properties": {
+            "datetime": "2025-01-10 12:30:00Z",
+            "platform": "WV03",
+            "gsd": 0.53,
+            "catalog_id": "acquisition-id",
+            "tile:clouds_percent": 1
+          },
+          "assets": {
+            "thumbnail": {
+              "href": "./a.jpg",
+              "type": "image/jpeg",
+              "roles": [
+                "thumbnail"
+              ]
+            },
+            "visual": {
+              "href": "./a.tif",
+              "type": "image/tiff; application=geotiff",
+              "roles": [
+                "visual"
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "collection",
+              "href": "release.json"
+            }
+          ]
+        },
+        {
+          "type": "Feature",
+          "id": "tile/b",
+          "bbox": [
+            -1,
+            -1,
+            1,
+            1
+          ],
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -1,
+                  -1
+                ],
+                [
+                  1,
+                  -1
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  -1,
+                  1
+                ],
+                [
+                  -1,
+                  -1
+                ]
+              ]
+            ]
+          },
+          "properties": {
+            "datetime": "2025-01-10 12:30:00Z",
+            "platform": "WV03",
+            "gsd": 0.53,
+            "catalog_id": "acquisition-id",
+            "tile:clouds_percent": 1
+          },
+          "assets": {
+            "thumbnail": {
+              "href": "./b.jpg",
+              "type": "image/jpeg",
+              "roles": [
+                "thumbnail"
+              ]
+            },
+            "visual": {
+              "href": "./b.tif",
+              "type": "image/tiff; application=geotiff",
+              "roles": [
+                "visual"
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "collection",
+              "href": "release.json"
+            }
+          ]
+        },
+        {
+          "type": "Feature",
+          "id": "tile/c",
+          "bbox": [
+            -1,
+            -1,
+            1,
+            1
+          ],
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -1,
+                  -1
+                ],
+                [
+                  1,
+                  -1
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  -1,
+                  1
+                ],
+                [
+                  -1,
+                  -1
+                ]
+              ]
+            ]
+          },
+          "properties": {
+            "datetime": "2025-01-10 12:30:00Z",
+            "platform": "WV03",
+            "gsd": 0.53,
+            "catalog_id": "acquisition-id",
+            "tile:clouds_percent": 1
+          },
+          "assets": {
+            "thumbnail": {
+              "href": "./c.jpg",
+              "type": "image/jpeg",
+              "roles": [
+                "thumbnail"
+              ]
+            },
+            "visual": {
+              "href": "./c.tif",
+              "type": "image/tiff; application=geotiff",
+              "roles": [
+                "visual"
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "collection",
+              "href": "release.json"
+            }
+          ]
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "GET",
+          "path": "/events/catalog.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/outside.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/old.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/release.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/acquisition.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/bad.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/a.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/b.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/c.json",
+          "body": null
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "maxar-open-data",
+          "items": [
+            {
+              "providerId": "maxar-open-data",
+              "id": "tile/a",
+              "collection": "release_live",
+              "acquiredAt": "2025-01-10T12:30:00.000Z",
+              "mission": "WV03",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -1,
+                      -1
+                    ],
+                    [
+                      1,
+                      -1
+                    ],
+                    [
+                      1,
+                      1
+                    ],
+                    [
+                      -1,
+                      1
+                    ],
+                    [
+                      -1,
+                      -1
+                    ]
+                  ]
+                ]
+              },
+              "bbox": [
+                -1,
+                -1,
+                1,
+                1
+              ],
+              "cloudCoverPercent": null,
+              "gsdMeters": 0.53,
+              "coveragePercent": 100.0,
+              "previewUrl": "https://conformance.test/events/a.jpg",
+              "access": "open",
+              "assets": [
+                {
+                  "key": "thumbnail",
+                  "href": "https://conformance.test/events/a.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "visual",
+                  "href": "https://conformance.test/events/a.tif",
+                  "type": "image/tiff; application=geotiff",
+                  "roles": [
+                    "visual"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://conformance.test/events/a.json",
+              "raw": {
+                "type": "Feature",
+                "id": "tile/a",
+                "bbox": [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ],
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -1,
+                        -1
+                      ],
+                      [
+                        1,
+                        -1
+                      ],
+                      [
+                        1,
+                        1
+                      ],
+                      [
+                        -1,
+                        1
+                      ],
+                      [
+                        -1,
+                        -1
+                      ]
+                    ]
+                  ]
+                },
+                "properties": {
+                  "datetime": "2025-01-10 12:30:00Z",
+                  "platform": "WV03",
+                  "gsd": 0.53,
+                  "catalog_id": "acquisition-id",
+                  "tile:clouds_percent": 1
+                },
+                "assets": {
+                  "thumbnail": {
+                    "href": "./a.jpg",
+                    "type": "image/jpeg",
+                    "roles": [
+                      "thumbnail"
+                    ]
+                  },
+                  "visual": {
+                    "href": "./a.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "visual"
+                    ]
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "collection",
+                    "href": "release.json"
+                  }
+                ]
+              }
+            },
+            {
+              "providerId": "maxar-open-data",
+              "id": "tile/b",
+              "collection": "release_live",
+              "acquiredAt": "2025-01-10T12:30:00.000Z",
+              "mission": "WV03",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -1,
+                      -1
+                    ],
+                    [
+                      1,
+                      -1
+                    ],
+                    [
+                      1,
+                      1
+                    ],
+                    [
+                      -1,
+                      1
+                    ],
+                    [
+                      -1,
+                      -1
+                    ]
+                  ]
+                ]
+              },
+              "bbox": [
+                -1,
+                -1,
+                1,
+                1
+              ],
+              "cloudCoverPercent": null,
+              "gsdMeters": 0.53,
+              "coveragePercent": 100.0,
+              "previewUrl": "https://conformance.test/events/b.jpg",
+              "access": "open",
+              "assets": [
+                {
+                  "key": "thumbnail",
+                  "href": "https://conformance.test/events/b.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "visual",
+                  "href": "https://conformance.test/events/b.tif",
+                  "type": "image/tiff; application=geotiff",
+                  "roles": [
+                    "visual"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://conformance.test/events/b.json",
+              "raw": {
+                "type": "Feature",
+                "id": "tile/b",
+                "bbox": [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ],
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -1,
+                        -1
+                      ],
+                      [
+                        1,
+                        -1
+                      ],
+                      [
+                        1,
+                        1
+                      ],
+                      [
+                        -1,
+                        1
+                      ],
+                      [
+                        -1,
+                        -1
+                      ]
+                    ]
+                  ]
+                },
+                "properties": {
+                  "datetime": "2025-01-10 12:30:00Z",
+                  "platform": "WV03",
+                  "gsd": 0.53,
+                  "catalog_id": "acquisition-id",
+                  "tile:clouds_percent": 1
+                },
+                "assets": {
+                  "thumbnail": {
+                    "href": "./b.jpg",
+                    "type": "image/jpeg",
+                    "roles": [
+                      "thumbnail"
+                    ]
+                  },
+                  "visual": {
+                    "href": "./b.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "visual"
+                    ]
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "collection",
+                    "href": "release.json"
+                  }
+                ]
+              }
+            }
+          ],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": null,
+          "skipped": 1
+        },
+        {
+          "providerId": "maxar-open-data",
+          "items": [
+            {
+              "providerId": "maxar-open-data",
+              "id": "tile/c",
+              "collection": "release_live",
+              "acquiredAt": "2025-01-10T12:30:00.000Z",
+              "mission": "WV03",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -1,
+                      -1
+                    ],
+                    [
+                      1,
+                      -1
+                    ],
+                    [
+                      1,
+                      1
+                    ],
+                    [
+                      -1,
+                      1
+                    ],
+                    [
+                      -1,
+                      -1
+                    ]
+                  ]
+                ]
+              },
+              "bbox": [
+                -1,
+                -1,
+                1,
+                1
+              ],
+              "cloudCoverPercent": null,
+              "gsdMeters": 0.53,
+              "coveragePercent": 100.0,
+              "previewUrl": "https://conformance.test/events/c.jpg",
+              "access": "open",
+              "assets": [
+                {
+                  "key": "thumbnail",
+                  "href": "https://conformance.test/events/c.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "visual",
+                  "href": "https://conformance.test/events/c.tif",
+                  "type": "image/tiff; application=geotiff",
+                  "roles": [
+                    "visual"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://conformance.test/events/c.json",
+              "raw": {
+                "type": "Feature",
+                "id": "tile/c",
+                "bbox": [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ],
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -1,
+                        -1
+                      ],
+                      [
+                        1,
+                        -1
+                      ],
+                      [
+                        1,
+                        1
+                      ],
+                      [
+                        -1,
+                        1
+                      ],
+                      [
+                        -1,
+                        -1
+                      ]
+                    ]
+                  ]
+                },
+                "properties": {
+                  "datetime": "2025-01-10 12:30:00Z",
+                  "platform": "WV03",
+                  "gsd": 0.53,
+                  "catalog_id": "acquisition-id",
+                  "tile:clouds_percent": 1
+                },
+                "assets": {
+                  "thumbnail": {
+                    "href": "./c.jpg",
+                    "type": "image/jpeg",
+                    "roles": [
+                      "thumbnail"
+                    ]
+                  },
+                  "visual": {
+                    "href": "./c.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "visual"
+                    ]
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "collection",
+                    "href": "release.json"
+                  }
+                ]
+              }
+            }
+          ],
+          "pageNumber": 2,
+          "hasNext": false,
+          "matched": null,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "name": "static-page-budget",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                -0.1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-01-31",
+        "collections": [
+          "maxar-open-data"
+        ],
+        "limit": 1,
+        "maxPages": 1
+      },
+      "options": {},
+      "responses": [
+        {
+          "type": "Catalog",
+          "id": "maxar-opendata",
+          "links": [
+            {
+              "rel": "child",
+              "href": "outside.json"
+            },
+            {
+              "rel": "child",
+              "href": "old.json"
+            },
+            {
+              "rel": "child",
+              "href": "release.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "outside",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  10,
+                  10,
+                  11,
+                  11
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/outside.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "old",
+          "extent": {
+            "temporal": {
+              "interval": [
+                [
+                  "2020-01-01 00:00:00Z",
+                  "2020-12-31 23:59:59Z"
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/old.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "release_live",
+          "license": "CC-BY-NC-4.0",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ]
+              ]
+            },
+            "temporal": {
+              "interval": [
+                [
+                  "2025-01-01 00:00:00Z",
+                  null
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "child",
+              "href": "acquisition.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "acquisition-id",
+          "links": [
+            {
+              "rel": "item",
+              "href": "bad.json"
+            },
+            {
+              "rel": "item",
+              "href": "a.json"
+            },
+            {
+              "rel": "item",
+              "href": "b.json"
+            },
+            {
+              "rel": "item",
+              "href": "c.json"
+            },
+            {
+              "rel": "item",
+              "href": "a.json"
+            }
+          ]
+        },
+        {
+          "type": "Feature",
+          "id": "bad",
+          "bbox": [
+            -1,
+            -1,
+            1,
+            1
+          ],
+          "properties": {
+            "datetime": "bad"
+          },
+          "assets": {}
+        },
+        {
+          "type": "Feature",
+          "id": "tile/a",
+          "bbox": [
+            -1,
+            -1,
+            1,
+            1
+          ],
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [
+                  -1,
+                  -1
+                ],
+                [
+                  1,
+                  -1
+                ],
+                [
+                  1,
+                  1
+                ],
+                [
+                  -1,
+                  1
+                ],
+                [
+                  -1,
+                  -1
+                ]
+              ]
+            ]
+          },
+          "properties": {
+            "datetime": "2025-01-10 12:30:00Z",
+            "platform": "WV03",
+            "gsd": 0.53,
+            "catalog_id": "acquisition-id",
+            "tile:clouds_percent": 1
+          },
+          "assets": {
+            "thumbnail": {
+              "href": "./a.jpg",
+              "type": "image/jpeg",
+              "roles": [
+                "thumbnail"
+              ]
+            },
+            "visual": {
+              "href": "./a.tif",
+              "type": "image/tiff; application=geotiff",
+              "roles": [
+                "visual"
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "collection",
+              "href": "release.json"
+            }
+          ]
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "GET",
+          "path": "/events/catalog.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/outside.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/old.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/release.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/acquisition.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/bad.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/a.json",
+          "body": null
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "maxar-open-data",
+          "items": [
+            {
+              "providerId": "maxar-open-data",
+              "id": "tile/a",
+              "collection": "release_live",
+              "acquiredAt": "2025-01-10T12:30:00.000Z",
+              "mission": "WV03",
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [
+                      -1,
+                      -1
+                    ],
+                    [
+                      1,
+                      -1
+                    ],
+                    [
+                      1,
+                      1
+                    ],
+                    [
+                      -1,
+                      1
+                    ],
+                    [
+                      -1,
+                      -1
+                    ]
+                  ]
+                ]
+              },
+              "bbox": [
+                -1,
+                -1,
+                1,
+                1
+              ],
+              "cloudCoverPercent": null,
+              "gsdMeters": 0.53,
+              "coveragePercent": 100.0,
+              "previewUrl": "https://conformance.test/events/a.jpg",
+              "access": "open",
+              "assets": [
+                {
+                  "key": "thumbnail",
+                  "href": "https://conformance.test/events/a.jpg",
+                  "type": "image/jpeg",
+                  "roles": [
+                    "thumbnail"
+                  ],
+                  "access": "unknown"
+                },
+                {
+                  "key": "visual",
+                  "href": "https://conformance.test/events/a.tif",
+                  "type": "image/tiff; application=geotiff",
+                  "roles": [
+                    "visual"
+                  ],
+                  "access": "unknown"
+                }
+              ],
+              "sourceUrl": "https://conformance.test/events/a.json",
+              "raw": {
+                "type": "Feature",
+                "id": "tile/a",
+                "bbox": [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ],
+                "geometry": {
+                  "type": "Polygon",
+                  "coordinates": [
+                    [
+                      [
+                        -1,
+                        -1
+                      ],
+                      [
+                        1,
+                        -1
+                      ],
+                      [
+                        1,
+                        1
+                      ],
+                      [
+                        -1,
+                        1
+                      ],
+                      [
+                        -1,
+                        -1
+                      ]
+                    ]
+                  ]
+                },
+                "properties": {
+                  "datetime": "2025-01-10 12:30:00Z",
+                  "platform": "WV03",
+                  "gsd": 0.53,
+                  "catalog_id": "acquisition-id",
+                  "tile:clouds_percent": 1
+                },
+                "assets": {
+                  "thumbnail": {
+                    "href": "./a.jpg",
+                    "type": "image/jpeg",
+                    "roles": [
+                      "thumbnail"
+                    ]
+                  },
+                  "visual": {
+                    "href": "./a.tif",
+                    "type": "image/tiff; application=geotiff",
+                    "roles": [
+                      "visual"
+                    ]
+                  }
+                },
+                "links": [
+                  {
+                    "rel": "collection",
+                    "href": "release.json"
+                  }
+                ]
+              }
+            }
+          ],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": null,
+          "skipped": 1
+        }
+      ]
+    },
+    {
+      "name": "static-document-budget",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                -0.1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-01-31",
+        "collections": [
+          "maxar-open-data"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "options": {
+        "maxDocuments": 3
+      },
+      "responses": [
+        {
+          "type": "Catalog",
+          "id": "maxar-opendata",
+          "links": [
+            {
+              "rel": "child",
+              "href": "outside.json"
+            },
+            {
+              "rel": "child",
+              "href": "old.json"
+            },
+            {
+              "rel": "child",
+              "href": "release.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "outside",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  10,
+                  10,
+                  11,
+                  11
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/outside.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "old",
+          "extent": {
+            "temporal": {
+              "interval": [
+                [
+                  "2020-01-01 00:00:00Z",
+                  "2020-12-31 23:59:59Z"
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/old.json"
+            }
+          ]
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "GET",
+          "path": "/events/catalog.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/outside.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/old.json",
+          "body": null
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "maxar-open-data",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": true,
+          "matched": null,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "name": "static-release-selection",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                -0.1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-01-31",
+        "collections": [
+          "unlisted-release"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "options": {},
+      "responses": [
+        {
+          "type": "Catalog",
+          "id": "maxar-opendata",
+          "links": [
+            {
+              "rel": "child",
+              "href": "outside.json"
+            },
+            {
+              "rel": "child",
+              "href": "old.json"
+            },
+            {
+              "rel": "child",
+              "href": "release.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "outside",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  10,
+                  10,
+                  11,
+                  11
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/outside.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "old",
+          "extent": {
+            "temporal": {
+              "interval": [
+                [
+                  "2020-01-01 00:00:00Z",
+                  "2020-12-31 23:59:59Z"
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "item",
+              "href": "https://never-fetch.test/old.json"
+            }
+          ]
+        },
+        {
+          "type": "Collection",
+          "id": "release_live",
+          "license": "CC-BY-NC-4.0",
+          "extent": {
+            "spatial": {
+              "bbox": [
+                [
+                  -1,
+                  -1,
+                  1,
+                  1
+                ]
+              ]
+            },
+            "temporal": {
+              "interval": [
+                [
+                  "2025-01-01 00:00:00Z",
+                  null
+                ]
+              ]
+            }
+          },
+          "links": [
+            {
+              "rel": "child",
+              "href": "acquisition.json"
+            }
+          ]
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "GET",
+          "path": "/events/catalog.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/outside.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/old.json",
+          "body": null
+        },
+        {
+          "method": "GET",
+          "path": "/events/release.json",
+          "body": null
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "maxar-open-data",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": null,
+          "skipped": 0
+        }
+      ]
+    },
+    {
+      "name": "static-unsafe-link",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                -0.1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-01-31",
+        "collections": [
+          "maxar-open-data"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "options": {},
+      "responses": [
+        {
+          "type": "Catalog",
+          "id": "maxar-opendata",
+          "links": [
+            {
+              "rel": "child",
+              "href": "https://unsafe.test/release.json"
+            }
+          ]
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "GET",
+          "path": "/events/catalog.json",
+          "body": null
+        }
+      ],
+      "expectedPages": [],
+      "expectedError": "UNSAFE_NEXT_LINK"
+    },
+    {
+      "name": "static-empty-catalogue",
+      "query": {
+        "aoi": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [
+                -0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                -0.1
+              ],
+              [
+                0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                0.1
+              ],
+              [
+                -0.1,
+                -0.1
+              ]
+            ]
+          ]
+        },
+        "from": "2025-01-01",
+        "to": "2025-01-31",
+        "collections": [
+          "maxar-open-data"
+        ],
+        "limit": 2,
+        "maxPages": 3
+      },
+      "options": {},
+      "responses": [
+        {
+          "type": "Catalog",
+          "id": "maxar-opendata",
+          "links": []
+        }
+      ],
+      "expectedRequests": [
+        {
+          "method": "GET",
+          "path": "/events/catalog.json",
+          "body": null
+        }
+      ],
+      "expectedPages": [
+        {
+          "providerId": "maxar-open-data",
+          "items": [],
+          "pageNumber": 1,
+          "hasNext": false,
+          "matched": null,
+          "skipped": 0
+        }
+      ]
+    }
+  ]
+}

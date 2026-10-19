@@ -1,0 +1,44 @@
+rustls v0.23.45
+└── hyper-rustls v0.27.10
+    ├── hyper-rustls feature "http1"
+    │   └── reqwest v0.12.28
+    │       ├── reqwest feature "__rustls"
+    │       │   └── reqwest feature "rustls-tls-webpki-roots-no-provider"
+    │       │       └── reqwest feature "rustls-tls-webpki-roots"
+    │       │           └── reqwest feature "rustls-tls"
+    │       │               └── satellites-images v0.3.0 (/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images)
+    │       │                   └── satellites-images feature "default" (command-line)
+    │       ├── reqwest feature "__rustls-ring"
+    │       │   └── reqwest feature "rustls-tls-webpki-roots" (*)
+    │       ├── reqwest feature "__tls"
+    │       │   └── reqwest feature "__rustls" (*)
+    │       ├── reqwest feature "json"
+    │       │   └── satellites-images v0.3.0 (/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images) (*)
+    │       ├── reqwest feature "rustls-tls" (*)
+    │       ├── reqwest feature "rustls-tls-webpki-roots" (*)
+    │       └── reqwest feature "rustls-tls-webpki-roots-no-provider" (*)
+    ├── hyper-rustls feature "ring"
+    │   └── reqwest feature "__rustls-ring" (*)
+    ├── hyper-rustls feature "tls12"
+    │   └── reqwest v0.12.28 (*)
+    ├── hyper-rustls feature "webpki-roots"
+    │   └── hyper-rustls feature "webpki-tokio"
+    │       └── reqwest feature "rustls-tls-webpki-roots-no-provider" (*)
+    └── hyper-rustls feature "webpki-tokio" (*)
+├── rustls feature "ring"
+│   ├── reqwest feature "__rustls-ring" (*)
+│   ├── hyper-rustls feature "ring" (*)
+│   └── tokio-rustls feature "ring"
+│       └── reqwest feature "__rustls-ring" (*)
+├── rustls feature "std"
+│   ├── reqwest v0.12.28 (*)
+│   └── tokio-rustls v0.26.6
+│       └── hyper-rustls v0.27.10 (*)
+│       ├── tokio-rustls feature "ring" (*)
+│       └── tokio-rustls feature "tls12"
+│           └── reqwest v0.12.28 (*)
+│           └── hyper-rustls feature "tls12" (*)
+└── rustls feature "tls12"
+    └── reqwest v0.12.28 (*)
+    ├── hyper-rustls feature "tls12" (*)
+    └── tokio-rustls feature "tls12" (*)

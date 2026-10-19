@@ -6,13 +6,18 @@
 //
 // No credentials are used; results are whatever the public services return today.
 import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, usgsLandsatLook,
-  cmrStac, asfSearch, jaxaGPortal, openAerialMap, esaSentinelPlans } from "../../packages/typescript/dist/index.js";
+  cmrStac, asfSearch, inpeCbers, jaxaGPortal, openAerialMap, maxarOpenData, esaSentinelPlans } from "../../packages/typescript/dist/index.js";
 
 const base = { latitude: -8.5833, longitude: 116.1167, radiusMeters: 25000, maxPages: 1, limit: 5 };
 async function run(name, fn) {
   const started = Date.now();
-  try { console.log(`OK   ${name.padEnd(18)} ${Date.now() - started}ms  ${await fn()}`); }
-  catch (error) { console.log(`FAIL ${name.padEnd(18)} ${Date.now() - started}ms  ${error.code ?? ""} ${error.message ?? error}`); }
+  try {
+    const result = await fn();
+    console.log(`OK   ${name.padEnd(18)} ${Date.now() - started}ms  ${result}`);
+  } catch (error) {
+    process.exitCode = 1;
+    console.log(`FAIL ${name.padEnd(18)} ${Date.now() - started}ms  ${error.code ?? ""} ${error.message ?? error}`);
+  }
 }
 const count = async (provider, query) => {
   let total = 0;
@@ -29,11 +34,19 @@ await run("copernicus", () => count(copernicusDataSpace(), { ...base, from: "202
 await run("usgs-landsatlook", () => count(usgsLandsatLook(), { ...base, from: "2025-05-01", to: "2025-05-31", collections: ["landsat-c2l2-sr"] }));
 await run("cmr-stac ASF", () => count(cmrStac("ASF", ["sentinel-1-rtc"]), { ...base, from: "2025-05-01", to: "2025-05-31" }));
 await run("asf-search", () => count(asfSearch(), { ...base, from: "2025-05-01", to: "2025-05-02" }));
+await run("inpe-cbers", () => count(inpeCbers(), {
+  latitude:-7.15,longitude:-38.1,radiusMeters:25000,from:"2026-10-13",to:"2026-10-13",limit:1,maxPages:3,
+}));
+await run("asf-nisar-alos2", () => count(asfSearch({platforms:["NISAR","ALOS-2"]}), {
+  ...base,from:"2026-09-01",to:"2026-10-15",
+}));
 // JAXA: small AOI + day; verifies the CSW granule endpoint and the bbox request shape.
 await run("jaxa-gportal", () => count(jaxaGPortal({ datasetId: "10002002" }), { ...base, from: "2021-07-07", to: "2021-07-07" }));
 // OpenAerialMap: a window it has coverage for; verifies the acquisition_from/to + paging shape.
 await run("open-aerial-map", () => count(openAerialMap({ limit: 5 }),
   { latitude: 50.871, longitude: 5.847, radiusMeters: 2000, maxPages: 1, limit: 5, from: "2021-04-01", to: "2021-06-30" }));
+await run("maxar-open-data", () => count(maxarOpenData(),
+  {latitude:20.88,longitude:-156.68,radiusMeters:1000,from:"2023-08-01",to:"2023-08-31",limit:5,maxPages:3}));
 await run("esa-plans", async () => {
   const catalog = new SatelliteCatalog([earthSearch()], [esaSentinelPlans()]);
   const planned = await catalog.upcoming({ latitude: -8.5833, longitude: 116.1167, radiusMeters: 25000, days: 14 });

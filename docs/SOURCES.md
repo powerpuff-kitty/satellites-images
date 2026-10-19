@@ -17,15 +17,22 @@ See the machine-readable [source registry](../sources/registry.json) for source 
 
 - [Earth Search v1](https://earth-search.aws.element84.com/v1): public STAC search for `sentinel-2-l2a` and `landsat-c2-l2`.
 - [Microsoft Planetary Computer](https://planetarycomputer.microsoft.com/api/stac/v1): public STAC search; asset signing separate.
+- [INPE CBERS-4A](https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1): Brazil-focused fused visual collection, implemented in all three SDKs and opt-in in the explorer. Use `inpeCbers()` (TS), `InpeCbers()` (Python), or `StacProvider::inpe_cbers()` (Rust, with `query.collections = vec!["CB4A-WPM-PCA-FUSED-1".into()]`). Live items may omit platform and GSD; those fields remain unknown. The collection's 2 m fused-product specification is not an independent native sensor-resolution measurement. See the [dated review](FREE_SOURCES_REVIEW.md).
 - [Copernicus Data Space Ecosystem STAC](https://stac.dataspace.copernicus.eu/v1): anonymous STAC search; downloads require registration. Adapter in all three SDKs (scenes are reported as `authentication-required`; per-asset access stays `unknown`).
 - [USGS LandsatLook STAC](https://landsatlook.usgs.gov/stac-server): anonymous STAC search. Adapter in all three SDKs; its CORS policy blocks arbitrary browser origins, so browser use needs the optional proxy.
 - [NASA CMR-STAC](https://cmr.earthdata.nasa.gov/stac): provider-scoped STAC search (e.g. `ASF`, `USGS_LTA`). Adapter in all three SDKs.
-- [Alaska Satellite Facility Search API](https://api.daac.asf.alaska.edu/services/search/param): keyword SAR metadata search returning GeoJSON. Adapter in all three SDKs; product downloads require Earthdata authentication.
+- [Alaska Satellite Facility Search API](https://api.daac.asf.alaska.edu/services/search/param): keyword SAR metadata search returning GeoJSON. Adapter in all three SDKs; product downloads require Earthdata authentication. The explorer's opt-in ASF source requests Sentinel-1, NISAR and ALOS-2; SDK defaults remain Sentinel-1 and callers can explicitly select platforms. A full capped response remains partial.
 - [JAXA G-Portal](https://gportal.jaxa.jp/): granule adapter in all three SDKs via anonymous CSW 3.0.0 **GET** on `gportal.jaxa.jp/csw/csw` with `outputFormat=application/json` and a **numeric** `datasetId` (short names are rejected). Per-granule `beginPosition` is a real acquisition time, distinct from `processingDate`. POST is WAF-blocked; the `bbox` axis order and live smoke are operator-verifiable. (The dataset-level OpenSearch on `gpwos1.jaxa.jp` exposes catalogue records only, not granules.)
 - [OpenAerialMap](https://api.openaerialmap.org/meta): anonymous metadata search over crowdsourced aerial imagery (drone/aircraft). `bbox` plus a server-side `acquisition_from`/`acquisition_to` window, paged with `limit`/`page`; `meta.found` is the provider's total for the filter. Adapter in all three SDKs. Records carry a `tilejson` asset (renderable on the map) but no preview thumbnail; the provider's `gsd` is reported in degrees at inconsistent scales, so `gsdMeters` stays `null` and the raw value is kept in `raw`. Per-image licences vary (the API itself is CC-BY 4.0). Its CORS policy allows only `https://map.openaerialmap.org` (observed 2026-10-13: `access-control-allow-origin: https://map.openaerialmap.org`), so a browser build cannot call it directly and needs a proxy; the SDKs and the live smoke use it from Node/Python/Rust.
 - [ESA mission planning](https://sentinels.copernicus.eu/copernicus-operations/mission-planning): official Sentinel-1/Sentinel-2 KML acquisition plan adapter in all three SDKs. Sentinel-2 nominal strips only. Direct browser requests may require an origin-restricted proxy.
 
 ## Operational and licensing notes
+
+The [free-source review](FREE_SOURCES_REVIEW.md) checks all 25 entries in the supplied
+research list. Wyvern, Capella and Umbra have reachable static STAC scenes and registry
+entries; their adapters remain unimplemented. They cannot use the ordinary `/search`
+STAC adapter directly. Weather services, terrain grids and aerial mosaics need distinct
+layer/interval handling before being presented as dated observations.
 
 1. Check **current** terms, attribution and commercial-use rights with each data operator.
 2. A public thumbnail or product listing is not an image license.

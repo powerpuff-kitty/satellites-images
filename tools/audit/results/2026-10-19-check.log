@@ -1,0 +1,126 @@
+
+> satellites-images-workspace@0.3.0 check
+> npm run generate:registry && npm run build && npm run typecheck -w @satellites-images/explorer && npm run test && npm run test:package-checker
+
+
+> satellites-images-workspace@0.3.0 generate:registry
+> node tools/generate-registry.mjs
+
+Generated registry snapshots for 3 SDKs
+
+> satellites-images-workspace@0.3.0 build
+> npm run build -w @powerpuff-kitty/satellites-images && npm run build -w @satellites-images/explorer
+
+
+> @powerpuff-kitty/satellites-images@0.3.0 build
+> tsc -p tsconfig.json
+
+
+> @satellites-images/explorer@0.3.0 build
+> vite build
+
+vite v8.3.4 building client environment for production...
+transforming...
+✓ 56 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                                 14.11 kB │ gzip:   3.44 kB
+dist/assets/maplibre-gl-worker-DxGNRm0a.mjs    508.31 kB
+dist/assets/index-BrigktOn.css                  11.35 kB │ gzip:   3.11 kB
+dist/assets/maplibre-DBE96hFo.css               82.93 kB │ gzip:  10.72 kB
+dist/assets/index-DGlhIxxa.js                  149.87 kB │ gzip:  50.00 kB
+dist/assets/maplibre-CDVTGlnq.js             1,047.38 kB │ gzip: 284.09 kB
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 1.17s
+
+> @satellites-images/explorer@0.3.0 typecheck
+> tsc --noEmit -p tsconfig.json
+
+
+> satellites-images-workspace@0.3.0 test
+> npm run test -w @powerpuff-kitty/satellites-images
+
+
+> @powerpuff-kitty/satellites-images@0.3.0 test
+> node --test tests/*.test.mjs
+
+✔ extract official latest plan metadata without trusting external hrefs (17.755125ms)
+✔ parse real-shaped ExtendedData and ignore calibration/out-of-bounds strips (7.374875ms)
+✔ the upcoming window accepts up to a year and rejects beyond it (307.537ms)
+✔ future adapter selects newest plan per satellite with bounded queries (7.603792ms)
+✔ reject malicious XML and invalid window without relying on network (0.375375ms)
+✔ transport failures are explicit, not an empty upcoming result (4.063459ms)
+✔ real ESA S2A 2024 KML datatake can be parsed with its original metadata (3.496084ms)
+✔ HTTP conditional 304 refreshes plan cache without re-downloading bodies (2.606459ms)
+✔ diagnostics distinguish no-current-plan from no-overlap (1.839ms)
+✔ availability groups dates in UTC and deduplicates repeated STAC items (28.455583ms)
+✔ provider identities are never collapsed into hypothetical physical duplicates (0.373208ms)
+✔ partial pages from one provider remain partial after another provider finishes (0.640708ms)
+✔ empty availability summary does not claim completeness (0.122875ms)
+✔ catalog availability uses actual bounded provider result pages (585.567167ms)
+✔ shared cross-language scene, pagination and availability contracts (494.400583ms)
+✔ INPE selects its fused collection and preserves absent item metadata (267.7625ms)
+✔ STAC identity includes collection and removes repeats within a page (127.413791ms)
+✔ availability retains healthy providers after a failure and never claims completeness (0.682584ms)
+✔ pending providers and invalid pages cannot corrupt availability (1.434292ms)
+✔ all scene adapters reject timezone-free and impossible acquisition timestamps (2.854875ms)
+✔ unusual mission and collection names stay ordinary count keys (0.437625ms)
+✔ ASF and JAXA capped responses stay partial and deduplicate within their pages (1.300667ms)
+✔ OpenAerialMap applies a page budget per box and preserves earlier truncation (1.208083ms)
+✔ OpenAerialMap searches both sides when the first box has no more pages (0.847166ms)
+✔ response limits cancel chunked bodies before buffering the entire document (5.148125ms)
+✔ normalized scene, page, and availability satisfy the JSON schemas (99.708ms)
+✔ bbox validation and antimeridian failure (2.079541ms)
+✔ antimeridian and pole areas are split instead of rejected (2.058959ms)
+✔ polygon AOI resolves to a precise STAC bbox and coverage score (0.502041ms)
+✔ antimeridian polygon splits into two boxes without intersects (0.34275ms)
+✔ invalid AOI geometry is rejected with a typed error (0.201208ms)
+✔ antimeridian split queries both boxes within a per-box page budget (698.973792ms)
+✔ registry reports implemented and planned sources accurately (0.242458ms)
+✔ STAC-reuse adapters target verified endpoints and normalize provider items (1.426458ms)
+✔ ASF Search API adapter requests GeoJSON and normalizes SAR granules (0.914292ms)
+✔ JAXA G-Portal granule adapter maps acquisition time and browse (1.695625ms)
+✔ retries transient 429 responses and honours Retry-After (55.915041ms)
+✔ a persistent 429 fails explicitly rather than an empty success (3.894458ms)
+✔ a 403 metadata denial surfaces as an HTTP error, not empty results (0.378ms)
+✔ expired-signed and metadata-only assets are recorded, never fetched (0.666625ms)
+✔ STAC pagination, normalization, and precise acquisition times (0.685334ms)
+✔ a polygon AOI sends intersects instead of bbox (0.960708ms)
+✔ falls back to the item thumbnail link when the asset preview is not http(s) (1.462667ms)
+✔ rejects cross-origin pagination before requesting the next page (0.571ms)
+✔ bounds page count, rejects bad dates, fails explicitly for future acquisitions (6.297291ms)
+✔ provider failures are not misreported as empty scenes (0.292375ms)
+✔ STAC POST next body replaces the query when merge is absent (0.590541ms)
+✔ retry options are validated and bounded (0.329291ms)
+✔ a truncated antimeridian box marks the split search incomplete (0.718792ms)
+✔ planetary computer also queries the radar and aerial collections (0.246ms)
+✔ declared imagery access reflects the registry and verified per-collection behaviour (0.091ms)
+✔ OpenAerialMap adapter pages the catalogue and normalises aerial imagery (0.868792ms)
+✔ OpenAerialMap falls back to a bbox rectangle and rejects unusable records (0.207333ms)
+ℹ tests 53
+ℹ suites 0
+ℹ pass 53
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1823.127458
+
+> satellites-images-workspace@0.3.0 test:package-checker
+> node --test tools/release/check-packages.test.mjs
+
+✔ invalid ecosystem fails before creating candidate artifacts (127.825958ms)
+✔ version mismatch blocks builds, records failure and cleans the consumer environment (290.128791ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 533.465292

@@ -8,13 +8,14 @@ import * as maplibregl from "maplibre-gl";
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import type { FeatureCollection, Geometry } from "geojson";
 import "maplibre-gl/dist/maplibre-gl.css";
-import "@fortawesome/fontawesome-free/css/all.min.css";
 import "./style.css";
 import { SatelliteCatalog, earthSearch, planetaryComputer, copernicusDataSpace, asfSearch,
-  cmrStac, jaxaGPortal, esaSentinelPlans, listSources, AvailabilityAccumulator,
+  cmrStac, jaxaGPortal, inpeCbers, esaSentinelPlans, listSources, AvailabilityAccumulator,
   type AvailabilitySummary,
-  type Scene, type SceneAsset, type AcquisitionOpportunity, type SearchProvider } from "@powerpuff-kitty/satellites-images";
+  type Scene, type AcquisitionOpportunity, type SearchProvider } from "@powerpuff-kitty/satellites-images";
 import { shiftMonth, monthDates } from "./calendar.js";
+import { previewUrlFor, tileAssetFor, hasPublicPreview, canViewPreview,
+  discoverPublicPreview, forgetPublicPreview, fetchOverlayImage, type PublicPreview } from "./public-previews.js";
 
 const element = <T extends Element>(id: string): T => {
   const item = document.getElementById(id);
@@ -54,6 +55,7 @@ const hourMin = element<HTMLSelectElement>("hour-min");
 const hourMax = element<HTMLSelectElement>("hour-max");
 const resolutionFilter = element<HTMLSelectElement>("resolution-filter");
 const hasPreview = element<HTMLInputElement>("has-preview");
+const satelliteTypeFilter = element<HTMLSelectElement>("satellite-type-filter");
 const includeUnknown = element<HTMLInputElement>("include-unknown");
 const clearFilters = element<HTMLButtonElement>("clear-filters");
 const matrixPanel = element<HTMLElement>("map-matrix");
@@ -115,16 +117,29 @@ maplibregl.setWorkerUrl(maplibreWorkerUrl);
 
 const map = new maplibregl.Map({
   container: "map",
-  style: mapStyle,
   center: [116.1167, -8.5833],
   zoom: 8,
-  // The basemap attribution is added by hand below: MapLibre renders the compact
-  // attribution expanded on wide maps, and the day matrix owns the bottom band, so the
-  // required attribution would be covered there.
+  // Source credits are rendered in the separate footer below the map.
   attributionControl: false,
 });
+map.setStyle(mapStyle, {
+  transformStyle: (_previous, next) => ({
+    ...next,
+    sources: Object.fromEntries(Object.entries(next.sources).map(([id, source]) => {
+      // OpenFreeMap explicitly permits omitting its own name. Keep the required
+      // OpenMapTiles/OpenStreetMap credits, and leave other providers untouched.
+      if (source.type === "vector" && source.url?.startsWith("https://tiles.openfreemap.org/")) {
+        return [id, { ...source, attribution:
+          '<a href="https://www.openmaptiles.org/" target="_blank">© OpenMapTiles</a> Data from <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>' }];
+      }
+      return [id, source];
+    })),
+  }),
+});
 map.addControl(new maplibregl.NavigationControl(), "top-right");
-map.addControl(new maplibregl.AttributionControl({ compact: true }), "top-right");
+const attribution = new maplibregl.AttributionControl({ compact: false });
+element<HTMLElement>("map-credits").append(attribution.onAdd(map));
+map.once("remove",()=>attribution.onRemove());
 const marker = new maplibregl.Marker({color:"#e0a84b"})
   .setLngLat([116.1167, -8.5833]).addTo(map);
 
@@ -219,10 +234,14 @@ dateField.addEventListener("change", () => {
   scheduleSearch();
 });
 
-function icon(cls:string):HTMLElement {
-  const node=document.createElement("i");
-  node.className="fa-solid "+cls;
+function externalLinkIcon():SVGSVGElement {
+  const node=document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  node.classList.add("icon");
   node.setAttribute("aria-hidden","true");
+  node.setAttribute("focusable","false");
+  const use=document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", "./icons.svg#arrow-up-right-from-square");
+  node.append(use);
   return node;
 }
 function line(label: string, value: string): HTMLElement {
@@ -249,6 +268,8 @@ function makeScene(scene: Scene): HTMLLIElement {
   item.append(heading);
   item.append(line("Scene",scene.id));
   item.append(line("Collection",scene.collection));
+  item.append(line("Catalogues",sceneCatalogues(scene).join(", ")));
+  item.append(line("Satellite operator",isCommercialScene(scene)?"Commercial":"Public or unspecified"));
   item.append(line("Cloud coverage",scene.cloudCoverPercent===null?"Unknown":scene.cloudCoverPercent.toFixed(1)+"% (scene-wide)"));
   if (scene.gsdMeters !== null) item.append(line("Resolution", scene.gsdMeters + " m/pixel"));
   if (scene.coveragePercent !== null) item.append(line("Covers your area", scene.coveragePercent.toFixed(0) + "%"));
@@ -256,7 +277,7 @@ function makeScene(scene: Scene): HTMLLIElement {
     : scene.access === "authentication-required" ? "Account required"
     : scene.access === "payment-required" ? "Payment or entitlement required"
     : "Not verified";
-  item.append(line("Image access", accessLabel));
+  item.append(line("Full image access", accessLabel));
   const previewHref = previewUrlFor(scene);
   if (previewHref) {
     try {
@@ -269,8 +290,13 @@ function makeScene(scene: Scene): HTMLLIElement {
         image.referrerPolicy = "no-referrer";
         image.tabIndex = 0;
         image.setAttribute("role", "button");
-        image.title = "Show this image on the map";
-        image.addEventListener("error", () => image.remove());
+        image.title = "View public preview";
+        image.addEventListener("error", () => {
+          image.remove();
+          item.dataset.previewFailed = "true";
+          const note = item.querySelector(".preview-status");
+          if (note) note.textContent = "Preview unavailable. Try the public preview lookup or open the catalogue.";
+        });
         const open = () => openScenePreview(scene);
         image.addEventListener("click", open);
         image.addEventListener("keydown", (event) => {
@@ -279,6 +305,33 @@ function makeScene(scene: Scene): HTMLLIElement {
         item.append(image);
       }
     } catch { /* Invalid preview: no link */ }
+  }
+  if (canViewPreview(scene)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "text-button public-preview-button";
+    button.textContent = "View public preview";
+    button.addEventListener("click", () => openScenePreview(scene, item.dataset.previewFailed === "true"));
+    item.append(button);
+  }
+  const previewStatus = document.createElement("p");
+  previewStatus.className = "status preview-status";
+  previewStatus.textContent = previewHref || tileAssetFor(scene) ? "Public preview · access checked when opened"
+    : canViewPreview(scene) ? "Public preview lookup available" : "No public preview advertised";
+  item.append(previewStatus);
+  const sourceLinks=Array.isArray(scene.raw.links)?[...scene.raw.links]:[];
+  for(const entry of sourceLinks){
+    if(!entry || typeof entry !== "object")continue;
+    const terms=entry as Record<string,unknown>;
+    if(terms.rel!=="license" || typeof terms.href!=="string")continue;
+    try {
+      const url=new URL(terms.href);
+      if(url.protocol!=="https:" || url.username || url.password)continue;
+      const link=document.createElement("a");
+      link.href=url.href; link.target="_blank"; link.rel="noopener noreferrer";
+      link.className="preview-terms"; link.textContent="Source imagery terms";
+      item.append(link); break;
+    }catch { /* Missing or malformed terms are not a licence grant. */ }
   }
   if (scene.sourceUrl) {
     try {
@@ -289,7 +342,7 @@ function makeScene(scene: Scene): HTMLLIElement {
         link.rel = "noopener noreferrer";
         link.target = "_blank";
         link.textContent = "View source metadata";
-        link.append(icon("fa-arrow-up-right-from-square"));
+        link.append(externalLinkIcon());
         item.append(link);
       }
     } catch { /* Invalid source link */ }
@@ -302,142 +355,17 @@ let previewScenes:Scene[]=[];
 let previewIndex=0;
 // Object URL backing an image overlay (revoked when the preview changes or closes).
 let previewObjectUrl:string|null=null;
-// Ceiling on a preview fetched for the map overlay.
-const MAX_OVERLAY_BYTES=8*1024*1024;
-type PreviewCorner=[number,number];
-const DISPLAYABLE_IMAGE=/^image\/(jpeg|png|webp|avif)$/i;
-const RASTER_EXTENSION=/\.(jpe?g|png|webp|avif)(\?|#|$)/i;
-const PREVIEW_PRIORITY=["rendered_preview","overview","visual","preview","thumbnail"];
-function isDisplayable(asset:SceneAsset):boolean {
-  // Only http(s) assets can be shown in an <img>/raster layer (Landsat's hrefs are s3://).
-  if(!/^https?:\/\//i.test(asset.href))return false;
-  return (asset.type!==null&&DISPLAYABLE_IMAGE.test(asset.type))||RASTER_EXTENSION.test(asset.href);
-}
-/** The best displayable still image the provider exposes for a scene. */
-function previewUrlFor(scene:Scene):string|null {
-  const candidates=scene.assets.filter(isDisplayable);
-  if(!candidates.length)return scene.previewUrl;
-  const rank=(asset:SceneAsset)=>{
-    const keys=[asset.key,...asset.roles].map((value)=>value.toLowerCase());
-    const found=PREVIEW_PRIORITY.findIndex((name)=>keys.includes(name));
-    return found<0?PREVIEW_PRIORITY.length:found;
-  };
-  return [...candidates].sort((a,b)=>rank(a)-rank(b))[0].href;
-}
-// A cross-origin WebGL overlay needs CORS and, to stay sharp, a tile set rendered at the
-// imagery's native ground sample distance. Some sources cannot supply that: Earth Search
-// serves Landsat browse as s3:// plus a non-CORS redirect. Planetary Computer exposes
-// CORS-enabled tiles for both Landsat (same item id) and Sentinel-2 (different ids, so it
-// is resolved by MGRS tile and acquisition day).
-const PLANETARY_COMPUTER_RENDER:Record<string,string>={
-  "landsat-c2-l2":"assets=red&assets=green&assets=blue&color_formula=gamma%20RGB%202.7,%20saturation%201.5,%20sigmoidal%20RGB%2015%200.55",
-  "sentinel-2-l2a":"assets=visual&asset_bidx=visual%7C1,2,3&nodata=0",
-};
-function tileAssetFor(scene:Scene):string|null {
-  return scene.assets.find((asset)=>asset.roles.includes("tiles")&&/^https?:\/\//i.test(asset.href))?.href??null;
-}
+const previewStill = element<HTMLElement>("preview-still");
+const previewStillImage = element<HTMLImageElement>("preview-still-image");
+const previewStillStatus = element<HTMLElement>("preview-still-status");
+let previewController: AbortController | null = null;
+let previewReturnFocus: HTMLElement | null = null;
+let activePublicPreview: {scene:Scene; preview:PublicPreview; token:number; retried:boolean} | null = null;
+function canOverlay(scene: Scene): boolean { return canViewPreview(scene); }
 function rawProperties(scene:Scene):Record<string,unknown> {
-  const properties=(scene.raw as Record<string,unknown>)["properties"];
-  return properties&&typeof properties==="object"?properties as Record<string,unknown>:{};
-}
-function mgrsTile(scene:Scene):string|null {
-  const properties=rawProperties(scene);
-  const grid=properties["grid:code"];
-  if(typeof grid==="string"&&grid.startsWith("MGRS-"))return grid.slice(5);
-  const tile=properties["s2:mgrs_tile"];
-  return typeof tile==="string"?tile:null;
-}
-const pcIdCache=new Map<string,string|null>();
-/** The matching Planetary Computer item id (Landsat ids match; Sentinel-2 is looked up). */
-async function resolvePlanetaryComputerId(scene:Scene):Promise<string|null> {
-  if(scene.collection==="landsat-c2-l2")return scene.id;
-  const key=scene.collection+"/"+scene.id;
-  const cached=pcIdCache.get(key);
-  if(cached!==undefined)return cached;
-  const tile=mgrsTile(scene), day=scene.acquiredAt.slice(0,10);
-  let resolved:string|null=null;
-  if(tile){
-    try {
-      const response=await fetch("https://planetarycomputer.microsoft.com/api/stac/v1/search",{
-        method:"POST",headers:{"content-type":"application/json"},
-        body:JSON.stringify({collections:[scene.collection],
-          filter:{op:"=",args:[{property:"s2:mgrs_tile"},tile]},
-          datetime:day+"T00:00:00Z/"+day+"T23:59:59Z",limit:5}),
-      });
-      if(response.ok){
-        const payload=await response.json() as {features?:unknown[]};
-        const wanted=Date.parse(scene.acquiredAt);
-        const best=(Array.isArray(payload.features)?payload.features:[])
-          .map((feature)=>feature as {id?:unknown;properties?:Record<string,unknown>})
-          .filter((feature)=>typeof feature.id==="string")
-          .map((feature)=>({id:feature.id as string,at:Date.parse(String(feature.properties?.datetime??""))}))
-          .filter((candidate)=>Number.isFinite(candidate.at))
-          .sort((a,b)=>Math.abs(a.at-wanted)-Math.abs(b.at-wanted))[0];
-        if(best)resolved=best.id;
-      }
-    } catch { resolved=null; }
-  }
-  pcIdCache.set(key,resolved);
-  return resolved;
-}
-function planetaryComputerUrl(kind:"tilejson.json"|"preview.png",collection:string,id:string):string {
-  return "https://planetarycomputer.microsoft.com/api/data/v1/item/"+kind+
-    "?collection="+encodeURIComponent(collection)+"&item="+encodeURIComponent(id)+
-    "&"+PLANETARY_COMPUTER_RENDER[collection]+"&format=png";
-}
-interface PreviewOverlay { tiles:string|null; image:string|null }
-/** Fetch an image we cannot hand to MapLibre directly.
- *
- * Provider previews such as Earth Search's Sentinel-2 `preview.jpg` on S3 are loaded by the
- * result cards as a plain `<img>`, which caches an opaque (no-CORS) response for that URL. A
- * later CORS fetch of the same URL — MapLibre's image source included — then fails from that
- * cache with a misleading "No 'Access-Control-Allow-Origin' header" error, even though the file
- * itself returns `Access-Control-Allow-Origin: *`. Fetching the bytes here with
- * `cache: "reload"` bypasses the opaque entry, and handing MapLibre an object URL sidesteps its
- * own request, so a freshly published scene can still be drawn on the map. */
-async function fetchOverlayImage(url:string, signal?:AbortSignal):Promise<string|null> {
-  try {
-    // `cache: "reload"` matters: the result cards load the same URL as a plain <img>, which
-    // caches an opaque response, and a later CORS fetch of that URL then fails from the cache
-    // ("Failed to fetch") until it is bypassed.
-    const response=await fetch(url,{mode:"cors",cache:"reload",signal});
-    if(!response.ok)return null;
-    const blob=await response.blob();
-    if(!blob.type.startsWith("image/")||blob.size>MAX_OVERLAY_BYTES)return null;
-    return URL.createObjectURL(blob);
-  } catch {
-    return null;
-  }
-}
-async function resolveOverlay(scene:Scene):Promise<PreviewOverlay> {
-  const own=tileAssetFor(scene);
-  if(own)return {tiles:own,image:null};
-  if(PLANETARY_COMPUTER_RENDER[scene.collection]){
-    const id=await resolvePlanetaryComputerId(scene);
-    if(id)return {tiles:planetaryComputerUrl("tilejson.json",scene.collection,id),
-      image:planetaryComputerUrl("preview.png",scene.collection,id)};
-  }
-  const direct=previewUrlFor(scene);
-  if(direct){
-    const objectUrl=await fetchOverlayImage(direct);
-    if(objectUrl)return {tiles:null,image:objectUrl};
-  }
-  return {tiles:null,image:null};
-}
-/** Whether a scene has anything we can put on the map (checked synchronously). */
-function canOverlay(scene:Scene):boolean {
-  return Boolean(previewUrlFor(scene)??tileAssetFor(scene)??PLANETARY_COMPUTER_RENDER[scene.collection]);
-}
-function previewCoordinates(scene:Scene):[PreviewCorner,PreviewCorner,PreviewCorner,PreviewCorner] {
-  const box=Array.isArray(scene.bbox)&&scene.bbox.length===4?scene.bbox as number[]:null;
-  if(box&&box.every((value)=>Number.isFinite(value))){
-    const [west,south,east,north]=box;
-    return [[west,north],[east,north],[east,south],[west,south]];
-  }
-  // No footprint: anchor a square over the current search location, sized by radius.
-  const lng=Number(lon.value), centerLat=Number(lat.value);
-  const d=Math.max(0.005, Number(radius.value)/111320);
-  return [[lng-d,centerLat+d],[lng+d,centerLat+d],[lng+d,centerLat-d],[lng-d,centerLat-d]];
+  const properties=scene.raw.properties;
+  return properties && typeof properties === "object" && !Array.isArray(properties)
+    ? properties as Record<string,unknown> : {};
 }
 function removePreviewLayer():void {
   if(map.isStyleLoaded()){
@@ -456,68 +384,145 @@ function markActiveCard(id:string|null):void {
     item.classList.toggle("active", item.dataset.sceneId===id);
 }
 let previewToken=0;
-async function showMapPreview(index:number):Promise<void> {
+map.on("error", event=>{
+  const sourceId=(event as maplibregl.ErrorEvent & {sourceId?:string}).sourceId;
+  const active=activePublicPreview;
+  if(sourceId!=="scene-preview" || !active || active.token!==previewToken)return;
+  activePublicPreview=null;
+  forgetPublicPreview(active.scene);
+  removePreviewLayer();
+  const image=active.preview.image ?? previewUrlFor(active.scene);
+  if(image)showStillPreview(active.scene,{...active.preview,image,tiles:null},active.token,active.retried);
+  else {
+    delete mapContainer.dataset.previewSource;
+    previewStill.hidden=false;
+    previewStillStatus.textContent="Public map tiles are unavailable. Open the source catalogue or try again.";
+  }
+});
+async function showMapPreview(index:number, skipDirect=false):Promise<void> {
   const scene=previewScenes[index];
   if(!scene){ closeMapPreview(); return; }
+  previewController?.abort();
+  const controller = new AbortController();
+  previewController = controller;
+  const timer = setTimeout(() => controller.abort(), 15000);
   const token=++previewToken;
   previewIndex=index;
-  const overlay=await resolveOverlay(scene);
-  if(token!==previewToken)return;  // superseded by a newer selection
-  if(!overlay.tiles&&!overlay.image){
-    closeMapPreview();
-    status.textContent="This scene's image cannot be drawn on the map (its preview is not "+
-      "CORS-enabled). Open the card image instead.";
-    return;
-  }
-  const coordinates=previewCoordinates(scene);
-  const apply=()=>{
-    removePreviewLayer();
-    // A provider tile set renders the true-colour image at native resolution; otherwise
-    // overlay the best still preview, georeferenced to the scene footprint. The map
-    // zoom is left untouched so the view does not jump when an image is opened.
-    if(overlay.tiles)map.addSource("scene-preview",{type:"raster",url:overlay.tiles,tileSize:256});
-    else {
-      if(overlay.image?.startsWith("blob:"))previewObjectUrl=overlay.image;
-      map.addSource("scene-preview",{type:"image",url:overlay.image as string,coordinates});
-    }
-    // Exposed for tests: which kind of overlay is on the map ("tiles" or "image").
-    mapContainer.dataset.previewSource=overlay.tiles?"tiles":"image";
-    map.addLayer({id:"scene-preview-layer",type:"raster",source:"scene-preview",
-      paint:{"raster-opacity":0.96}});
-  };
-  if(map.isStyleLoaded())apply();else map.once("load",apply);
-  highlightScene(scene);   // the footprint is shown with the image, not by a card button
-  markActiveCard(scene.id);
-  previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
-    new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+" UTC";
+  activePublicPreview=null;
+  removePreviewLayer();
+  previewStill.hidden=true;
+  previewStillImage.removeAttribute("src");
+  delete mapContainer.dataset.previewSource;
   mapPreview.hidden=false;
-  storeSearchLink();   // keep the permalink pointing at the image on the map
+  previewCaption.textContent="Loading public preview…";
+  markActiveCard(scene.id);
+  try {
+    const preview=await discoverPublicPreview(scene,controller.signal,skipDirect);
+    if(token!==previewToken)return;
+    if(!preview.tiles&&!preview.image)throw new Error("No public preview is available for this scene. Open the source catalogue or a paid imagery map.");
+    let objectUrl: string | null = null;
+    if(!preview.tiles && preview.image && preview.coordinates) {
+      try { objectUrl=await fetchOverlayImage(preview.image,controller.signal); }
+      catch (error) { if(controller.signal.aborted)throw error; }
+    }
+    if(token!==previewToken){ if(objectUrl)URL.revokeObjectURL(objectUrl); return; }
+    const apply=()=>{
+      if(token!==previewToken){ if(objectUrl)URL.revokeObjectURL(objectUrl); return; }
+      if(preview.tiles)map.addSource("scene-preview",{type:"raster",url:preview.tiles,tileSize:256});
+      else if(objectUrl && preview.coordinates) {
+        previewObjectUrl=objectUrl;
+        map.addSource("scene-preview",{type:"image",url:objectUrl,coordinates:preview.coordinates});
+      }
+      if(preview.tiles || objectUrl){
+        activePublicPreview={scene,preview,token,retried:skipDirect};
+        mapContainer.dataset.previewSource=preview.tiles?"tiles":"image";
+        map.addLayer({id:"scene-preview-layer",type:"raster",source:"scene-preview",paint:{"raster-opacity":0.96}});
+      }else showStillPreview(scene,preview,token,skipDirect);
+    };
+    // A GeoJSON update can make isStyleLoaded false after the one-time load event.
+    // idle fires once that update settles, so preview selection cannot get stranded.
+    if(map.isStyleLoaded())apply();else map.once("idle",apply);
+    highlightScene(scene);
+    previewCaption.textContent=(scene.mission ?? scene.collection)+" · "+
+      new Date(scene.acquiredAt).toLocaleString(undefined,{dateStyle:"medium",timeStyle:"short",timeZone:"UTC"})+
+      " UTC · "+preview.origin;
+    status.textContent="";
+    storeSearchLink();
+  }catch(error){
+    if(token!==previewToken)return;
+    const timedOut=controller.signal.aborted;
+    closeMapPreview();
+    status.textContent=timedOut ? "Public preview lookup timed out. Try again or open the source catalogue."
+      : error instanceof Error ? error.message : "Public preview unavailable. Try again or open the source catalogue.";
+  }finally { clearTimeout(timer); }
+}
+function showStillPreview(scene:Scene, preview:PublicPreview, token:number, retried:boolean):void {
+  mapContainer.dataset.previewSource="unplaced-image";
+  previewStill.hidden=false;
+  previewStillStatus.textContent="Loading preview… Map alignment is unknown; the outline shows the scene footprint.";
+  previewStillImage.alt="Public preview of "+scene.id+" (shown separately from the map)";
+  previewStillImage.onload=()=>{
+    if(token!==previewToken)return;
+    previewStillStatus.textContent=(preview.coordinates ? "The image overlay is unavailable. Preview shown separately from the map."
+      : "Map alignment is unknown. The outline shows the scene footprint, not the image alignment.")+" Cloud cover is scene-wide.";
+  };
+  previewStillImage.onerror=()=>{
+    if(token!==previewToken)return;
+    forgetPublicPreview(scene);
+    previewStillImage.removeAttribute("src");
+    if(!retried && scene.providerId==="copernicus") { void showMapPreview(previewIndex,true); return; }
+    previewStillStatus.textContent="Public preview unavailable. It may be missing, require an account, or have expired. Open the source catalogue or try again.";
+  };
+  previewStillImage.src=preview.image!;
 }
 function closeMapPreview():void {
   previewToken++;
-  if(mapPreview.hidden)return;
+  previewController?.abort();
+  previewController=null;
+  activePublicPreview=null;
+  previewStillImage.onload=null;
+  previewStillImage.onerror=null;
+  previewStillImage.removeAttribute("src");
+  previewStill.hidden=true;
+  const wasOpen=!mapPreview.hidden;
   mapPreview.hidden=true;
   delete mapContainer.dataset.previewSource;
   removePreviewLayer();
   highlightScene(undefined);
   markActiveCard(null);
-  storeSearchLink();
+  if(wasOpen){ storeSearchLink(); if(previewReturnFocus?.isConnected)previewReturnFocus.focus({preventScroll:true}); }
 }
 function stepPreview(delta:number):void {
   if(!previewScenes.length)return;
   void showMapPreview((previewIndex+delta+previewScenes.length)%previewScenes.length);
 }
-function openScenePreview(scene:Scene):void {
+function openScenePreview(scene:Scene, skipDirect=false):void {
   const withPreviews=visibleScenes().filter(canOverlay);
   const index=withPreviews.indexOf(scene);
   if(index<0)return;
+  previewReturnFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
   previewScenes=withPreviews;
-  void showMapPreview(index);
+  void showMapPreview(index,skipDirect);
+  previewClose.focus({preventScroll:true});
 }
 previewPrev.addEventListener("click",()=>stepPreview(-1));
 previewNext.addEventListener("click",()=>stepPreview(1));
 previewClose.addEventListener("click",closeMapPreview);
+element<HTMLButtonElement>("preview-retry").addEventListener("click",()=>{
+  const scene=previewScenes[previewIndex];
+  if(scene)forgetPublicPreview(scene);
+  void showMapPreview(previewIndex);
+});
 document.addEventListener("keydown",(event)=>{ if(event.key==="Escape"&&!mapPreview.hidden)closeMapPreview(); });
+element<HTMLButtonElement>("copy-paid-search").addEventListener("click",async()=>{
+  const note=element<HTMLElement>("paid-search-status");
+  const location=`Latitude: ${lat.value}, longitude: ${lon.value}, radius: ${radius.value} m`;
+  const dates=`Dates: ${from.value} to ${to.value} (UTC)`;
+  const area=aoiRing ? `\nArea: ${JSON.stringify({type:"Polygon",coordinates:[[...aoiRing,aoiRing[0]]]})}` : "";
+  const query=location+"\n"+dates+area;
+  try { await navigator.clipboard.writeText(query); note.textContent="Location and dates copied. Paste them into the provider’s map search."; }
+  catch { note.textContent=query; }
+});
 
 // --- Day classification (cloud classes + palette used by the day matrix) ------
 type CloudClass = "clear" | "partial" | "cloudy" | "unknown";
@@ -853,6 +858,8 @@ function restoreSearchLink():void {
   const maxGsd=params.get("maxgsd");
   if(maxGsd!==null)resolutionFilter.value=maxGsd;
   hasPreview.checked=params.get("preview")==="1";
+  const satelliteType=params.get("satellites");
+  satelliteTypeFilter.value=satelliteType==="public"||satelliteType==="commercial"?satelliteType:"";
   const unknownParam=params.get("unknown");
   if(unknownParam!==null)includeUnknown.checked=unknownParam!=="0";
   const metricParam=params.get("metric") as MatrixMetric|null;
@@ -885,9 +892,11 @@ function restoreSearchLink():void {
     if(ring.length>=3){ aoiRing=ring; setAreaMode(false); }
   }
   const wantedExtras=params.get("src");
-  if(wantedExtras)
+  if(wantedExtras!==null){
+    enabledExtraSources.clear();
     for(const id of wantedExtras.split(","))
       if(EXTRA_SOURCES.some((source)=>source.id===id))enabledExtraSources.add(id);
+  }
   renderSources();
   const wantedScene=params.get("scene");
   if(wantedScene)initialPermalinkScene=wantedScene;
@@ -916,7 +925,7 @@ function restoreSearchLink():void {
 }
 const MANAGED_PARAMS=["lat","lon","radius","date","day","zoom","tab","metric","sensor",
   "mission","collection","catalogue","orbit","tiles","cloudmin","cloudmax","hmin","hmax","maxgsd",
-  "preview","unknown","src","aoi","scene","from","to"];
+  "preview","unknown","satellites","src","aoi","scene","from","to"];
 function storeSearchLink():void {
   const url=new URL(window.location.href);
   for(const name of MANAGED_PARAMS)url.searchParams.delete(name);
@@ -944,8 +953,9 @@ function storeSearchLink():void {
   if(hourMax.value!=="23")url.searchParams.set("hmax",hourMax.value);
   if(resolutionFilter.value)url.searchParams.set("maxgsd",resolutionFilter.value);
   url.searchParams.set("preview",hasPreview.checked?"1":"0");
+  if(satelliteTypeFilter.value)url.searchParams.set("satellites",satelliteTypeFilter.value);
   url.searchParams.set("unknown",includeUnknown.checked?"1":"0");
-  if(enabledExtraSources.size)url.searchParams.set("src",[...enabledExtraSources].sort().join(","));
+  url.searchParams.set("src",[...enabledExtraSources].sort().join(","));
   if(aoiRing)url.searchParams.set("aoi",aoiRing.map(([lng,lat])=>lng.toFixed(5)+","+lat.toFixed(5)).join(" "));
   url.searchParams.set("zoom",map.getZoom().toFixed(2));
   window.history.replaceState(null,"",url);
@@ -967,33 +977,36 @@ function highlightScene(scene:Scene|undefined):void {
     map.addLayer({id:"observed-footprint-line",type:"line",source:"observed-footprint",
       paint:{"line-color":"#8dd7c1","line-width":2.5}});
   };
-  if(map.isStyleLoaded())apply();else map.once("load",apply);
+  if(map.isStyleLoaded())apply();else map.once("idle",apply);
 }
-// The catalogues carry the same scenes under different ids and disagree slightly on the
-// timestamp (seconds apart for Landsat, ~25 minutes apart for the same Sentinel-2 tile) and
-// on the footprint (a 0.01 deg rounding difference). Merge on collection + platform + UTC day
-// + a 0.5 deg-snapped footprint, which collapses those copies while keeping genuinely
-// different tiles of one overpass (their footprints differ by ~1 deg) apart.
+// Product identity groups proven copies. A similar date/footprint is not identity evidence.
+const sceneProvenance=new WeakMap<Scene,Scene[]>();
 function sceneKey(scene:Scene):string {
-  const snap=(value:number)=>String(Math.round(value*2)/2);
-  const box=Array.isArray(scene.bbox)&&scene.bbox.length===4
-    ?scene.bbox.map(snap).join(",")
-    :"";
-  return [scene.collection,(scene.mission??"").toLowerCase(),scene.acquiredAt.slice(0,10),box].join("|");
+  const properties=rawProperties(scene);
+  const product=properties["s2:product_uri"];
+  const identity=typeof product==="string" ? product.replace(/\.SAFE$/, "")
+    : /^S2[ABC]_MSIL[12][AC]_/.test(scene.id) ? scene.id.replace(/\.SAFE$/, "") : scene.id;
+  const namespace=["earth-search","planetary-computer","copernicus"].includes(scene.providerId)
+    ? "public-stac" : scene.providerId;
+  return JSON.stringify([namespace,scene.collection,identity]);
 }
 function dedupeScenes(scenes:Scene[]):Scene[] {
-  const seen=new Set<string>();
-  return scenes.filter((scene)=>{
-    const key=sceneKey(scene);
-    if(seen.has(key))return false;
-    seen.add(key);
-    return true;
-  });
+  const groups=new Map<string,Scene[]>();
+  for(const scene of scenes){
+    const key=sceneKey(scene), group=groups.get(key)??[];
+    for(const original of sceneProvenance.get(scene)??[scene])
+      if(!group.some(item=>item.providerId===original.providerId && item.id===original.id && item.collection===original.collection))group.push(original);
+    groups.set(key,group);
+  }
+  return [...groups.values()].map(group=>{sceneProvenance.set(group[0],group);return group[0];});
+}
+function sceneCatalogues(scene:Scene):string[] {
+  return [...new Set((sceneProvenance.get(scene)??[scene]).map(item=>item.providerId))];
 }
 // Radar (SAR) scenes come from Sentinel-1/PALSAR/NISAR-style collections; the rest is optical.
 const RADAR_COLLECTION=/(sentinel-1|palsar|nisar|\bgrd\b|\brtc\b)/i;
 function isRadarScene(scene:Scene):boolean {
-  return RADAR_COLLECTION.test(scene.collection);
+  return RADAR_COLLECTION.test(scene.collection) || /^(sentinel-1|nisar|alos-2)/i.test(scene.mission??"");
 }
 let sensorFilter:"all"|"optical"|"radar"="all";
 // A bbox query also matches items whose bounding box overlaps the radius while their real
@@ -1019,36 +1032,46 @@ function sceneCoversPoint(scene:Scene, lng:number, latitude:number):boolean {
   const box=scene.bbox;
   return Boolean(box&&box.length===4&&box[0]<=lng&&lng<=box[2]&&box[1]<=latitude&&latitude<=box[3]);
 }
+const COMMERCIAL_MISSIONS=/^(?:wv0?[1-4]|worldview(?:-?legion|[- ]?[1-4])?|geoeye[- ]?1|ge0?1|quickbird|qb0?2|skysat.*|planetscope|pleiades.*|pl[eé]iades.*|spot[- ]?[1-7]|umbra.*|capella.*)$/i;
+const sourceOperatorTypes=new Map(listSources().map(source=>[source.id,source.operatorType]));
+function isCommercialScene(scene:Scene):boolean {
+  if(sourceOperatorTypes.get(scene.providerId.split(":")[0])==="commercial")return true;
+  if(COMMERCIAL_MISSIONS.test(scene.mission??""))return true;
+  return scene.access==="payment-required";
+}
+function sceneMatchesLocation(scene:Scene):boolean {
+  // A drawn AOI is already constrained by the catalogue query; point views require coverage.
+  if(aoiRing)return true;
+  const pointLng=Number(lon.value),pointLat=Number(lat.value);
+  return !Number.isFinite(pointLng) || !Number.isFinite(pointLat) || sceneCoversPoint(scene,pointLng,pointLat);
+}
 function passesFilters(scene:Scene):boolean {
+  const commercial=isCommercialScene(scene);
+  if(satelliteTypeFilter.value==="public" && commercial)return false;
+  if(satelliteTypeFilter.value==="commercial" && !commercial)return false;
   if(sensorFilter==="radar"&&!isRadarScene(scene))return false;
   if(sensorFilter==="optical"&&isRadarScene(scene))return false;
-  // Point searches require the scene to cover the chosen location. A drawn area is already
-  // restricted to intersecting footprints by the query, and the area's centroid need not sit
-  // inside every one of them.
-  if(!aoiRing){
-    const pointLng=Number(lon.value), pointLat=Number(lat.value);
-    if(Number.isFinite(pointLng)&&Number.isFinite(pointLat)&&!sceneCoversPoint(scene,pointLng,pointLat))return false;
-  }
+  if(!sceneMatchesLocation(scene))return false;
   if (missionFilter.value && (scene.mission || "unknown") !== missionFilter.value) return false;
   if (collectionFilter.value && scene.collection !== collectionFilter.value) return false;
-  if (providerFilter.value && scene.providerId !== providerFilter.value) return false;
+  if (providerFilter.value && !sceneCatalogues(scene).includes(providerFilter.value)) return false;
   if (orbitFilter.value) {
     const state=rawProperties(scene)["sat:orbit_state"];
     const orbit=typeof state==="string"?state.toLowerCase():"unknown";
     if(orbit !== orbitFilter.value) return false;
   }
-  if (tilesOnly.checked && !tileAssetFor(scene) && !PLANETARY_COMPUTER_RENDER[scene.collection]) return false;
+  if (tilesOnly.checked && !tileAssetFor(scene)) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
   if (cloudMin.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent < Number(cloudMin.value)) return false;
   if (cloudMax.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent > Number(cloudMax.value)) return false;
   const hour = new Date(scene.acquiredAt).getUTCHours();
   if (hour < Number(hourMin.value) || hour > Number(hourMax.value)) return false;
   if (resolutionFilter.value && (scene.gsdMeters === null || scene.gsdMeters > Number(resolutionFilter.value))) return false;
-  if (hasPreview.checked && !scene.previewUrl) return false;
+  if (hasPreview.checked && !hasPublicPreview(scene)) return false;
   return true;
 }
 function hasActiveFilters():boolean {
-  return Boolean(sensorFilter!=="all" || tilesOnly.checked || providerFilter.value || orbitFilter.value ||
+  return Boolean(satelliteTypeFilter.value || sensorFilter!=="all" || tilesOnly.checked || providerFilter.value || orbitFilter.value ||
     missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
     resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
@@ -1079,7 +1102,7 @@ function updateFilterChoices():void {
   collectionFilter.replaceChildren(collectionFragment);
   collectionFilter.value=collections.includes(wasCollection)?wasCollection:"";
   const wasProvider=providerFilter.value;
-  const providers=[...new Set(loadedScenes.map(scene=>scene.providerId).filter(Boolean))].sort();
+  const providers=[...new Set(loadedScenes.flatMap(sceneCatalogues).filter(Boolean))].sort();
   const providerFragment=document.createDocumentFragment();
   const allProviders=document.createElement("option");
   allProviders.value=""; allProviders.textContent="All catalogues"; providerFragment.append(allProviders);
@@ -1126,13 +1149,22 @@ function renderLoadedScenes():void {
     // an empty panel.
     const empty=document.createElement("li");
     empty.className="empty";
-    empty.textContent = selectedDay
+    if(satelliteTypeFilter.value==="commercial" && !loadedScenes.some(passesFilters)) {
+      empty.textContent="No commercial-satellite observations match these filters in the connected public catalogues. Full paid-archive search requires a provider account.";
+      if(loadedScenes.some(sceneMatchesLocation)){
+        const recover=document.createElement("button");
+        recover.type="button"; recover.className="text-button";
+        recover.textContent="Show all loaded observations";
+        recover.addEventListener("click",()=>{selectedDay=null;clearFilters.click();});
+        empty.append(recover);
+      }
+    }else empty.textContent = selectedDay
       ? "No observations on "+selectedDay+" for this location. Pick another day on the matrix."
       : "No observations match the current filters.";
     fragment.append(empty);
   }
   results.replaceChildren(fragment);
-  const counted=loadedScenes.filter(passesFilters).length;
+  const counted=loadedScenes.filter(sceneMatchesLocation).length;
   const filtering=hasActiveFilters();
   counter.textContent=String(visible.length)+(filtering?" / "+counted:"");
   showMoreButton.hidden=visible.length<=displayedLimit;
@@ -1218,8 +1250,9 @@ clearFilters.addEventListener("click",()=>{
     button.setAttribute("aria-pressed",String(button.dataset.sensor==="all"));
   missionFilter.value=""; collectionFilter.value=""; providerFilter.value=""; orbitFilter.value="";
   tilesOnly.checked=false; cloudMin.value=""; cloudMax.value="";
+  satelliteTypeFilter.value="";
   hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;
-  displayedLimit=40; redrawAvailability(); renderLoadedScenes();
+  displayedLimit=40; redrawAvailability(); renderLoadedScenes(); storeSearchLink();
 });
 allDaysButton.addEventListener("click",()=>{
   selectedDay=null;
@@ -1236,10 +1269,13 @@ missionFilter.addEventListener("change",()=>{
   redrawAvailability();
   renderLoadedScenes();
 });
-for(const control of [missionFilter,collectionFilter,providerFilter,orbitFilter,tilesOnly,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown]) control.addEventListener("change",()=>{
+for(const control of [missionFilter,collectionFilter,providerFilter,orbitFilter,tilesOnly,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown,satelliteTypeFilter]) control.addEventListener("change",()=>{
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();
+  const active=previewScenes[previewIndex];
+  if(!mapPreview.hidden && active && !visibleScenes().includes(active))closeMapPreview();
+  storeSearchLink();
 });
 
 function currentSearchSignature():string {
@@ -1295,7 +1331,10 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     }
     redrawAvailability();
     loadNextPagesButton.hidden=session.ended;
-    if(summary.complete){
+    if(summary.erroredProviders.length > 0){
+      status.textContent="Catalogue search failed for "+summary.erroredProviders.join(", ")+
+        ". Available results are incomplete.";
+    }else if(summary.complete){
       status.textContent="";
     }else if(session.ended){
       status.textContent=summary.uniqueItems+" unique scenes loaded. "+
@@ -1308,6 +1347,8 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     if(session!==activeScan||session.controller.signal.aborted)return;
     searchErrored=true;
     session.ended=true;
+    session.accumulator.markError(error instanceof Error && "providerId" in error
+      ? String(error.providerId ?? "unknown") : "unknown");
     currentSummary=session.accumulator.summary();
     redrawAvailability();
     status.textContent="Catalogue search failed: "+
@@ -1350,6 +1391,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     if(opts.extend.from<from.value.slice(0,7))from.value=opts.extend.from+"-01";
     if(opts.extend.to>to.value.slice(0,7))to.value=monthDates(opts.extend.to).to;
   }
+  closeMapPreview();
   activeScan?.controller.abort();
   const controller=new AbortController();
   if(!append){
@@ -1388,6 +1430,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   for(const source of EXTRA_SOURCES)
     if(enabledExtraSources.has(source.id))providers.push(source.create());
   const catalog=new SatelliteCatalog(providers);
+  for (const provider of providers) accumulator.expectProvider(provider.id);
   const closedAoi=aoiRing?[...aoiRing,aoiRing[0]]:null;
   const base=closedAoi
     ? {aoi:{type:"Polygon" as const,coordinates:[closedAoi]},maxPages:50,limit:75,signal:controller.signal}
@@ -1401,9 +1444,22 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
     updateLocation(base.latitude!,base.longitude!,true);
   }
   const iterator=(async function*(){
+    const failed = new Set<string>();
     for(const chunk of chunks){
       if(controller.signal.aborted)return;
-      yield* catalog.search({...base, from:chunk.from, to:chunk.to});
+      for (const provider of providers) {
+        if (failed.has(provider.id)) continue;
+        try {
+          yield* catalog.search({...base, from:chunk.from, to:chunk.to}, [provider.id]);
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          accumulator.markError(provider.id);
+          failed.add(provider.id);
+          searchErrored = true;
+          currentSummary = accumulator.summary();
+          redrawAvailability();
+        }
+      }
     }
   })();
   const session:HistoryScan = {
@@ -1420,17 +1476,27 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
 type ExtraSource={id:string;label:string;create:()=>SearchProvider};
 const EXTRA_SOURCES:ExtraSource[]=[
   {id:"copernicus",label:"Copernicus Data Space",create:()=>copernicusDataSpace()},
-  {id:"asf-vertex",label:"ASF Vertex (radar)",create:()=>asfSearch()},
-  // Provider-scoped NASA CMR-STAC and a numeric JAXA G-Portal dataset (ALOS/PALSAR) — the
+  {id:"asf-vertex",label:"ASF Vertex (Sentinel-1, NISAR, ALOS-2)",
+    create:()=>asfSearch({platforms:["SENTINEL-1","NISAR","ALOS-2"]})},
+  {id:"inpe-cbers",label:"INPE CBERS-4A (Brazil)",create:()=>inpeCbers()},
+  // Provider-scoped NASA CMR-STAC and a numeric JAXA G-Portal dataset (GCOM-C) — the
   // same ids the repo's live smoke test uses, so both are operator-verifiable.
   {id:"nasa-cmr",label:"NASA CMR-STAC (ASF)",create:()=>cmrStac("ASF",["sentinel-1-rtc"])},
-  {id:"jaxa-gportal",label:"JAXA G-Portal (ALOS)",create:()=>jaxaGPortal({datasetId:"10002002"})},
+  {id:"jaxa-gportal",label:"JAXA G-Portal (GCOM-C)",create:()=>jaxaGPortal({datasetId:"10002002"})},
   // OpenAerialMap is deliberately absent: its API returns
   // `Access-Control-Allow-Origin: https://map.openaerialmap.org`, so a browser build cannot call
   // it directly (the SDKs and the live smoke use it from Node/Python/Rust instead).
 ];
 const enabledExtraSources=new Set<string>();
+function setExtraSource(id:string,enabled:boolean):void {
+  if(enabled)enabledExtraSources.add(id);
+  else enabledExtraSources.delete(id);
+  renderSources();
+  void runSearch();
+}
 function renderSources():void {
+  for(const input of document.querySelectorAll<HTMLInputElement>("[data-source-toggle]"))
+    input.checked=enabledExtraSources.has(input.dataset.sourceToggle!);
   const fragment=document.createDocumentFragment();
   for(const source of listSources()){
     const item=document.createElement("div");
@@ -1459,9 +1525,7 @@ function renderSources():void {
       input.setAttribute("data-source",source.id);
       input.checked=enabledExtraSources.has(source.id);
       input.addEventListener("change",()=>{
-        if(input.checked)enabledExtraSources.add(source.id);
-        else enabledExtraSources.delete(source.id);
-        void runSearch();
+        setExtraSource(source.id,input.checked);
       });
       label.append(input,document.createTextNode(" query this catalogue"));
       item.append(label);
@@ -1478,6 +1542,8 @@ function renderSources():void {
   }
   sourceList.replaceChildren(fragment);
 }
+for(const input of document.querySelectorAll<HTMLInputElement>("[data-source-toggle]"))
+  input.addEventListener("change",()=>setExtraSource(input.dataset.sourceToggle!,input.checked));
 renderSources();
 function syncFilterUI():void {
   for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
@@ -1516,7 +1582,7 @@ function makePlanned(item: AcquisitionOpportunity): HTMLLIElement {
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = "Official ESA plan";
-      link.append(icon("fa-arrow-up-right-from-square"));
+      link.append(externalLinkIcon());
       li.append(link);
     }
   } catch { /* invalid source URL: omit link */ }
