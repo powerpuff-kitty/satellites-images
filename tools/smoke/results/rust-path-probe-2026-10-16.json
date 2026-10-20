@@ -1,0 +1,91 @@
+[
+  {
+    "url": "https://data.inpe.br/bdc/stac/search",
+    "method": "POST",
+    "body": {
+      "collections": [
+        "CB4A-WPM-PCA-FUSED-1"
+      ],
+      "bbox": [
+        -38.2,
+        -7.2,
+        -38,
+        -7.1
+      ],
+      "datetime": "2026-10-13T00:00:00Z/2026-10-13T23:59:59Z",
+      "limit": 1
+    },
+    "checkedAt": "2026-10-16T02:04:02.018Z",
+    "error": "TypeError: fetch failed",
+    "elapsedMs": 844
+  },
+  {
+    "url": "https://data.inpe.br/bdc/stac/v1/search",
+    "method": "POST",
+    "body": {
+      "collections": [
+        "CB4A-WPM-PCA-FUSED-1"
+      ],
+      "bbox": [
+        -38.2,
+        -7.2,
+        -38,
+        -7.1
+      ],
+      "datetime": "2026-10-13T00:00:00Z/2026-10-13T23:59:59Z",
+      "limit": 1
+    },
+    "checkedAt": "2026-10-16T02:04:02.864Z",
+    "status": 200,
+    "contentType": "application/geo+json",
+    "summary": {
+      "type": "FeatureCollection",
+      "features": 1
+    },
+    "elapsedMs": 1210
+  },
+  {
+    "url": "https://data.inpe.br/bdc/stac/search",
+    "method": "POST",
+    "redirect": "manual",
+    "body": {
+      "collections": [
+        "CB4A-WPM-PCA-FUSED-1"
+      ],
+      "bbox": [
+        -38.2,
+        -7.2,
+        -38,
+        -7.1
+      ],
+      "datetime": "2026-10-13T00:00:00Z/2026-10-13T23:59:59Z",
+      "limit": 1
+    },
+    "checkedAt": "2026-10-16T02:04:23.700Z",
+    "status": 302,
+    "location": "https://data.inpe.br/bdc/stac/v1/search",
+    "contentType": "text/html"
+  },
+  {
+    "url": "https://data.inpe.br/bdc/stac/v1/search",
+    "method": "POST",
+    "redirect": "manual",
+    "body": {
+      "collections": [
+        "CB4A-WPM-PCA-FUSED-1"
+      ],
+      "bbox": [
+        -38.2,
+        -7.2,
+        -38,
+        -7.1
+      ],
+      "datetime": "2026-10-13T00:00:00Z/2026-10-13T23:59:59Z",
+      "limit": 1
+    },
+    "checkedAt": "2026-10-16T02:04:24.568Z",
+    "status": 200,
+    "location": null,
+    "contentType": "application/geo+json"
+  }
+]

@@ -1,0 +1,12 @@
+base path: /api/stac/v1
+SDK returned 1 page(s)
+observed request: /api/stac/search
+base path: /bdc/stac/v1
+SDK returned 1 page(s)
+observed request: /bdc/stac/search
+base path: /stac/ASF
+SDK returned 1 page(s)
+observed request: /stac/search
+base path: /v1/
+SDK returned 1 page(s)
+observed request: /v1/search

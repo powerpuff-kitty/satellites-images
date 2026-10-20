@@ -18,7 +18,7 @@ def _camel(name: str) -> str:
 
 
 def to_camel(value: Any) -> Any:
-    """Recursively convert dataclasses/dicts/lists to camelCase JSON-compatible values."""
+    """Convert dataclass field names to camelCase; preserve dictionary keys as data."""
     if is_dataclass(value) and not isinstance(value, type):
         out: dict[str, Any] = {}
         for field in fields(value):
@@ -26,7 +26,7 @@ def to_camel(value: Any) -> Any:
             out[_camel(field.name)] = raw if field.name == "raw" else to_camel(raw)
         return out
     if isinstance(value, dict):
-        return {_camel(str(key)): to_camel(item) for key, item in value.items()}
+        return {str(key): to_camel(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [to_camel(item) for item in value]
     return value

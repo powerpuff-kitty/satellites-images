@@ -1,0 +1,10 @@
+Font Awesome Free icons by Fonticons, Inc.
+Source: https://fontawesome.com/
+License: Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+
+The explorer uses curated, self-hosted SVG definitions from the private TCSN design system.
+No icon CDN, browser kit or icon web font is requested.
+
+Geist and Geist Mono by Vercel are distributed under the SIL Open Font License 1.1.
+See licenses/Geist-OFL.txt for the bundled font license.

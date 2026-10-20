@@ -1,4 +1,5 @@
 import type { Scene, SearchPage } from "./index.js";
+import { acquisitionTimestamp } from "./datetime.js";
 
 /**
  * All counts describe STAC items returned by the pages actually scanned.
@@ -22,7 +23,7 @@ export interface ProviderAvailability {
   rawItems: number;
   uniqueItems: number;
   matched: number | null;               // provider-estimated count, may be absent
-  hasMore: boolean;                     // last scanned page has a next link
+  hasMore: boolean;                     // pending or possibly truncated provider
 }
 export interface AvailabilitySummary {
   days: AvailabilityDay[];
@@ -31,7 +32,7 @@ export interface AvailabilitySummary {
   pagesScanned: number;
   rawItems: number;
   uniqueItems: number;
-  complete: boolean;                    // all next links exhausted in scanned providers
+  complete: boolean;                    // expected providers finished without errors/truncation
   truncatedProviders: string[];
   erroredProviders: string[];           // providers whose scan failed mid-stream
 }
@@ -52,15 +53,36 @@ export class AvailabilityAccumulator {
   private readonly months=new Map<string,MutableMonth>();
   private readonly providerStates=new Map<string,ProviderAvailability>();
   private readonly errors=new Set<string>();
+  private readonly utcDates=new Map<string,string>();
   private pagesScanned=0;
   private rawItems=0;
 
   /** Record that a provider's scan failed part-way; partial counts are retained. */
   markError(providerId:string):void { if(providerId) this.errors.add(providerId); }
 
+  /** Keep a not-yet-scanned provider from making an aggregate look complete. */
+  expectProvider(providerId: string): void {
+    if (!providerId) throw new Error("Invalid availability provider identity");
+    if (!this.providerStates.has(providerId)) {
+      this.providerStates.set(providerId, { id: providerId, pagesScanned: 0,
+        rawItems: 0, uniqueItems: 0, matched: null, hasMore: true });
+    }
+  }
+
   addPage(page:SearchPage): Scene[] {
     if (!page.providerId || !Number.isInteger(page.pageNumber) || page.pageNumber < 1 ||
       !Array.isArray(page.items)) throw new Error("Invalid availability search page");
+    // Validate before mutating counters, so a bad page can be corrected and retried.
+    const dates = page.items.map(scene => {
+      const cached = this.utcDates.get(scene.acquiredAt);
+      if (cached !== undefined) return cached;
+      const timestamp = acquisitionTimestamp(scene.acquiredAt);
+      if (!timestamp) throw new Error("Invalid acquisition UTC date in normalized scene");
+      const date = timestamp.slice(0, 10);
+      if (this.utcDates.size >= 1024) this.utcDates.delete(this.utcDates.keys().next().value!);
+      this.utcDates.set(scene.acquiredAt, date);
+      return date;
+    });
     let source=this.providerStates.get(page.providerId);
     if (!source) {
       source={id:page.providerId,pagesScanned:0,rawItems:0,uniqueItems:0,
@@ -75,7 +97,7 @@ export class AvailabilityAccumulator {
       source.matched=page.matched;
     this.rawItems+=page.items.length;
     const novel:Scene[]=[];
-    for (const scene of page.items) {
+    for (const [index, scene] of page.items.entries()) {
       // A provider can return repeated STAC IDs on overlapping/paginated searches.
       // Equivalent items in *different* catalogues remain distinct and traceable.
       const key=JSON.stringify([page.providerId,scene.collection,scene.id]);
@@ -83,14 +105,12 @@ export class AvailabilityAccumulator {
       this.ids.add(key);
       source.uniqueItems++;
       novel.push(scene);
-      const date=scene.acquiredAt.slice(0,10);
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
-        throw new Error("Invalid acquisition UTC date in normalized scene");
+      const date=dates[index];
       const month=date.slice(0,7);
       const mission=scene.mission || "unknown";
       let day=this.days.get(date);
       if(!day) {
-        day={count:0,missions:{},collections:{}};
+        day={count:0,missions:Object.create(null),collections:Object.create(null)};
         this.days.set(date,day);
       }
       day.count++;
@@ -98,7 +118,7 @@ export class AvailabilityAccumulator {
       increment(day.collections,scene.collection || "unknown");
       let monthly=this.months.get(month);
       if(!monthly) {
-        monthly={count:0,missions:{},collections:{},days:new Set<string>()};
+        monthly={count:0,missions:Object.create(null),collections:Object.create(null),days:new Set<string>()};
         this.months.set(month,monthly);
       }
       monthly.count++;
@@ -127,7 +147,7 @@ export class AvailabilityAccumulator {
       pagesScanned:this.pagesScanned,
       rawItems:this.rawItems,
       uniqueItems:this.ids.size,
-      complete:providers.length>0 && truncatedProviders.length===0,
+      complete:this.pagesScanned>0 && truncatedProviders.length===0 && this.errors.size===0,
       truncatedProviders,
       erroredProviders:[...this.errors].sort(),
     };

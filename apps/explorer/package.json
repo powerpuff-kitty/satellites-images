@@ -11,8 +11,8 @@
     "test:e2e": "npm run build -w @powerpuff-kitty/satellites-images && vite build && playwright test"
   },
   "dependencies": {
-    "@fortawesome/fontawesome-free": "^6.6.0",
     "@powerpuff-kitty/satellites-images": "0.3.0",
+    "@powerpuff-kitty/tcsn-design-system": "0.8.1",
     "maplibre-gl": "^6.14.0"
   },
   "devDependencies": {

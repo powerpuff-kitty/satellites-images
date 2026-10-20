@@ -6,9 +6,18 @@ Completeness means only that the searched provider pagination was exhausted.
 from __future__ import annotations
 from dataclasses import dataclass
 from collections import defaultdict
+from datetime import timezone
+from functools import lru_cache
 from typing import Iterable
 
-from .catalog import Scene, SearchPage, SatelliteError
+from .catalog import Scene, SearchPage, SatelliteError, _acquisition_time
+
+
+@lru_cache(maxsize=1024)
+def _utc_date(timestamp: str) -> str:
+    # Many tiles share an acquisition timestamp. Keep validation without parsing
+    # that same timestamp for every tile; the cache has a fixed memory bound.
+    return _acquisition_time(timestamp).astimezone(timezone.utc).date().isoformat()
 
 
 @dataclass(frozen=True)
@@ -66,9 +75,24 @@ class AvailabilityAccumulator:
         if provider_id:
             self._errors.add(provider_id)
 
+    def expect_provider(self, provider_id: str) -> None:
+        """Include providers whose first page has not yet been read."""
+        if not provider_id:
+            raise SatelliteError("INVALID_RESPONSE", "Invalid availability provider identity")
+        self._providers.setdefault(provider_id, {
+            "pages_scanned": 0, "raw_items": 0, "unique_items": 0,
+            "matched": None, "has_more": True,
+        })
+
     def add_page(self, page: SearchPage) -> list[Scene]:
         if not page.provider_id or page.page_number < 1:
             raise SatelliteError("INVALID_RESPONSE", "Invalid availability page identity")
+        dates = []
+        for scene in page.items:
+            try:
+                dates.append(_utc_date(scene.acquired_at))
+            except (ValueError, TypeError, AttributeError):
+                raise SatelliteError("INVALID_RESPONSE", "Invalid normalized UTC acquisition date") from None
         provider = self._providers.setdefault(page.provider_id, {
             "pages_scanned": 0, "raw_items": 0, "unique_items": 0,
             "matched": None, "has_more": False,
@@ -81,16 +105,13 @@ class AvailabilityAccumulator:
         self._page_count += 1
         self._raw += len(page.items)
         novel = []
-        for scene in page.items:
+        for scene, date in zip(page.items, dates):
             key = (page.provider_id, scene.collection, scene.id)
             if key in self._seen:
                 continue
             self._seen.add(key)
             novel.append(scene)
             provider["unique_items"] += 1
-            date = scene.acquired_at[:10]
-            if len(date) != 10 or date[4] != "-" or date[7] != "-":
-                raise SatelliteError("INVALID_RESPONSE", "Invalid normalized UTC acquisition date")
             month = date[:7]
             mission = scene.mission or "unknown"
             collection = scene.collection or "unknown"
@@ -134,7 +155,7 @@ class AvailabilityAccumulator:
             days=days, months=months, providers=providers,
             pages_scanned=self._page_count, raw_items=self._raw,
             unique_items=len(self._seen),
-            complete=bool(providers) and not truncated,
+            complete=self._page_count > 0 and not truncated and not self._errors,
             truncated_providers=truncated,
             errored_providers=tuple(sorted(self._errors)),
         )

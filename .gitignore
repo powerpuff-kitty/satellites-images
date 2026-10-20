@@ -19,3 +19,6 @@ playwright-report/
 blob-report/
 # Transient capture output: the committed README image is docs/assets/explorer.jpg
 docs/assets/explorer.png
+
+# Local browser proofs and temporary CI screenshots
+.local-ci/

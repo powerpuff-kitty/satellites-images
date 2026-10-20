@@ -1,0 +1,197 @@
+{
+  "scope": "Separate instrumented diagnostic runs of the synthetic benchmark scripts; not throughput timing trials or a production workload profile",
+  "typescript": {
+    "totalSamples": 731,
+    "topSelfSampleFunctions": [
+      {
+        "function": "addPage",
+        "file": "packages/typescript/dist/availability.js",
+        "line": 30,
+        "selfSamples": 224,
+        "percentOfAllSamples": 30.64
+      },
+      {
+        "function": "acquisitionTimestamp",
+        "file": "packages/typescript/dist/datetime.js",
+        "line": 2,
+        "selfSamples": 182,
+        "percentOfAllSamples": 24.9
+      },
+      {
+        "function": "summarizeAvailability",
+        "file": "packages/typescript/dist/availability.js",
+        "line": 119,
+        "selfSamples": 26,
+        "percentOfAllSamples": 3.56
+      },
+      {
+        "function": "",
+        "file": "packages/typescript/dist/availability.js",
+        "line": 35,
+        "selfSamples": 23,
+        "percentOfAllSamples": 3.15
+      },
+      {
+        "function": "polygonBoxes",
+        "file": "packages/typescript/dist/index.js",
+        "line": 91,
+        "selfSamples": 22,
+        "percentOfAllSamples": 3.01
+      },
+      {
+        "function": "",
+        "file": "packages/typescript/dist/index.js",
+        "line": 279,
+        "selfSamples": 22,
+        "percentOfAllSamples": 3.01
+      },
+      {
+        "function": "increment",
+        "file": "packages/typescript/dist/availability.js",
+        "line": 2,
+        "selfSamples": 17,
+        "percentOfAllSamples": 2.33
+      },
+      {
+        "function": "normalizeJaxaFeature",
+        "file": "packages/typescript/dist/index.js",
+        "line": 643,
+        "selfSamples": 15,
+        "percentOfAllSamples": 2.05
+      },
+      {
+        "function": "declaredImageryAccess",
+        "file": "packages/typescript/dist/index.js",
+        "line": 273,
+        "selfSamples": 10,
+        "percentOfAllSamples": 1.37
+      },
+      {
+        "function": "",
+        "file": "packages/typescript/dist/availability.js",
+        "line": 100,
+        "selfSamples": 9,
+        "percentOfAllSamples": 1.23
+      },
+      {
+        "function": "polygonRings",
+        "file": "packages/typescript/dist/index.js",
+        "line": 48,
+        "selfSamples": 7,
+        "percentOfAllSamples": 0.96
+      },
+      {
+        "function": "normalizeAsfFeature",
+        "file": "packages/typescript/dist/index.js",
+        "line": 539,
+        "selfSamples": 5,
+        "percentOfAllSamples": 0.68
+      }
+    ]
+  },
+  "python": {
+    "totalSeconds": 11.1767,
+    "topSelfTimeFunctions": [
+      {
+        "function": "add_page",
+        "file": "tools/bench/../../packages/python/src/satellites_images/availability.py",
+        "line": 87,
+        "calls": 11000,
+        "selfSeconds": 2.0696,
+        "cumulativeSeconds": 2.7011
+      },
+      {
+        "function": "<genexpr>",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 194,
+        "calls": 3300015,
+        "selfSeconds": 0.9299,
+        "cumulativeSeconds": 1.4507
+      },
+      {
+        "function": "_position",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 191,
+        "calls": 1100005,
+        "selfSeconds": 0.9069,
+        "cumulativeSeconds": 2.5123
+      },
+      {
+        "function": "normalize_jaxa_feature",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 681,
+        "calls": 110000,
+        "selfSeconds": 0.8008,
+        "cumulativeSeconds": 2.1025
+      },
+      {
+        "function": "normalize_asf_feature",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 566,
+        "calls": 110000,
+        "selfSeconds": 0.6376,
+        "cumulativeSeconds": 1.7707
+      },
+      {
+        "function": "_polygon_rings",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 199,
+        "calls": 220001,
+        "selfSeconds": 0.3537,
+        "cumulativeSeconds": 3.2054
+      },
+      {
+        "function": "polygon_boxes",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 231,
+        "calls": 220001,
+        "selfSeconds": 0.3171,
+        "cumulativeSeconds": 4.021
+      },
+      {
+        "function": "_crosses_antimeridian",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 222,
+        "calls": 220001,
+        "selfSeconds": 0.2256,
+        "cumulativeSeconds": 0.3183
+      },
+      {
+        "function": "<genexpr>",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 215,
+        "calls": 1320006,
+        "selfSeconds": 0.2237,
+        "cumulativeSeconds": 2.736
+      },
+      {
+        "function": "_acquisition_time",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 43,
+        "calls": 220028,
+        "selfSeconds": 0.213,
+        "cumulativeSeconds": 0.4338
+      },
+      {
+        "function": "coverage_percent",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 276,
+        "calls": 110000,
+        "selfSeconds": 0.1949,
+        "cumulativeSeconds": 0.847
+      },
+      {
+        "function": "<genexpr>",
+        "file": "tools/bench/../../packages/python/src/satellites_images/catalog.py",
+        "line": 279,
+        "calls": 550000,
+        "selfSeconds": 0.1841,
+        "cumulativeSeconds": 0.2901
+      }
+    ]
+  },
+  "commands": [
+    "node --cpu-prof --cpu-prof-name=typescript.cpuprofile --cpu-prof-dir=/tmp/satellites-audit-2026-10-16/profiles tools/bench/typescript.mjs",
+    "PYTHONPATH=packages/python/src python3 -m cProfile -o /tmp/satellites-audit-2026-10-16/profiles/python.prof tools/bench/python.py"
+  ]
+}

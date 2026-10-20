@@ -1,0 +1,282 @@
+/* Product layout uses shared tokens; map imagery and scientific colour scales are data. */
+html {
+  margin: 0;
+}
+body.tcsn {
+  color-scheme: dark;
+  margin: 0;
+  height: auto;
+  min-height: 100svh;
+}
+.tcsn-shell__main { padding-bottom: var(--tcsn-space-6); }
+.explorer-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(
+      280px,
+      360px
+    );
+  gap: var(--tcsn-space-6);
+  height: calc(100dvh - var(--tcsn-measured-header, 64px) - var(--tcsn-space-8) - var(--tcsn-space-6));
+  min-height: 600px;
+}
+.explorer-layout .panel,
+.explorer-layout .observations {
+  min-width: 0;
+  height: auto;
+  max-height: none;
+  padding: 0;
+  border: 0;
+}
+.explorer-layout .panel {
+  overflow: auto;
+  padding-right: var(--tcsn-space-2);
+}
+.explorer-layout h1 {
+  margin: 0 0 var(--tcsn-space-3);
+  font: inherit;
+  font-size: var(--tcsn-heading-min);
+  font-weight: var(--tcsn-weight-heading);
+  letter-spacing: -0.025em;
+}
+.explorer-layout h2 {
+  font: inherit;
+  font-weight: var(--tcsn-weight-heading);
+}
+.explorer-layout .intro {
+  font-size: var(--tcsn-text-small);
+  line-height: var(--tcsn-leading-body);
+  margin-bottom: var(--tcsn-space-6);
+}
+.explorer-layout label {
+  color: var(--tcsn-text);
+  letter-spacing: normal;
+}
+.explorer-layout .tcsn-button {
+  margin: 0;
+}
+.explorer-layout .tcsn-dropdown {
+  width: 100%;
+}
+.explorer-layout .tcsn-dropdown__trigger {
+  margin: 0;
+  width: 100%;
+}
+.explorer-layout .area-controls {
+  margin-bottom: var(--tcsn-space-4);
+}
+.explorer-layout .tablist {
+  display: flex;
+  gap: var(--tcsn-space-1);
+  border: 0;
+}
+.explorer-layout .tab {
+  width: auto;
+  flex: 1;
+}
+.explorer-layout .tab[aria-selected="true"] {
+  text-decoration: underline double;
+  text-underline-offset: 0.2em;
+  box-shadow: none;
+}
+.explorer-layout .observations-header {
+  background: var(--tcsn-surface);
+  padding: 0 0 var(--tcsn-space-3);
+}
+.explorer-layout .map-container {
+  min-height: 0;
+  background: var(--tcsn-surface);
+}
+.explorer-layout .map-viewport {
+  min-height: 400px;
+}
+.explorer-layout .map-label {
+  background: var(--tcsn-surface);
+  color: var(--tcsn-text);
+}
+.explorer-layout .map-credits {
+  color: var(--tcsn-text);
+  background: var(--tcsn-surface);
+}
+.explorer-layout .maplibregl-ctrl-group {
+  background: var(--tcsn-surface);
+  border-radius: 0;
+  box-shadow: none;
+}
+.explorer-layout .maplibregl-ctrl button {
+  display: grid;
+  place-items: center;
+}
+.explorer-layout .maplibregl-ctrl-icon {
+  display: grid;
+  place-items: center;
+  background-image: none;
+}
+.explorer-layout .maplibregl-ctrl-attrib {
+  background: var(--tcsn-surface);
+  color: var(--tcsn-text);
+}
+.explorer-layout .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+.explorer-layout .maplibregl-ctrl-attrib-button {
+  background-image: none;
+}
+.explorer-layout .matrix-more-toggle,
+.explorer-layout .matrix-link,
+.explorer-layout .matrix-chip {
+  width: auto;
+  white-space: nowrap;
+}
+.explorer-layout .matrix-links {
+  gap: var(--tcsn-space-1);
+  flex-wrap: wrap;
+  min-width: 0;
+  max-width: 100%;
+}
+.explorer-layout .matrix-head {
+  flex-wrap: wrap;
+  gap: var(--tcsn-space-2);
+  padding: var(--tcsn-space-2);
+}
+.explorer-layout .matrix-quick {
+  gap: var(--tcsn-space-1);
+}
+.explorer-layout .matrix-year-nav {
+  right: calc(100% + 2px);
+}
+.explorer-layout .matrix-menu {
+  background: var(--tcsn-surface);
+}
+.explorer-layout .matrix-menu-item {
+  text-align: left;
+}
+.explorer-layout .preview-still,
+.explorer-layout .map-preview-caption {
+  background: var(--tcsn-surface);
+  color: var(--tcsn-text);
+}
+.explorer-layout .icon {
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+}
+.explorer-layout .scene-heading,
+.explorer-layout .meta-line {
+  overflow-wrap: anywhere;
+}
+.explorer-layout .source-list {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1200px) {
+  .explorer-layout {
+    grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    height: auto;
+  }
+  .explorer-layout .map-container {
+    min-height: 600px;
+  }
+  .explorer-layout .observations {
+    grid-column: 1 / -1;
+    max-height: 600px;
+  }
+}
+@media (max-width: 760px) {
+  .explorer-layout {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .explorer-layout .map-container {
+    order: 0;
+    height: 55vh;
+    min-height: 480px;
+  }
+  .explorer-layout .map-viewport {
+    min-height: 0;
+  }
+  .explorer-layout .panel {
+    order: 1;
+    overflow: visible;
+  }
+  .explorer-layout .observations {
+    order: 2;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+  .explorer-layout .observations-header {
+    position: static;
+  }
+  .explorer-layout .matrix-head {
+    max-width: 100%;
+  }
+  .explorer-layout .matrix-links {
+    flex-wrap: wrap;
+  }
+  .explorer-layout .map-matrix {
+    max-width: calc(100% - 76px);
+  }
+}
+
+/* The renderer fades disabled glyphs; shared disabled controls keep the same ink. */
+.explorer-layout .maplibregl-ctrl button:disabled .maplibregl-ctrl-icon {
+  opacity: inherit;
+}
+
+.explorer-layout .matrix-more {
+  width: 9rem;
+  max-width: 100%;
+}
+.explorer-layout .matrix-right {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
+  flex-shrink: 1;
+}
+.explorer-layout .matrix-quick {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  max-width: 100%;
+}
+
+.explorer-layout .preview-thumbnail {
+  width: 100%;
+  margin-block: var(--tcsn-space-3);
+}
+.explorer-layout .preview-thumbnail img {
+  margin: 0;
+}
+
+/* Product chrome lives in the header and at the end of the search sidebar. */
+#app-header .tcsn-navigation {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+.explorer-layout .sidebar-end {
+  margin-top: auto;
+  padding-top: var(--tcsn-space-6);
+  font-size: var(--tcsn-text-small);
+}
+.explorer-layout .sidebar-copyright {
+  margin: var(--tcsn-space-3) 0 0;
+}
+.explorer-layout .map-credit-disclosure summary {
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  #app-header .tcsn-shell__bar {
+    flex-wrap: wrap;
+    gap: var(--tcsn-space-3);
+    padding-block: var(--tcsn-space-3);
+  }
+  #app-header .tcsn-navigation {
+    flex-wrap: wrap;
+  }
+}
+
+/* Without scripting the empty map cannot perform a search; keep the explanation first. */
+@media (scripting: none) {
+  .explorer-layout { display: block; height: auto; min-height: 0; }
+  .explorer-layout .map-container { display: none; }
+  .explorer-layout .panel, .explorer-layout .observations { overflow: visible; }
+}

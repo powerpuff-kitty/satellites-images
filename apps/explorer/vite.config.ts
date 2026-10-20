@@ -1,7 +1,16 @@
 import { defineConfig } from "vite";
+import { satellitePublicShell } from "./public-shell.js";
 export default defineConfig({
   base: "./",
-  build: { outDir: "dist" },
+  plugins: [{ name: "shared-public-shell", transformIndexHtml: satellitePublicShell }],
+  build: {
+    outDir: "dist",
+    rolldownOptions: {
+      output: {
+        codeSplitting: { groups: [{ name: "maplibre", test: /node_modules\/maplibre-gl\// }] },
+      },
+    },
+  },
   server: {
     proxy: {
       // Dev-only convenience proxy. Mirrors the production Cloudflare Worker's allowlist:
@@ -14,7 +23,7 @@ export default defineConfig({
         bypass: (req, res) => {
           const url = req.url ?? "";
           const path = url.replace(/^\/esa-proxy/, "").split("?")[0];
-          const allowed = path.startsWith("/documents/") ||
+          const allowed = /^\/documents\/d\/sentinel\/s(?:1[c-d]|2[a-c])_mp_(?:user|acq__kml)_\d{8}t\d{6}_\d{8}t\d{6}$/i.test(path) ||
             path === "/copernicus/sentinel-1/acquisition-plans" ||
             path === "/copernicus/sentinel-2/acquisition-plans";
           if (!allowed || url.includes("?")) {

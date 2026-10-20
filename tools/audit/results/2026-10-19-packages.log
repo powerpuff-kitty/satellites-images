@@ -1,0 +1,108 @@
+
+> satellites-images-workspace@0.3.0 check:packages
+> node tools/release/check-packages.mjs
+
+
+> git rev-parse HEAD
+
+> git status --porcelain
+
+> npm run build -w @powerpuff-kitty/satellites-images
+
+> npm pack --json --pack-destination /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk -w @powerpuff-kitty/satellites-images
+
+> npm install --ignore-scripts --no-audit --no-fund /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk/powerpuff-kitty-satellites-images-0.3.0.tgz
+
+> /opt/homebrew/Cellar/node/25.5.0/bin/node verify.mjs
+PASS: 17 installed npm package conformance cases
+
+> /opt/homebrew/Cellar/node/25.5.0/bin/node /Users/tcsntcsn/TCSN/satellites-images/node_modules/typescript/bin/tsc --project tsconfig.json
+
+> python3 -m venv /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-build
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-build/bin/python -m pip install build
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-build/bin/python -m build --sdist --wheel --outdir /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk /Users/tcsntcsn/TCSN/satellites-images/packages/python
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+  - wheel
+* Getting build dependencies for sdist...
+* Installed build dependency versions:
+  - setuptools==84.2.0
+  - wheel==0.48.0
+* Building sdist...
+* Creating isolated environment: venv+pip...
+* Installing packages in isolated environment:
+  - setuptools>=68
+  - wheel
+* Getting build dependencies for wheel...
+* Installed build dependency versions:
+  - setuptools==84.2.0
+  - wheel==0.48.0
+* Building wheel...
+
+> python3 -m venv /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-0
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-0/bin/python -m pip install --no-deps /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk/satellites_images-0.3.0-py3-none-any.whl
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-0/bin/python -I /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-0/verify.py /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-0/fixture.json
+PASS: 17 installed Python package conformance cases
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-0/bin/python -I -c 
+import importlib.metadata,json,sys
+from importlib.resources import files
+from pathlib import Path
+import satellites_images as sdk
+assert Path(sdk.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+assert importlib.metadata.version("satellites-images") == "0.3.0"
+assert files("satellites_images").joinpath("py.typed").is_file()
+assert any(source["id"]=="earth-search" for source in sdk.list_sources())
+print(json.dumps({"runtime":sys.version.split()[0],"version":importlib.metadata.version("satellites-images")}))
+
+
+> python3 -m venv /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-1
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-1/bin/python -m pip install --no-deps /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk/satellites_images-0.3.0.tar.gz
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-1/bin/python -I /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-1/verify.py /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-1/fixture.json
+PASS: 17 installed Python package conformance cases
+
+> /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/python-consumer-1/bin/python -I -c 
+import importlib.metadata,json,sys
+from importlib.resources import files
+from pathlib import Path
+import satellites_images as sdk
+assert Path(sdk.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+assert importlib.metadata.version("satellites-images") == "0.3.0"
+assert files("satellites_images").joinpath("py.typed").is_file()
+assert any(source["id"]=="earth-search" for source in sdk.list_sources())
+print(json.dumps({"runtime":sys.version.split()[0],"version":importlib.metadata.version("satellites-images")}))
+
+
+> cargo package --locked --allow-dirty --manifest-path /Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images/Cargo.toml --target-dir /Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images/target
+   Packaging satellites-images v0.3.0 (/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images)
+warning: ignoring test `conformance` as `tests/conformance.rs` is not included in the published package
+warning: ignoring test `inpe` as `tests/inpe.rs` is not included in the published package
+    Updating crates.io index
+    Packaged 13 files, 197.8KiB (47.9KiB compressed)
+   Verifying satellites-images v0.3.0 (/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images)
+   Compiling satellites-images v0.3.0 (/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images/target/package/satellites-images-0.3.0)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.61s
+
+> tar -xzf /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk/satellites-images-0.3.0.crate -C /var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/rust-consumer/unpacked
+
+> cargo fetch
+
+> cargo run --offline --locked --target-dir /Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images/target/candidate-consumer
+   Compiling satellites-images v0.3.0 (/var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/rust-consumer/unpacked/satellites-images-0.3.0)
+   Compiling satellites-candidate-check v0.0.0 (/private/var/folders/k9/0mqqtyn90j31qcqvltrlmww00000gn/T/satellites-package-check-SIWxek/rust-consumer)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 6.46s
+     Running `/Users/tcsntcsn/TCSN/satellites-images/crates/satellites-images/target/candidate-consumer/debug/satellites-candidate-check`
+PASS: 17 installed crate conformance cases
+
+> cargo metadata --no-deps --format-version 1 --offline
+
+> cargo --version
+
+PASS: local package acceptance. Artifacts and checksums: /Users/tcsntcsn/TCSN/satellites-images/dist/release-candidate/run-lPYTBk

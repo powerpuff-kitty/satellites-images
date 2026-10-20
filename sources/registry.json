@@ -1,6 +1,6 @@
 {
   "schemaVersion": "1.0.0",
-  "updated": "2026-10-12",
+  "updated": "2026-10-16",
   "disclaimer": "Provider terms may change. API/search availability and free access to image bytes are different. This registry is descriptive and not a credential or a guaranteed access entitlement.",
   "sources": [
     {
@@ -18,7 +18,21 @@
         "python": true,
         "rust": true
       },
-      "notes": "Radar imagery metadata; Earthdata login required for many downloads. ASF Search API adapter in all three SDKs (recorded-shape contract tests; live smoke is operator-triggered)."
+      "notes": "Radar imagery metadata; Earthdata login required for many downloads. ASF Search API adapter in all three SDKs. Anonymous NISAR and ALOS-2 metadata verified 2026-10-16; explorer opt-in includes these alongside Sentinel-1. NISAR PROVISIONAL products are not fully validated."
+    },
+    {
+      "id": "capella-open-data",
+      "name": "Capella Open Data",
+      "type": "static-stac",
+      "url": "https://capella-open-data.s3.us-west-2.amazonaws.com/stac/catalog.json",
+      "docs": "https://support.capellaspace.com/how-do-i-access-capellas-open-data",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "operatorType": "commercial",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {"typescript": false, "python": false, "rust": false},
+      "notes": "Selected SAR scenes, CC BY 4.0 programme. Static STAC metadata and PNG thumbnail HEAD returned anonymous HTTP 200 with wildcard CORS on 2026-10-16. Requires a bounded, deduplicating static adapter; no Item Search endpoint verified. Native collection metadata says proprietary, so retain the explicit programme licence reference."
     },
     {
       "id": "copernicus",
@@ -92,6 +106,20 @@
       "notes": "Check registration, collection access, and licensing before download."
     },
     {
+      "id": "inpe-cbers",
+      "name": "INPE CBERS-4A (Brazil)",
+      "type": "stac",
+      "url": "https://data.inpe.br/bdc/stac/v1",
+      "docs": "https://data.inpe.br/bdc/stac/v1/collections/CB4A-WPM-PCA-FUSED-1",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "operatorType": "public",
+      "scheduled": "no",
+      "collections": ["CB4A-WPM-PCA-FUSED-1"],
+      "implemented": {"typescript": true, "python": true, "rust": true},
+      "notes": "Brazil-focused 2 m fused visual collection under CC BY 4.0. Spatial/date POST search and CORS preflight verified 2026-10-16. Live items advertise tci GeoTIFF and thumbnail PNG (HEAD 200; no preview CORS header). Item platform/gsd may be absent; midnight timestamps do not establish acquisition-hour precision."
+    },
+    {
       "id": "jaxa-gportal",
       "name": "JAXA G-Portal",
       "type": "custom",
@@ -107,6 +135,24 @@
         "rust": true
       },
       "notes": "G-Portal granule adapter in all three SDKs (anonymous CSW 3.0.0 GET returning GeoJSON; numeric datasetId required, GET-only). Recorded-shape contract tests; the bbox axis order and live smoke are operator-triggered verifications."
+    },
+    {
+      "id": "maxar-open-data",
+      "name": "Maxar Open Data (public releases)",
+      "type": "static-stac",
+      "url": "https://maxar-opendata.s3.amazonaws.com/events/catalog.json",
+      "docs": "https://registry.opendata.aws/maxar-open-data/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "operatorType": "commercial",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {
+        "typescript": true,
+        "python": true,
+        "rust": true
+      },
+      "notes": "Selected commercial-satellite event releases, not the entire paid archive. CC BY-NC 4.0. Bounded static STAC traversal; extents prune location/date, ARD tiles retain native identity and metadata. Native tile cloud percentages are not scene-wide cloud cover."
     },
     {
       "id": "nasa-cmr",
@@ -233,6 +279,20 @@
       "notes": "Free account API key for catalogue; commercial image purchase separate."
     },
     {
+      "id": "umbra-open-data",
+      "name": "Umbra Open Data",
+      "type": "static-stac",
+      "url": "https://umbra-open-data-catalog.s3.us-west-2.amazonaws.com/stac/catalog.json",
+      "docs": "https://registry.opendata.aws/umbra-open-data/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "operatorType": "commercial",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {"typescript": false, "python": false, "rust": false},
+      "notes": "Selected SAR scenes and recurring sites under CC BY 4.0; not arbitrary-location tasking. Static STAC root and a dated scene verified anonymously with wildcard CORS on 2026-10-16; sampled scene has no PNG/JPEG preview asset. Requires bounded static catalogue traversal or a metadata index; no Item Search endpoint verified."
+    },
+    {
       "id": "up42",
       "name": "UP42",
       "type": "commercial",
@@ -282,6 +342,20 @@
         "rust": false
       },
       "notes": "Authorized hub credentials required. Public free search not assumed."
+    },
+    {
+      "id": "wyvern-open-data",
+      "name": "Wyvern Open Data",
+      "type": "static-stac",
+      "url": "https://wyvern-odp.com/catalog.json",
+      "docs": "https://opendata.wyvern.space/",
+      "searchAccess": "anonymous",
+      "imageryAccess": "open",
+      "operatorType": "commercial",
+      "scheduled": "no",
+      "collections": [],
+      "implemented": {"typescript": false, "python": false, "rust": false},
+      "notes": "Selected Dragonette hyperspectral scenes under CC BY 4.0; not the full archive. Static STAC scene and preview HEAD returned anonymous HTTP 200 with wildcard CORS on 2026-10-16. Requires bounded static traversal using one hierarchy and native scene IDs to avoid duplicate catalogues; no Item Search endpoint verified."
     }
   ]
 }

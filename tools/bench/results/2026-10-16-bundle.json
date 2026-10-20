@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-16T02:08:09.008Z",
+  "scope": "Explorer production files built with verified Node22.23.3; gzip sizes, not browser transfer timings; worker and dynamically loaded chunks are not all initial-route bytes",
+  "files": [
+    {
+      "file": "index-B2Gwg44M.css",
+      "bytes": 10741,
+      "gzipBytes": 2991
+    },
+    {
+      "file": "index-DQ2QeGyk.js",
+      "bytes": 149183,
+      "gzipBytes": 49109
+    },
+    {
+      "file": "maplibre-CDVTGlnq.js",
+      "bytes": 1047389,
+      "gzipBytes": 279812
+    },
+    {
+      "file": "maplibre-DBE96hFo.css",
+      "bytes": 82935,
+      "gzipBytes": 10528
+    },
+    {
+      "file": "maplibre-gl-worker-DxGNRm0a.mjs",
+      "bytes": 508314,
+      "gzipBytes": 144069
+    }
+  ]
+}

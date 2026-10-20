@@ -10,6 +10,9 @@ for (const source of registry.sources) {
     throw new Error("Invalid or duplicate source: " + source.id);
   }
   ids.add(source.id);
+  if (source.operatorType !== undefined && !["commercial", "public", "mixed"].includes(source.operatorType)) {
+    throw new Error("Invalid satellite operator type: " + source.id);
+  }
 }
 const paths = [
   new URL("../packages/python/src/satellites_images/sources.json", import.meta.url),

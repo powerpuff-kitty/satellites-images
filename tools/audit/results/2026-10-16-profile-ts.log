@@ -1,0 +1,6 @@
+polygonBoxes                         100000 ops       16.9 ms      5910020 ops/s
+polygonBoxes(antimeridian)           100000 ops       27.5 ms      3629940 ops/s
+coveragePercent                      100000 ops        5.0 ms     19867547 ops/s
+summarizeAvailability 50x100            200 ops      352.1 ms          568 ops/s
+normalizeJaxaFeature                 100000 ops      171.6 ms       582858 ops/s
+normalizeAsfFeature                  100000 ops      118.2 ms       846348 ops/s

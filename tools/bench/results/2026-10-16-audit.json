@@ -1,0 +1,1009 @@
+{
+  "date": "2026-10-16T02:06:45.510Z",
+  "scope": "Current dirty working tree; CPU-only synthetic microbenchmarks, not a release or service guarantee",
+  "commit": "139ab2963d28d5317f3608a6d635ef07465f2b68",
+  "dirtyWorkingTree": true,
+  "environment": {
+    "cpu": "Apple M1 Max",
+    "logicalCpus": 10,
+    "memoryBytes": 34359738368,
+    "architecture": "arm64",
+    "platform": "darwin",
+    "kernel": "25.6.0",
+    "node": "v25.5.0",
+    "nodePath": "/opt/homebrew/Cellar/node/25.5.0/bin/node",
+    "python": "Python 3.14.7",
+    "rust": "rustc 1.94.1 (e408947bf 2026-03-25)"
+  },
+  "methodology": {
+    "trials": 3,
+    "warmup": "Each existing benchmark warms 10% of iterations",
+    "aggregationWorkload": "50 pages × 100 unique scenes, 200 summaries per trial",
+    "timing": "Existing scripts round elapsed milliseconds to 0.1 ms and throughput to integer ops/s",
+    "releaseBuild": true,
+    "target": "No project SLO is defined; measurements establish a baseline, not a pass/fail performance gate",
+    "caveats": [
+      "Single local machine, sequential trials; background activity and thermal/JIT variance remain possible",
+      "Language implementations and allocation patterns differ; throughput is not a universal language ranking",
+      "Historical 2026-10-13 results used Node24.19.0, while current Node runtime is recorded above; ratios would confound runtime/code changes",
+      "No provider network, browser interaction latency, RSS or production workload measured"
+    ]
+  },
+  "summary": [
+    {
+      "language": "typescript",
+      "operation": "polygonBoxes",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 5834320,
+      "minOperationsPerSecond": 5599274,
+      "maxOperationsPerSecond": 6029575,
+      "medianMsPerOperation": 0.000171,
+      "trials": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 17.9,
+          "operationsPerSecond": 5599274
+        },
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 17.1,
+          "operationsPerSecond": 5834320
+        },
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 16.6,
+          "operationsPerSecond": 6029575
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "operation": "polygonBoxes(antimeridian)",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 4120596,
+      "minOperationsPerSecond": 2203086,
+      "maxOperationsPerSecond": 4144534,
+      "medianMsPerOperation": 0.000243,
+      "trials": [
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 24.3,
+          "operationsPerSecond": 4120596
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 24.1,
+          "operationsPerSecond": 4144534
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 45.4,
+          "operationsPerSecond": 2203086
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "operation": "coveragePercent",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 19352968,
+      "minOperationsPerSecond": 8746770,
+      "maxOperationsPerSecond": 20433355,
+      "medianMsPerOperation": 0.000052000000000000004,
+      "trials": [
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 4.9,
+          "operationsPerSecond": 20433355
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 5.2,
+          "operationsPerSecond": 19352968
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 11.4,
+          "operationsPerSecond": 8746770
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "operation": "summarizeAvailability 50x100",
+      "iterations": 200,
+      "medianOperationsPerSecond": 589,
+      "minOperationsPerSecond": 478,
+      "maxOperationsPerSecond": 597,
+      "medianMsPerOperation": 1.6965000000000001,
+      "trials": [
+        {
+          "operation": "summarizeAvailability 50x100",
+          "iterations": 200,
+          "elapsedMs": 335.2,
+          "operationsPerSecond": 597
+        },
+        {
+          "operation": "summarizeAvailability 50x100",
+          "iterations": 200,
+          "elapsedMs": 418.5,
+          "operationsPerSecond": 478
+        },
+        {
+          "operation": "summarizeAvailability 50x100",
+          "iterations": 200,
+          "elapsedMs": 339.3,
+          "operationsPerSecond": 589
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "operation": "normalizeJaxaFeature",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 692050,
+      "minOperationsPerSecond": 679051,
+      "maxOperationsPerSecond": 715237,
+      "medianMsPerOperation": 0.001445,
+      "trials": [
+        {
+          "operation": "normalizeJaxaFeature",
+          "iterations": 100000,
+          "elapsedMs": 139.8,
+          "operationsPerSecond": 715237
+        },
+        {
+          "operation": "normalizeJaxaFeature",
+          "iterations": 100000,
+          "elapsedMs": 147.3,
+          "operationsPerSecond": 679051
+        },
+        {
+          "operation": "normalizeJaxaFeature",
+          "iterations": 100000,
+          "elapsedMs": 144.5,
+          "operationsPerSecond": 692050
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "operation": "normalizeAsfFeature",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 931210,
+      "minOperationsPerSecond": 887878,
+      "maxOperationsPerSecond": 939268,
+      "medianMsPerOperation": 0.001074,
+      "trials": [
+        {
+          "operation": "normalizeAsfFeature",
+          "iterations": 100000,
+          "elapsedMs": 106.5,
+          "operationsPerSecond": 939268
+        },
+        {
+          "operation": "normalizeAsfFeature",
+          "iterations": 100000,
+          "elapsedMs": 112.6,
+          "operationsPerSecond": 887878
+        },
+        {
+          "operation": "normalizeAsfFeature",
+          "iterations": 100000,
+          "elapsedMs": 107.4,
+          "operationsPerSecond": 931210
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "operation": "polygonBoxes",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 207933,
+      "minOperationsPerSecond": 189625,
+      "maxOperationsPerSecond": 213727,
+      "medianMsPerOperation": 0.004809,
+      "trials": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 467.9,
+          "operationsPerSecond": 213727
+        },
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 527.4,
+          "operationsPerSecond": 189625
+        },
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 480.9,
+          "operationsPerSecond": 207933
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "operation": "polygonBoxes(antimeridian)",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 197418,
+      "minOperationsPerSecond": 192924,
+      "maxOperationsPerSecond": 218809,
+      "medianMsPerOperation": 0.005065,
+      "trials": [
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 457,
+          "operationsPerSecond": 218809
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 506.5,
+          "operationsPerSecond": 197418
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 518.3,
+          "operationsPerSecond": 192924
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "operation": "coveragePercent",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 571897,
+      "minOperationsPerSecond": 568806,
+      "maxOperationsPerSecond": 602429,
+      "medianMsPerOperation": 0.0017490000000000001,
+      "trials": [
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 166,
+          "operationsPerSecond": 602429
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 174.9,
+          "operationsPerSecond": 571897
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 175.8,
+          "operationsPerSecond": 568806
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "operation": "summarize_availability 50x100",
+      "iterations": 200,
+      "medianOperationsPerSecond": 165,
+      "minOperationsPerSecond": 156,
+      "maxOperationsPerSecond": 176,
+      "medianMsPerOperation": 6.059500000000001,
+      "trials": [
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 1134,
+          "operationsPerSecond": 176
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 1280.7,
+          "operationsPerSecond": 156
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 1211.9,
+          "operationsPerSecond": 165
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "operation": "normalize_jaxa_feature",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 154360,
+      "minOperationsPerSecond": 150565,
+      "maxOperationsPerSecond": 166720,
+      "medianMsPerOperation": 0.006477999999999999,
+      "trials": [
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 599.8,
+          "operationsPerSecond": 166720
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 647.8,
+          "operationsPerSecond": 154360
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 664.2,
+          "operationsPerSecond": 150565
+        }
+      ]
+    },
+    {
+      "language": "python",
+      "operation": "normalize_asf_feature",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 171433,
+      "minOperationsPerSecond": 153016,
+      "maxOperationsPerSecond": 182099,
+      "medianMsPerOperation": 0.005833,
+      "trials": [
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 549.2,
+          "operationsPerSecond": 182099
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 583.3,
+          "operationsPerSecond": 171433
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 653.5,
+          "operationsPerSecond": 153016
+        }
+      ]
+    },
+    {
+      "language": "rust",
+      "operation": "polygon_boxes",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 8296575,
+      "minOperationsPerSecond": 7323839,
+      "maxOperationsPerSecond": 8422146,
+      "medianMsPerOperation": 0.000121,
+      "trials": [
+        {
+          "operation": "polygon_boxes",
+          "iterations": 100000,
+          "elapsedMs": 11.9,
+          "operationsPerSecond": 8422146
+        },
+        {
+          "operation": "polygon_boxes",
+          "iterations": 100000,
+          "elapsedMs": 12.1,
+          "operationsPerSecond": 8296575
+        },
+        {
+          "operation": "polygon_boxes",
+          "iterations": 100000,
+          "elapsedMs": 13.7,
+          "operationsPerSecond": 7323839
+        }
+      ]
+    },
+    {
+      "language": "rust",
+      "operation": "polygon_boxes(antimeridian)",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 8186460,
+      "minOperationsPerSecond": 5785949,
+      "maxOperationsPerSecond": 8346317,
+      "medianMsPerOperation": 0.000122,
+      "trials": [
+        {
+          "operation": "polygon_boxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 12,
+          "operationsPerSecond": 8346317
+        },
+        {
+          "operation": "polygon_boxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 12.2,
+          "operationsPerSecond": 8186460
+        },
+        {
+          "operation": "polygon_boxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 17.3,
+          "operationsPerSecond": 5785949
+        }
+      ]
+    },
+    {
+      "language": "rust",
+      "operation": "coverage_percent",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 41976400,
+      "minOperationsPerSecond": 39842622,
+      "maxOperationsPerSecond": 42649234,
+      "medianMsPerOperation": 0.000024,
+      "trials": [
+        {
+          "operation": "coverage_percent",
+          "iterations": 100000,
+          "elapsedMs": 2.3,
+          "operationsPerSecond": 42649234
+        },
+        {
+          "operation": "coverage_percent",
+          "iterations": 100000,
+          "elapsedMs": 2.4,
+          "operationsPerSecond": 41976400
+        },
+        {
+          "operation": "coverage_percent",
+          "iterations": 100000,
+          "elapsedMs": 2.5,
+          "operationsPerSecond": 39842622
+        }
+      ]
+    },
+    {
+      "language": "rust",
+      "operation": "summarize_availability 50x100",
+      "iterations": 200,
+      "medianOperationsPerSecond": 298,
+      "minOperationsPerSecond": 280,
+      "maxOperationsPerSecond": 304,
+      "medianMsPerOperation": 3.3564999999999996,
+      "trials": [
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 657.7,
+          "operationsPerSecond": 304
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 671.3,
+          "operationsPerSecond": 298
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 715.4,
+          "operationsPerSecond": 280
+        }
+      ]
+    },
+    {
+      "language": "rust",
+      "operation": "normalize_jaxa_feature",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 345219,
+      "minOperationsPerSecond": 304331,
+      "maxOperationsPerSecond": 346306,
+      "medianMsPerOperation": 0.002897,
+      "trials": [
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 289.7,
+          "operationsPerSecond": 345219
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 328.6,
+          "operationsPerSecond": 304331
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 288.8,
+          "operationsPerSecond": 346306
+        }
+      ]
+    },
+    {
+      "language": "rust",
+      "operation": "normalize_asf_feature",
+      "iterations": 100000,
+      "medianOperationsPerSecond": 544139,
+      "minOperationsPerSecond": 527279,
+      "maxOperationsPerSecond": 571101,
+      "medianMsPerOperation": 0.001838,
+      "trials": [
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 183.8,
+          "operationsPerSecond": 544139
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 189.7,
+          "operationsPerSecond": 527279
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 175.1,
+          "operationsPerSecond": 571101
+        }
+      ]
+    }
+  ],
+  "trials": [
+    {
+      "trial": 1,
+      "language": "typescript",
+      "command": [
+        "/opt/homebrew/Cellar/node/25.5.0/bin/node",
+        "tools/bench/typescript.mjs"
+      ],
+      "stdout": "polygonBoxes                         100000 ops       17.9 ms      5599274 ops/s\npolygonBoxes(antimeridian)           100000 ops       24.3 ms      4120596 ops/s\ncoveragePercent                      100000 ops        4.9 ms     20433355 ops/s\nsummarizeAvailability 50x100            200 ops      335.2 ms          597 ops/s\nnormalizeJaxaFeature                 100000 ops      139.8 ms       715237 ops/s\nnormalizeAsfFeature                  100000 ops      106.5 ms       939268 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 17.9,
+          "operationsPerSecond": 5599274
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 24.3,
+          "operationsPerSecond": 4120596
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 4.9,
+          "operationsPerSecond": 20433355
+        },
+        {
+          "operation": "summarizeAvailability 50x100",
+          "iterations": 200,
+          "elapsedMs": 335.2,
+          "operationsPerSecond": 597
+        },
+        {
+          "operation": "normalizeJaxaFeature",
+          "iterations": 100000,
+          "elapsedMs": 139.8,
+          "operationsPerSecond": 715237
+        },
+        {
+          "operation": "normalizeAsfFeature",
+          "iterations": 100000,
+          "elapsedMs": 106.5,
+          "operationsPerSecond": 939268
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "language": "python",
+      "command": [
+        "python3",
+        "tools/bench/python.py"
+      ],
+      "stdout": "polygonBoxes                         100000 ops      467.9 ms       213727 ops/s\npolygonBoxes(antimeridian)           100000 ops      457.0 ms       218809 ops/s\ncoveragePercent                      100000 ops      166.0 ms       602429 ops/s\nsummarize_availability 50x100           200 ops     1134.0 ms          176 ops/s\nnormalize_jaxa_feature               100000 ops      599.8 ms       166720 ops/s\nnormalize_asf_feature                100000 ops      549.2 ms       182099 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 467.9,
+          "operationsPerSecond": 213727
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 457,
+          "operationsPerSecond": 218809
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 166,
+          "operationsPerSecond": 602429
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 1134,
+          "operationsPerSecond": 176
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 599.8,
+          "operationsPerSecond": 166720
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 549.2,
+          "operationsPerSecond": 182099
+        }
+      ]
+    },
+    {
+      "trial": 1,
+      "language": "rust",
+      "command": [
+        "cargo",
+        "run",
+        "--release",
+        "--example",
+        "bench",
+        "--manifest-path",
+        "crates/satellites-images/Cargo.toml"
+      ],
+      "stdout": "polygon_boxes                        100000 ops       11.9 ms      8422146 ops/s\npolygon_boxes(antimeridian)          100000 ops       12.0 ms      8346317 ops/s\ncoverage_percent                     100000 ops        2.3 ms     42649234 ops/s\nsummarize_availability 50x100           200 ops      657.7 ms          304 ops/s\nnormalize_jaxa_feature               100000 ops      289.7 ms       345219 ops/s\nnormalize_asf_feature                100000 ops      183.8 ms       544139 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygon_boxes",
+          "iterations": 100000,
+          "elapsedMs": 11.9,
+          "operationsPerSecond": 8422146
+        },
+        {
+          "operation": "polygon_boxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 12,
+          "operationsPerSecond": 8346317
+        },
+        {
+          "operation": "coverage_percent",
+          "iterations": 100000,
+          "elapsedMs": 2.3,
+          "operationsPerSecond": 42649234
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 657.7,
+          "operationsPerSecond": 304
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 289.7,
+          "operationsPerSecond": 345219
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 183.8,
+          "operationsPerSecond": 544139
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "language": "typescript",
+      "command": [
+        "/opt/homebrew/Cellar/node/25.5.0/bin/node",
+        "tools/bench/typescript.mjs"
+      ],
+      "stdout": "polygonBoxes                         100000 ops       17.1 ms      5834320 ops/s\npolygonBoxes(antimeridian)           100000 ops       24.1 ms      4144534 ops/s\ncoveragePercent                      100000 ops        5.2 ms     19352968 ops/s\nsummarizeAvailability 50x100            200 ops      418.5 ms          478 ops/s\nnormalizeJaxaFeature                 100000 ops      147.3 ms       679051 ops/s\nnormalizeAsfFeature                  100000 ops      112.6 ms       887878 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 17.1,
+          "operationsPerSecond": 5834320
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 24.1,
+          "operationsPerSecond": 4144534
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 5.2,
+          "operationsPerSecond": 19352968
+        },
+        {
+          "operation": "summarizeAvailability 50x100",
+          "iterations": 200,
+          "elapsedMs": 418.5,
+          "operationsPerSecond": 478
+        },
+        {
+          "operation": "normalizeJaxaFeature",
+          "iterations": 100000,
+          "elapsedMs": 147.3,
+          "operationsPerSecond": 679051
+        },
+        {
+          "operation": "normalizeAsfFeature",
+          "iterations": 100000,
+          "elapsedMs": 112.6,
+          "operationsPerSecond": 887878
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "language": "python",
+      "command": [
+        "python3",
+        "tools/bench/python.py"
+      ],
+      "stdout": "polygonBoxes                         100000 ops      527.4 ms       189625 ops/s\npolygonBoxes(antimeridian)           100000 ops      506.5 ms       197418 ops/s\ncoveragePercent                      100000 ops      174.9 ms       571897 ops/s\nsummarize_availability 50x100           200 ops     1280.7 ms          156 ops/s\nnormalize_jaxa_feature               100000 ops      647.8 ms       154360 ops/s\nnormalize_asf_feature                100000 ops      583.3 ms       171433 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 527.4,
+          "operationsPerSecond": 189625
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 506.5,
+          "operationsPerSecond": 197418
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 174.9,
+          "operationsPerSecond": 571897
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 1280.7,
+          "operationsPerSecond": 156
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 647.8,
+          "operationsPerSecond": 154360
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 583.3,
+          "operationsPerSecond": 171433
+        }
+      ]
+    },
+    {
+      "trial": 2,
+      "language": "rust",
+      "command": [
+        "cargo",
+        "run",
+        "--release",
+        "--example",
+        "bench",
+        "--manifest-path",
+        "crates/satellites-images/Cargo.toml"
+      ],
+      "stdout": "polygon_boxes                        100000 ops       12.1 ms      8296575 ops/s\npolygon_boxes(antimeridian)          100000 ops       12.2 ms      8186460 ops/s\ncoverage_percent                     100000 ops        2.4 ms     41976400 ops/s\nsummarize_availability 50x100           200 ops      671.3 ms          298 ops/s\nnormalize_jaxa_feature               100000 ops      328.6 ms       304331 ops/s\nnormalize_asf_feature                100000 ops      189.7 ms       527279 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygon_boxes",
+          "iterations": 100000,
+          "elapsedMs": 12.1,
+          "operationsPerSecond": 8296575
+        },
+        {
+          "operation": "polygon_boxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 12.2,
+          "operationsPerSecond": 8186460
+        },
+        {
+          "operation": "coverage_percent",
+          "iterations": 100000,
+          "elapsedMs": 2.4,
+          "operationsPerSecond": 41976400
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 671.3,
+          "operationsPerSecond": 298
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 328.6,
+          "operationsPerSecond": 304331
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 189.7,
+          "operationsPerSecond": 527279
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "language": "typescript",
+      "command": [
+        "/opt/homebrew/Cellar/node/25.5.0/bin/node",
+        "tools/bench/typescript.mjs"
+      ],
+      "stdout": "polygonBoxes                         100000 ops       16.6 ms      6029575 ops/s\npolygonBoxes(antimeridian)           100000 ops       45.4 ms      2203086 ops/s\ncoveragePercent                      100000 ops       11.4 ms      8746770 ops/s\nsummarizeAvailability 50x100            200 ops      339.3 ms          589 ops/s\nnormalizeJaxaFeature                 100000 ops      144.5 ms       692050 ops/s\nnormalizeAsfFeature                  100000 ops      107.4 ms       931210 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 16.6,
+          "operationsPerSecond": 6029575
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 45.4,
+          "operationsPerSecond": 2203086
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 11.4,
+          "operationsPerSecond": 8746770
+        },
+        {
+          "operation": "summarizeAvailability 50x100",
+          "iterations": 200,
+          "elapsedMs": 339.3,
+          "operationsPerSecond": 589
+        },
+        {
+          "operation": "normalizeJaxaFeature",
+          "iterations": 100000,
+          "elapsedMs": 144.5,
+          "operationsPerSecond": 692050
+        },
+        {
+          "operation": "normalizeAsfFeature",
+          "iterations": 100000,
+          "elapsedMs": 107.4,
+          "operationsPerSecond": 931210
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "language": "python",
+      "command": [
+        "python3",
+        "tools/bench/python.py"
+      ],
+      "stdout": "polygonBoxes                         100000 ops      480.9 ms       207933 ops/s\npolygonBoxes(antimeridian)           100000 ops      518.3 ms       192924 ops/s\ncoveragePercent                      100000 ops      175.8 ms       568806 ops/s\nsummarize_availability 50x100           200 ops     1211.9 ms          165 ops/s\nnormalize_jaxa_feature               100000 ops      664.2 ms       150565 ops/s\nnormalize_asf_feature                100000 ops      653.5 ms       153016 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygonBoxes",
+          "iterations": 100000,
+          "elapsedMs": 480.9,
+          "operationsPerSecond": 207933
+        },
+        {
+          "operation": "polygonBoxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 518.3,
+          "operationsPerSecond": 192924
+        },
+        {
+          "operation": "coveragePercent",
+          "iterations": 100000,
+          "elapsedMs": 175.8,
+          "operationsPerSecond": 568806
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 1211.9,
+          "operationsPerSecond": 165
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 664.2,
+          "operationsPerSecond": 150565
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 653.5,
+          "operationsPerSecond": 153016
+        }
+      ]
+    },
+    {
+      "trial": 3,
+      "language": "rust",
+      "command": [
+        "cargo",
+        "run",
+        "--release",
+        "--example",
+        "bench",
+        "--manifest-path",
+        "crates/satellites-images/Cargo.toml"
+      ],
+      "stdout": "polygon_boxes                        100000 ops       13.7 ms      7323839 ops/s\npolygon_boxes(antimeridian)          100000 ops       17.3 ms      5785949 ops/s\ncoverage_percent                     100000 ops        2.5 ms     39842622 ops/s\nsummarize_availability 50x100           200 ops      715.4 ms          280 ops/s\nnormalize_jaxa_feature               100000 ops      288.8 ms       346306 ops/s\nnormalize_asf_feature                100000 ops      175.1 ms       571101 ops/s\n",
+      "measurements": [
+        {
+          "operation": "polygon_boxes",
+          "iterations": 100000,
+          "elapsedMs": 13.7,
+          "operationsPerSecond": 7323839
+        },
+        {
+          "operation": "polygon_boxes(antimeridian)",
+          "iterations": 100000,
+          "elapsedMs": 17.3,
+          "operationsPerSecond": 5785949
+        },
+        {
+          "operation": "coverage_percent",
+          "iterations": 100000,
+          "elapsedMs": 2.5,
+          "operationsPerSecond": 39842622
+        },
+        {
+          "operation": "summarize_availability 50x100",
+          "iterations": 200,
+          "elapsedMs": 715.4,
+          "operationsPerSecond": 280
+        },
+        {
+          "operation": "normalize_jaxa_feature",
+          "iterations": 100000,
+          "elapsedMs": 288.8,
+          "operationsPerSecond": 346306
+        },
+        {
+          "operation": "normalize_asf_feature",
+          "iterations": 100000,
+          "elapsedMs": 175.1,
+          "operationsPerSecond": 571101
+        }
+      ]
+    }
+  ],
+  "historicalReference": {
+    "path": "tools/bench/results/2026-10-13.json",
+    "date": "2026-10-13",
+    "environment": {
+      "cpu": "Apple M1 Max",
+      "architecture": "arm64",
+      "os": "macOS 26.7",
+      "node": "24.19.0",
+      "python": "3.14.7",
+      "rust": "1.94.1"
+    },
+    "comparisonPerformed": false
+  }
+}

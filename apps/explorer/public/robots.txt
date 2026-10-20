@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://satellite.tcsn.io/sitemap.xml

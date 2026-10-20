@@ -2,16 +2,18 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
+from functools import lru_cache
 import math
 import re
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, timezone
 from importlib.resources import files
 from typing import Any, Callable, Iterator, Protocol
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request, HTTPRedirectHandler, build_opener
 
 
 class SatelliteError(Exception):
@@ -25,6 +27,30 @@ class SatelliteError(Exception):
 
 #: Upper bound on a provider response body, to bound memory under a hostile/oversized response.
 MAX_RESPONSE_BYTES = 32 * 1024 * 1024
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+# Reject redirects before a second request is sent; do not change urllib's global opener.
+_http_opener = build_opener(_NoRedirect())
+
+_TIMESTAMP = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$", re.IGNORECASE)
+
+
+def _acquisition_time(value: str) -> datetime:
+    """Strict RFC 3339 parsing, including fractional seconds on Python 3.10."""
+    match = _TIMESTAMP.fullmatch(value)
+    if match is None:
+        raise ValueError("Expected an acquisition timestamp with a timezone")
+    base, fraction, offset = match.groups()
+    normalized = base.upper()
+    if fraction is not None:
+        normalized += "." + fraction[:6].ljust(6, "0")
+    normalized += "+00:00" if offset.upper() == "Z" else offset
+    return datetime.fromisoformat(normalized)
 
 
 @dataclass(frozen=True)
@@ -118,9 +144,19 @@ class SearchProvider(Protocol):
     def search(self, query: SearchQuery) -> Iterator[SearchPage]: ...
 
 
+@lru_cache(maxsize=1)
+def _source_registry() -> list[dict[str, Any]]:
+    return json.loads(files("satellites_images").joinpath("sources.json").read_text(encoding="utf-8"))["sources"]
+
+
 def list_sources() -> list[dict[str, Any]]:
     """Return detached registry entries; this does not imply implemented adapters."""
-    return json.loads(files("satellites_images").joinpath("sources.json").read_text(encoding="utf-8"))["sources"]
+    return deepcopy(_source_registry())
+
+
+@lru_cache(maxsize=1)
+def _provider_access() -> dict[str, str]:
+    return {source["id"]: source.get("imageryAccess", "") for source in _source_registry()}
 
 
 def radius_boxes(latitude: float, longitude: float, radius_meters: float) -> list[list[float]]:
@@ -302,8 +338,7 @@ def declared_imagery_access(provider_id: str, collection: str | None = None) -> 
         override = _PROVIDER_ACCESS_OVERRIDES.get(provider_id)
     if override is not None:
         return override
-    source = next((entry for entry in list_sources() if entry.get("id") == provider_id.split(":")[0]), None)
-    return _IMAGERY_ACCESS_CLASS.get((source or {}).get("imageryAccess", ""), "unknown")
+    return _IMAGERY_ACCESS_CLASS.get(_provider_access().get(provider_id.split(":")[0], ""), "unknown")
 
 
 def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | None = None) -> Scene:
@@ -311,10 +346,10 @@ def _normalized_scene(raw: Any, provider_id: str, boxes: list[list[float]] | Non
     props = _dictionary(obj.get("properties"))
     identifier = obj.get("id")
     timestamp = props.get("datetime") or props.get("start_datetime")
-    if not isinstance(identifier, str) or not isinstance(timestamp, str):
+    if not isinstance(identifier, str) or not identifier or not isinstance(timestamp, str):
         raise SatelliteError("INVALID_RESPONSE", "Missing scene id or timestamp", provider_id)
     try:
-        when = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        when = _acquisition_time(timestamp)
         if when.tzinfo is None:
             raise ValueError("Missing timezone")
         acquired_at = when.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -378,13 +413,12 @@ def _http_json(url: str, method: str, body: dict[str, Any] | None) -> dict[str, 
         headers["Content-Type"] = "application/json"
     req = Request(url, data=encoded, headers=headers, method=method)
     try:
-        with urlopen(req, timeout=20) as response:
-            if _port_or_default(urlsplit(response.geturl())) != _port_or_default(urlsplit(url)):
-                raise SatelliteError("UNSAFE_NEXT_LINK", "Refusing a cross-origin or downgraded redirect")
+        with _http_opener.open(req, timeout=20) as response:
             content = response.read(MAX_RESPONSE_BYTES + 1)
     except HTTPError as exc:
         retry_after = exc.headers.get("Retry-After") if exc.headers else None
         detail = "HTTP " + str(exc.code) + ((" retry-after=" + retry_after) if retry_after else "")
+        exc.close()
         raise SatelliteError("HTTP_ERROR", "STAC API returned " + detail) from exc
     except (URLError, TimeoutError, OSError) as exc:
         raise SatelliteError("NETWORK", "STAC request failed: " + str(exc)) from exc
@@ -438,7 +472,7 @@ class StacProvider:
         if not collections:
             raise SatelliteError("INVALID_QUERY", "Provide at least one collection")
         boxes, polygon = resolve_areas(query)
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         page_number = 0
         truncated_earlier = False
         # A polygon already constrains the query, so one request suffices.
@@ -489,9 +523,10 @@ class StacProvider:
                     except SatelliteError:
                         skipped += 1
                         continue
-                    if scene.id in seen:
+                    key = (scene.collection, scene.id)
+                    if key in seen:
                         continue
-                    seen.add(scene.id)
+                    seen.add(key)
                     items.append(scene)
                 box_pages += 1
                 page_number += 1
@@ -537,7 +572,7 @@ def normalize_asf_feature(raw: Any, provider_id: str = "asf-vertex") -> Scene:
     if not isinstance(identifier, str) or not isinstance(date, str):
         raise SatelliteError("INVALID_RESPONSE", "ASF feature lacks a granule name or start time", provider_id)
     try:
-        when = datetime.fromisoformat(date.replace("Z", "+00:00"))
+        when = _acquisition_time(date)
         if when.tzinfo is None:
             raise ValueError("Missing timezone")
         acquired = when.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -601,8 +636,9 @@ class AsfSearch:
 
     def search(self, query: SearchQuery) -> Iterator[SearchPage]:
         boxes, _ = resolve_areas(query)
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         page = 0
+        truncated = False
         for box in boxes:
             params = urlencode({
                 "platform": ",".join(self.platforms),
@@ -629,12 +665,14 @@ class AsfSearch:
                 raise SatelliteError("INVALID_RESPONSE", "Provider page exceeds the 10000-feature limit", self.id)
             for feature in features:
                 scene = normalize_asf_feature(feature, self.id)
-                if scene.id in seen:
+                key = (scene.collection, scene.id)
+                if key in seen:
                     continue
-                seen.add(scene.id)
+                seen.add(key)
                 items.append(scene)
             page += 1
-            yield SearchPage(self.id, tuple(items), page, False, len(items))
+            truncated = truncated or len(features) >= query.limit
+            yield SearchPage(self.id, tuple(items), page, truncated, None)
 
 
 JAXA_CSW_ENDPOINT = "https://gportal.jaxa.jp/csw/csw"
@@ -651,7 +689,7 @@ def normalize_jaxa_feature(raw: Any, provider_id: str = "jaxa-gportal") -> Scene
     if not isinstance(identifier, str) or not isinstance(date, str):
         raise SatelliteError("INVALID_RESPONSE", "JAXA feature lacks an identifier or begin position", provider_id)
     try:
-        when = datetime.fromisoformat(date.replace("Z", "+00:00"))
+        when = _acquisition_time(date)
         if when.tzinfo is None:
             raise ValueError("Missing timezone")
         acquired = when.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -710,8 +748,9 @@ class JaxaGPortal:
 
     def search(self, query: SearchQuery) -> Iterator[SearchPage]:
         boxes, _ = resolve_areas(query)
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         page = 0
+        truncated = False
         for box in boxes:
             params: dict[str, Any] = {
                 "service": "CSW", "version": "3.0.0", "request": "GetRecords",
@@ -741,14 +780,16 @@ class JaxaGPortal:
             items: list[Scene] = []
             for feature in features:
                 scene = normalize_jaxa_feature(feature, self.id)
-                if scene.id in seen:
+                key = (scene.collection, scene.id)
+                if key in seen:
                     continue
-                seen.add(scene.id)
+                seen.add(key)
                 items.append(scene)
             page += 1
             matched = _dictionary(result.get("properties")).get("numberOfRecordsMatched")
-            yield SearchPage(self.id, tuple(items), page, False,
-                             matched if isinstance(matched, int) and not isinstance(matched, bool) else None)
+            total = matched if type(matched) is int and matched >= 0 else None
+            truncated = truncated or (len(features) >= self.count if total is None else total > len(features))
+            yield SearchPage(self.id, tuple(items), page, truncated, total)
 
 
 OPEN_AERIAL_MAP_ENDPOINT = "https://api.openaerialmap.org/meta"
@@ -785,7 +826,7 @@ def normalize_oam_record(raw: Any, provider_id: str = "open-aerial-map",
     if not isinstance(identifier, str) or not isinstance(when, str):
         raise SatelliteError("INVALID_RESPONSE", "OpenAerialMap record lacks an id or acquisition time", provider_id)
     try:
-        parsed = datetime.fromisoformat(when.replace("Z", "+00:00"))
+        parsed = _acquisition_time(when)
         if parsed.tzinfo is None:
             raise ValueError("Missing timezone")
         acquired = parsed.astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
@@ -847,11 +888,12 @@ class OpenAerialMap:
     def search(self, query: SearchQuery) -> Iterator[SearchPage]:
         boxes, _ = resolve_areas(query)
         limit = min(self.limit, query.limit)
-        seen: set[str] = set()
+        seen: set[tuple[str, str]] = set()
         page = 0
-        for box in boxes:
+        truncated_earlier = False
+        for box_index, box in enumerate(boxes):
             number = 1
-            while True:
+            while number <= query.max_pages:
                 params = {
                     "bbox": ",".join(f"{value:.6f}" for value in box),
                     "acquisition_from": query.start,
@@ -878,18 +920,144 @@ class OpenAerialMap:
                 items: list[Scene] = []
                 for record in records:
                     scene = normalize_oam_record(record, self.id, boxes)
-                    if scene.id in seen:
+                    key = (scene.collection, scene.id)
+                    if key in seen:
                         continue
-                    seen.add(scene.id)
+                    seen.add(key)
                     items.append(scene)
                 page += 1
                 found = _dictionary(result.get("meta")).get("found")
-                matched = found if isinstance(found, int) and not isinstance(found, bool) else None
+                matched = found if type(found) is int and found >= 0 else None
                 has_next = len(records) == limit and (matched is None or number * limit < matched)
-                yield SearchPage(self.id, tuple(items), page, has_next, matched)
+                yield SearchPage(self.id, tuple(items), page,
+                                 has_next or (box_index == len(boxes) - 1 and truncated_earlier), matched)
                 if not has_next:
                     break
+                if number == query.max_pages:
+                    truncated_earlier = True
                 number += 1
+
+
+def _maxar_timestamp(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    try:
+        return _acquisition_time(value.replace(" ", "T", 1)).astimezone(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+    except ValueError:
+        return None
+
+
+def _maxar_boxes(value: Any) -> list[list[float]]:
+    if not isinstance(value, list) or len(value) != 4 or not all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in value):
+        return []
+    w, south, east, north = value
+    if not (-180 <= w <= 180 and -180 <= east <= 180 and -90 <= south <= north <= 90):
+        return []
+    return [value] if w <= east else [[w, south, 180, north], [-180, south, east, north]]
+
+
+def _maxar_overlaps(value: Any, boxes: list[list[float]]) -> bool:
+    return any(a[0] <= b[2] and a[2] >= b[0] and a[1] <= b[3] and a[3] >= b[1] for a in _maxar_boxes(value) for b in boxes)
+
+
+class MaxarOpenData:
+    """Bounded static STAC metadata search of selected public event releases.
+
+    collections selects release IDs; omit it or use maxar-open-data for all releases.
+    Each page reads at most 100 metadata documents and emits at most query.limit items.
+    """
+    id = "maxar-open-data"
+
+    def __init__(self, transport: Transport | None = None, *,
+                 catalog_url: str = "https://maxar-opendata.s3.amazonaws.com/events/catalog.json",
+                 max_documents: int = 2000):
+        self.catalog_url = catalog_url
+        root = urlsplit(catalog_url)
+        if ((root.scheme != "https" and not (root.scheme == "http" and root.hostname in ("localhost", "127.0.0.1")))
+                or not root.hostname or root.username or root.password or root.query or root.fragment):
+            raise SatelliteError("INVALID_PROVIDER", "Invalid Maxar catalogue URL", self.id)
+        if type(max_documents) is not int or not 1 <= max_documents <= 10000:
+            raise SatelliteError("INVALID_PROVIDER", "max_documents must be 1..10000", self.id)
+        self.max_documents = max_documents
+        self._transport = transport or _http_json
+        self._origin = _port_or_default(root)
+        self._directory = urlsplit(urljoin(catalog_url, ".")).path
+
+    def search(self, query: SearchQuery) -> Iterator[SearchPage]:
+        boxes, _ = resolve_areas(query)
+        start, end = query.start + "T00:00:00.000Z", query.end + "T23:59:59.999Z"
+        pending = [(self.catalog_url, None, None)]
+        scheduled, seen = {self.catalog_url}, set()
+        documents = page_documents = number = skipped = 0
+        items: list[Scene] = []
+        while pending and documents < self.max_documents and number < query.max_pages:
+            href, inherited_release, inherited_license = pending.pop()
+            data = _dictionary(self._transport(href, "GET", None))
+            documents += 1
+            page_documents += 1
+            kind = data.get("type")
+            if kind not in ("Catalog", "Collection", "Feature"):
+                raise SatelliteError("INVALID_RESPONSE", "Unsupported static STAC document", self.id)
+            release = inherited_release or (data.get("id") if kind == "Collection" else None)
+            license_id = data.get("license") or inherited_license
+            include = True
+            if kind == "Collection":
+                extent = _dictionary(data.get("extent"))
+                bounds = _dictionary(extent.get("spatial")).get("bbox")
+                if isinstance(bounds, list) and bounds and all(_maxar_boxes(box) for box in bounds):
+                    include = any(_maxar_overlaps(box, boxes) for box in bounds)
+                intervals = _dictionary(extent.get("temporal")).get("interval")
+                if include and isinstance(intervals, list) and intervals and all(isinstance(i, list) and len(i) == 2 and all(v is None or _maxar_timestamp(v) for v in i) for i in intervals):
+                    include = any((i[0] is None or _maxar_timestamp(i[0]) <= end) and (i[1] is None or _maxar_timestamp(i[1]) >= start) for i in intervals)
+                if include and not inherited_release and query.collections and self.id not in query.collections and release not in query.collections:
+                    include = False
+            if kind == "Feature":
+                at = _maxar_timestamp(_dictionary(data.get("properties")).get("datetime"))
+                if not at or not isinstance(data.get("id"), str) or not data["id"] or not _maxar_boxes(data.get("bbox")):
+                    skipped += 1
+                elif start <= at <= end and _maxar_overlaps(data["bbox"], boxes):
+                    prepared = deepcopy(data)
+                    prepared["collection"] = data.get("collection") or release or self.id
+                    prepared["properties"]["datetime"] = at
+                    if license_id:
+                        prepared["properties"]["license"] = license_id
+                    for asset in _dictionary(prepared.get("assets")).values():
+                        if isinstance(asset, dict) and isinstance(asset.get("href"), str):
+                            asset["href"] = urljoin(href, asset["href"])
+                    links = prepared.get("links") if isinstance(prepared.get("links"), list) else []
+                    for link in links:
+                        if isinstance(link, dict) and isinstance(link.get("href"), str):
+                            link["href"] = urljoin(href, link["href"])
+                    prepared["links"] = [{"rel": "self", "href": href}] + ([{"rel": "license", "href": "https://creativecommons.org/licenses/by-nc/4.0/"}] if license_id == "CC-BY-NC-4.0" else []) + links
+                    scene = replace(_normalized_scene(prepared, self.id, boxes), raw=data)
+                    key = (scene.collection, scene.id)
+                    if key not in seen:
+                        seen.add(key)
+                        items.append(scene)
+            elif include:
+                links = data.get("links")
+                if not isinstance(links, list) or len(links) > 10000:
+                    raise SatelliteError("INVALID_RESPONSE", "Invalid static catalogue links", self.id)
+                children = [link for link in links if isinstance(link, dict) and link.get("rel") in ("child", "item")]
+                queued = []
+                for link in children:
+                    if not isinstance(link.get("href"), str):
+                        raise SatelliteError("INVALID_RESPONSE", "Static catalogue link lacks a URL", self.id)
+                    url = urljoin(href, link["href"])
+                    parts = urlsplit(url)
+                    if (_port_or_default(parts) != self._origin or not parts.path.startswith(self._directory)
+                            or parts.username or parts.password or parts.query or parts.fragment):
+                        raise SatelliteError("UNSAFE_NEXT_LINK", "Static catalogue cannot leave root directory/origin", self.id)
+                    if url not in scheduled:
+                        scheduled.add(url)
+                        queued.append((url, release, license_id))
+                    if len(scheduled) > 100000:
+                        raise SatelliteError("INVALID_RESPONSE", "Static catalogue has too many links", self.id)
+                pending.extend(reversed(queued))
+            if len(items) >= query.limit or page_documents >= 100 or not pending or documents == self.max_documents:
+                number += 1
+                yield SearchPage(self.id, tuple(items), number, bool(pending), None, skipped)
+                items, skipped, page_documents = [], 0, 0
 
 
 class EarthSearch(StacProvider):
@@ -909,6 +1077,19 @@ class PlanetaryComputer(StacProvider):
             id="planetary-computer",
             base_url="https://planetarycomputer.microsoft.com/api/stac/v1",
             collections=("sentinel-2-l2a", "landsat-c2-l2", "sentinel-1-rtc", "naip"),
+            transport=transport,
+            **kwargs,
+        )
+
+
+class InpeCbers(StacProvider):
+    """Brazil-focused CBERS-4A fused visual collection; preserve missing item metadata."""
+
+    def __init__(self, transport: Transport | None = None, **kwargs: Any):
+        super().__init__(
+            id="inpe-cbers",
+            base_url="https://data.inpe.br/bdc/stac/v1",
+            collections=("CB4A-WPM-PCA-FUSED-1",),
             transport=transport,
             **kwargs,
         )
@@ -973,13 +1154,20 @@ class SatelliteCatalog:
 
     def availability(self, query: SearchQuery, provider_ids: list[str] | None = None):
         from .availability import AvailabilityAccumulator
+        if provider_ids and any(i not in {p.id for p in self.providers} for i in provider_ids):
+            raise SatelliteError("UNSUPPORTED_PROVIDER", "Requested provider not configured")
         accumulator = AvailabilityAccumulator()
-        try:
-            for page in self.search(query, provider_ids):
-                accumulator.add_page(page)
-        except SatelliteError as exc:
-            # Keep partial counts and attribute the failure rather than discarding the scan.
-            accumulator.mark_error(exc.provider_id or "unknown")
+        for provider in self.providers:
+            if provider_ids is not None and provider.id not in provider_ids:
+                continue
+            accumulator.expect_provider(provider.id)
+            try:
+                for page in provider.search(query):
+                    accumulator.add_page(page)
+            except SatelliteError as exc:
+                if exc.code == "INVALID_QUERY":
+                    raise
+                accumulator.mark_error(provider.id)
         return accumulator.summary()
 
     def upcoming(self, query=None) -> list:

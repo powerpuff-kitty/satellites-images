@@ -7,22 +7,23 @@ import { test, expect } from "@playwright/test";
 test.skip(!process.env.LIVE, "opt-in: run with LIVE=1");
 
 test("live search returns scenes, a coverage rollup and no page errors", async ({ page }) => {
+  test.setTimeout(180_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
 
-  await page.goto("/");
-  await page.locator("#latitude").fill("-8.5833");
-  await page.locator("#longitude").fill("116.1167");
-  // One month keeps the live load small; the app fetches the whole window by default.
-  await page.locator("#date-from").fill("2025-05-01");
-  await page.locator("#date-to").fill("2025-05-31");
-  await page.locator("#date-to").dispatchEvent("change");
+  // A permalink performs one search through the same date control the user sees.
+  await page.goto("/?lat=-8.5833&lon=116.1167&radius=5000&date=2025-05-10");
+  await expect(page.locator("#date")).toHaveValue("2025-05-10");
+  const allDays = page.locator("#show-all-days");
+  await expect(allDays).toBeVisible({ timeout: 90_000 });
+  await allDays.click();
 
   await expect.poll(async () => page.locator("#results li").count(), { timeout: 90_000 })
     .toBeGreaterThan(0);
-  // Wait for the scan to settle: both default catalogues should report before we read the
+  // Wait for the scan to settle: default catalogues should report before we read the
   // rollup (the first page can land well before the second catalogue responds).
   await expect(page.locator("#coverage")).toContainText(/earth-search/, { timeout: 90_000 });
+  await expect(page.locator("#status")).toHaveText("", { timeout: 90_000 });
 
   const coverage = await page.locator("#coverage").textContent();
   const status = await page.locator("#status").textContent();
@@ -43,6 +44,7 @@ test("live search returns scenes, a coverage rollup and no page errors", async (
   await page.locator("#draw-area").click();
   await expect.poll(async () => page.locator("#results li").count(), { timeout: 90_000 })
     .toBeGreaterThan(0);
+  await expect(page.locator("#status")).toHaveText("", { timeout: 90_000 });
   console.log("   area:", await page.locator("#coverage").textContent());
 
   expect(errors).toEqual([]);

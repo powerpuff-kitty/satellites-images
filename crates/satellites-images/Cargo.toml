@@ -2,13 +2,16 @@
 name = "satellites-images"
 version = "0.3.0"
 edition = "2021"
-rust-version = "1.82"
+rust-version = "1.88"
 description = "Asynchronous STAC satellite imagery metadata discovery and availability client"
 license = "MIT"
 repository = "https://github.com/powerpuff-kitty/satellites-images"
 readme = "README.md"
 keywords = ["satellite", "imagery", "stac", "earth-observation"]
 categories = ["api-bindings", "science"]
+# These integration tests read canonical workspace fixtures. The release checker
+# runs shared conformance against the packaged crate from a separate consumer project.
+exclude = ["tests/conformance.rs", "tests/inpe.rs"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

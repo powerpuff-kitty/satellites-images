@@ -1,4 +1,9 @@
 import registry from "./sources.json" with { type: "json" };
+import { acquisitionTimestamp } from "./datetime.js";
+import { SatelliteError } from "./errors.js";
+import { readTextBounded } from "./transport.js";
+import { AvailabilityAccumulator } from "./availability.js";
+export { SatelliteError } from "./errors.js";
 
 export type BoundingBox = [number, number, number, number];
 export type Position = [number, number];
@@ -59,6 +64,7 @@ export interface SearchPage {
   providerId: string;
   items: Scene[];
   pageNumber: number;
+  /** More results are advertised or may have been omitted by a bounded result cap. */
   hasNext: boolean;
   matched: number | null;
   /** Count of provider items skipped in this page because they failed normalization. */
@@ -77,6 +83,8 @@ export interface AcquisitionOpportunity {
   orbitRelative?: number | null;
 }
 export interface SourceRecord {
+  /** Registry vocabulary: commercial, public or mixed; separate from imagery access. */
+  operatorType?: string;
   id: string;
   name: string;
   type: string;
@@ -90,13 +98,6 @@ export interface SourceRecord {
   notes: string;
 }
 
-export class SatelliteError extends Error {
-  constructor(public readonly code: string, message: string, public readonly providerId?: string) {
-    super(message);
-    this.name = "SatelliteError";
-  }
-}
-
 export function listSources(): SourceRecord[] {
   return registry.sources.map((source) => ({ ...source, implemented: { ...source.implemented }, collections: [...source.collections] }));
 }
@@ -106,6 +107,33 @@ function checkDate(value: string, label: string): void {
       new Date(value).toISOString().slice(0, 10) !== value) {
     throw new SatelliteError("INVALID_QUERY", label + " must be a valid YYYY-MM-DD date");
   }
+}
+
+function validateQuery(query: SearchQuery): number {
+  checkDate(query.from, "from");
+  checkDate(query.to, "to");
+  if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
+  if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
+    throw new SatelliteError("INVALID_QUERY", "limit must be an integer between 1 and 100");
+  }
+  const maxPages = query.maxPages ?? 3;
+  if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 50) {
+    throw new SatelliteError("INVALID_QUERY", "maxPages must be between 1 and 50");
+  }
+  return maxPages;
+}
+
+function sceneKey(scene: Scene): string {
+  return JSON.stringify([scene.collection, scene.id]);
+}
+
+function uniqueScenes(scenes: Scene[], seen: Set<string>): Scene[] {
+  return scenes.filter(scene => {
+    const key = sceneKey(scene);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function isPosition(value: unknown): value is Position {
@@ -252,12 +280,7 @@ export function coveragePercent(sceneBbox: number[] | null, boxes: BoundingBox[]
 }
 
 function makeBody(query: SearchQuery, defaults: string[], box: BoundingBox, polygon: AoiGeometry | null): Record<string, unknown> {
-  checkDate(query.from, "from");
-  checkDate(query.to, "to");
-  if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
-  if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
-    throw new SatelliteError("INVALID_QUERY", "limit must be an integer between 1 and 100");
-  }
+  validateQuery(query);
   const collections = query.collections ?? defaults;
   if (!collections.length || collections.some((x) => typeof x !== "string" || !x.trim())) {
     throw new SatelliteError("INVALID_QUERY", "Provide at least one collection");
@@ -280,29 +303,10 @@ function object(value: unknown): Record<string, unknown> {
 function stringOrNull(value: unknown): string | null {
   return typeof value === "string" && value.length ? value : null;
 }
-const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const MAX_RESPONSE_BYTES = 32 * 1024 * 1024;
 /** Read a JSON body with a byte ceiling, so a hostile/oversized response cannot exhaust memory. */
 async function readJsonBounded(response: Response, providerId: string): Promise<unknown> {
-  if (!response.body) {
-    try { return await response.json(); }
-    catch { throw new SatelliteError("INVALID_RESPONSE", "Provider response was not valid JSON", providerId); }
-  }
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  let text = "";
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > MAX_RESPONSE_BYTES) {
-      await reader.cancel();
-      throw new SatelliteError("INVALID_RESPONSE", "Provider response exceeds size limit", providerId);
-    }
-    text += decoder.decode(value, { stream: true });
-  }
-  text += decoder.decode();
+  const text = await readTextBounded(response, MAX_RESPONSE_BYTES, providerId);
   try { return JSON.parse(text); }
   catch { throw new SatelliteError("INVALID_RESPONSE", "Provider response was not valid JSON", providerId); }
 }
@@ -353,8 +357,9 @@ const PROVIDER_ACCESS_OVERRIDES: Readonly<Record<string, ImageAccess>> = {
  * stays `unknown` until the SDK can verify that specific asset.
  */
 export function declaredImageryAccess(providerId: string, collection?: string | null): ImageAccess {
-  const override = COLLECTION_ACCESS_OVERRIDES[providerId + ":" + (collection ?? "")]
-    ?? PROVIDER_ACCESS_OVERRIDES[providerId];
+  const key = providerId + ":" + (collection ?? "");
+  const override = (Object.hasOwn(COLLECTION_ACCESS_OVERRIDES, key) ? COLLECTION_ACCESS_OVERRIDES[key] : undefined)
+    ?? (Object.hasOwn(PROVIDER_ACCESS_OVERRIDES, providerId) ? PROVIDER_ACCESS_OVERRIDES[providerId] : undefined);
   if (override) return override;
   const source = registry.sources.find((entry) => entry.id === providerId.split(":")[0]);
   return (source ? IMAGERY_ACCESS_CLASS[source.imageryAccess] : undefined) ?? "unknown";
@@ -363,8 +368,8 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
   const raw = object(item);
   const properties = object(raw.properties);
   const id = stringOrNull(raw.id);
-  const date = stringOrNull(properties.datetime) ?? stringOrNull(properties.start_datetime);
-  if (!id || !date || Number.isNaN(Date.parse(date))) {
+  const date = acquisitionTimestamp(properties.datetime ?? properties.start_datetime);
+  if (!id || !date) {
     throw new SatelliteError("INVALID_RESPONSE", "STAC item lacks a valid id or acquisition time", providerId);
   }
   const assets = Object.entries(object(raw.assets)).flatMap(([key, value]): SceneAsset[] => {
@@ -395,7 +400,7 @@ function normalise(item: unknown, providerId: string, boxes: BoundingBox[]): Sce
     providerId,
     id,
     collection: stringOrNull(raw.collection) ?? "",
-    acquiredAt: new Date(date).toISOString(),
+    acquiredAt: date,
     mission: stringOrNull(properties.platform),
     geometry: Object.keys(geometry).length ? geometry : null,
     bbox,
@@ -457,12 +462,7 @@ export class StacProvider {
   }
 
   async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
-    const maxPages = query.maxPages ?? 3;
-    if (!Number.isInteger(maxPages) || maxPages < 1 || maxPages > 50) {
-      throw new SatelliteError("INVALID_QUERY", "maxPages must be between 1 and 50");
-    }
-    checkDate(query.from, "from");
-    checkDate(query.to, "to");
+    const maxPages = validateQuery(query);
     const { boxes, polygon } = resolveAreas(query);
     // One request suffices when filtering by polygon: the geometry already constrains the
     // result, so iterating the split boxes would only repeat it.
@@ -500,6 +500,7 @@ export class StacProvider {
               ? retryAfter * 1000
               : this.retryBaseDelayMs * Math.pow(2, attempt);
             const delay = Math.min(requested, MAX_RETRY_DELAY_MS);
+            await response.body?.cancel();
             await sleepWithSignal(delay, query.signal);
             response = await this.fetchImpl(href, {
               method,
@@ -534,8 +535,9 @@ export class StacProvider {
           let scene: Scene;
           try { scene = normalise(feature, this.id, boxes); }
           catch { skipped += 1; continue; }
-          if (seen.has(scene.id)) continue;
-          seen.add(scene.id);
+          const key = sceneKey(scene);
+          if (seen.has(key)) continue;
+          seen.add(key);
           scenes.push(scene);
         }
         boxPages += 1;
@@ -576,6 +578,15 @@ export function planetaryComputer(fetchImpl?: typeof fetch): StacProvider {
     collections:["sentinel-2-l2a","landsat-c2-l2","sentinel-1-rtc","naip"], fetchImpl,
   });
 }
+/** INPE's Brazil-focused CBERS-4A 2 m fused visual collection (CC BY 4.0).
+ * Items may omit platform/gsd and provide day-level timestamps; preserve those unknowns.
+ */
+export function inpeCbers(fetchImpl?: typeof fetch): StacProvider {
+  return new StacProvider({
+    id:"inpe-cbers", baseUrl:"https://data.inpe.br/bdc/stac/v1",
+    collections:["CB4A-WPM-PCA-FUSED-1"], fetchImpl,
+  });
+}
 /** Copernicus Data Space Ecosystem STAC (anonymous metadata; assets are account-gated). */
 export function copernicusDataSpace(fetchImpl?: typeof fetch): StacProvider {
   return new StacProvider({
@@ -608,8 +619,8 @@ export function normalizeAsfFeature(item: unknown, providerId = "asf-vertex"): S
   const raw = object(item);
   const properties = object(raw.properties);
   const id = stringOrNull(properties.granuleName) ?? stringOrNull(properties.sceneName) ?? stringOrNull(raw.id);
-  const date = stringOrNull(properties.startTime) ?? stringOrNull(properties.stopTime);
-  if (!id || !date || Number.isNaN(Date.parse(date))) {
+  const date = acquisitionTimestamp(properties.startTime ?? properties.stopTime);
+  if (!id || !date) {
     throw new SatelliteError("INVALID_RESPONSE", "ASF feature lacks a valid granule name or start time", providerId);
   }
   const browse = Array.isArray(properties.browse) ? properties.browse.filter((x): x is string => typeof x === "string") : [];
@@ -622,7 +633,7 @@ export function normalizeAsfFeature(item: unknown, providerId = "asf-vertex"): S
     providerId,
     id,
     collection: stringOrNull(properties.processingLevel) ?? "asf",
-    acquiredAt: new Date(date).toISOString(),
+    acquiredAt: date,
     mission: stringOrNull(properties.platform),
     geometry: Object.keys(geometry).length ? geometry : null,
     bbox: null,
@@ -662,15 +673,11 @@ export class AsfProvider {
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
   async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
-    checkDate(query.from, "from");
-    checkDate(query.to, "to");
-    if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
-    if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
-      throw new SatelliteError("INVALID_QUERY", "limit must be an integer between 1 and 100");
-    }
+    validateQuery(query);
     const { boxes } = resolveAreas(query);
     const seen = new Set<string>();
     let pageNumber = 0;
+    let truncated = false;
     for (const box of boxes) {
       const params = new URLSearchParams({
         platform: this.platforms.join(","),
@@ -695,10 +702,12 @@ export class AsfProvider {
       const data = await readJsonBounded(response, this.id);
       const features = asfFeatures(data);
       if (features.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "ASF page exceeds the 10000-feature limit", this.id);
-      const scenes = features.map((feature) => normalizeAsfFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
-      scenes.forEach((scene) => seen.add(scene.id));
+      const scenes = uniqueScenes(features.map((feature) => normalizeAsfFeature(feature, this.id)), seen);
       pageNumber += 1;
-      yield { providerId:this.id, items:scenes, pageNumber, hasNext:false, matched:scenes.length };
+      // maxResults is a cap, not an estimate of the complete catalogue count.
+      truncated ||= features.length >= (query.limit ?? 50);
+      yield { providerId:this.id, items:scenes, pageNumber,
+        hasNext:truncated, matched:null };
     }
   }
 }
@@ -715,8 +724,8 @@ export function normalizeJaxaFeature(item: unknown, providerId = "jaxa-gportal")
   const gpp = object(properties.gpp);
   const id = stringOrNull(properties.identifier);
   // beginPosition is the real observation start, distinct from processingDate (indexing date).
-  const date = stringOrNull(properties.beginPosition) ?? stringOrNull(properties.endPosition);
-  if (!id || !date || Number.isNaN(Date.parse(date))) {
+  const date = acquisitionTimestamp(properties.beginPosition ?? properties.endPosition);
+  if (!id || !date) {
     throw new SatelliteError("INVALID_RESPONSE", "JAXA feature lacks an identifier or begin position", providerId);
   }
   const browse = Array.isArray(properties.browse)
@@ -732,11 +741,11 @@ export function normalizeJaxaFeature(item: unknown, providerId = "jaxa-gportal")
   return {
     providerId, id,
     collection: stringOrNull(properties.platformShortName) ?? "jaxa",
-    acquiredAt: new Date(date).toISOString(),
+    acquiredAt: date,
     mission: stringOrNull(properties.platformShortName),
     geometry: Object.keys(geometry).length ? geometry : null,
     bbox: null,
-    cloudCoverPercent: cloud,
+    cloudCoverPercent: cloud !== null && cloud >= 0 && cloud <= 100 ? cloud : null,
     gsdMeters: null,
     coveragePercent: null,
     previewUrl: browse.length ? String(browse[0].fileName) : null,
@@ -782,12 +791,11 @@ export class JaxaProvider {
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
   async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
-    checkDate(query.from, "from");
-    checkDate(query.to, "to");
-    if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
+    validateQuery(query);
     const { boxes } = resolveAreas(query);
     const seen = new Set<string>();
     let pageNumber = 0;
+    let truncated = false;
     for (const box of boxes) {
       const params = new URLSearchParams({
         service: "CSW", version: "3.0.0", request: "GetRecords", outputFormat: "application/json",
@@ -812,11 +820,14 @@ export class JaxaProvider {
       const page = object(data);
       if (!Array.isArray(page.features)) throw new SatelliteError("INVALID_RESPONSE", "JAXA response lacks a features array", this.id);
       if (page.features.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "JAXA page exceeds the 10000-feature limit", this.id);
-      const scenes = page.features.map((feature) => normalizeJaxaFeature(feature, this.id)).filter((scene) => !seen.has(scene.id));
-      scenes.forEach((scene) => seen.add(scene.id));
+      const scenes = uniqueScenes(page.features.map((feature) => normalizeJaxaFeature(feature, this.id)), seen);
       pageNumber += 1;
       const matched = object(page.properties).numberOfRecordsMatched;
-      yield { providerId:this.id, items:scenes, pageNumber, hasNext:false, matched: typeof matched === "number" ? matched : null };
+      const total = typeof matched === "number" && Number.isInteger(matched) && matched >= 0 ? matched : null;
+      truncated ||= total === null ? page.features.length >= this.count : total > page.features.length;
+      yield { providerId:this.id, items:scenes, pageNumber,
+        hasNext:truncated,
+        matched:total };
     }
   }
 }
@@ -848,8 +859,8 @@ function geoJsonGeometry(value: unknown): Record<string, unknown> | null {
 export function normalizeOamRecord(record: unknown, providerId = "open-aerial-map", boxes: BoundingBox[] = []): Scene {
   const raw = object(record);
   const id = stringOrNull(raw["_id"]);
-  const date = stringOrNull(raw.acquisition_start) ?? stringOrNull(raw.acquisition_end);
-  if (!id || !date || Number.isNaN(Date.parse(date))) {
+  const date = acquisitionTimestamp(raw.acquisition_start ?? raw.acquisition_end);
+  if (!id || !date) {
     throw new SatelliteError("INVALID_RESPONSE", "OpenAerialMap record lacks an id or acquisition time", providerId);
   }
   const assets: SceneAsset[] = [];
@@ -868,7 +879,7 @@ export function normalizeOamRecord(record: unknown, providerId = "open-aerial-ma
     providerId,
     id,
     collection: "openaerialmap",
-    acquiredAt: new Date(date).toISOString(),
+    acquiredAt: date,
     mission: stringOrNull(raw.platform) ?? "openaerialmap",
     geometry,
     bbox,
@@ -907,15 +918,14 @@ export class OamProvider {
     this.fetchImpl = options.fetchImpl ?? ((input, init) => fetch(input, init));
   }
   async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
-    checkDate(query.from, "from");
-    checkDate(query.to, "to");
-    if (query.from > query.to) throw new SatelliteError("INVALID_QUERY", "from must be <= to");
+    const maxPages = validateQuery(query);
     const { boxes } = resolveAreas(query);
     const limit = Math.min(this.limit, query.limit ?? this.limit);
     const seen = new Set<string>();
     let pageNumber = 0;
-    for (const box of boxes) {
-      for (let page = 1; ; page += 1) {
+    let truncatedEarlier = false;
+    for (const [boxIndex, box] of boxes.entries()) {
+      for (let page = 1; page <= maxPages; page += 1) {
         const params = new URLSearchParams({
           bbox: box.map((value) => value.toFixed(6)).join(","),
           acquisition_from: query.from,
@@ -936,17 +946,18 @@ export class OamProvider {
         }
         if (!response.ok) throw new SatelliteError("HTTP_ERROR", "OpenAerialMap returned HTTP " + response.status, this.id);
         const data = object(await readJsonBounded(response, this.id));
-        const results = Array.isArray(data.results) ? data.results : [];
+        if (!Array.isArray(data.results)) throw new SatelliteError("INVALID_RESPONSE", "OpenAerialMap response lacks a results array", this.id);
+        const results = data.results;
         if (results.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "OpenAerialMap page exceeds the 10000-record limit", this.id);
-        const scenes = results.map((record) => normalizeOamRecord(record, this.id, boxes))
-          .filter((scene) => !seen.has(scene.id));
-        scenes.forEach((scene) => seen.add(scene.id));
+        const scenes = uniqueScenes(results.map((record) => normalizeOamRecord(record, this.id, boxes)), seen);
         const found = object(data.meta).found;
-        const matched = typeof found === "number" && Number.isFinite(found) ? found : null;
+        const matched = typeof found === "number" && Number.isInteger(found) && found >= 0 ? found : null;
         pageNumber += 1;
         const hasNext = results.length === limit && (matched === null || page * limit < matched);
-        yield { providerId:this.id, items:scenes, pageNumber, hasNext, matched };
+        yield { providerId:this.id, items:scenes, pageNumber,
+          hasNext:hasNext || (boxIndex === boxes.length - 1 && truncatedEarlier), matched };
         if (!hasNext) break;
+        if (page === maxPages) truncatedEarlier = true;
       }
     }
   }
@@ -987,14 +998,21 @@ export class SatelliteCatalog {
     }
   }
   async availability(query: SearchQuery, providerIds?: string[]): Promise<import("./availability.js").AvailabilitySummary> {
-    const { AvailabilityAccumulator } = await import("./availability.js");
+    validateQuery(query);
+    resolveAreas(query);
+    if (providerIds?.some(id => !this.providers.some(provider => provider.id === id))) {
+      throw new SatelliteError("UNSUPPORTED_PROVIDER", "Requested provider not configured");
+    }
     const accumulator=new AvailabilityAccumulator();
-    try {
-      for await (const page of this.search(query,providerIds)) accumulator.addPage(page);
-    } catch (error) {
-      // Keep partial counts and attribute the failure rather than discarding the whole scan.
-      const providerId = error instanceof SatelliteError ? error.providerId : undefined;
-      accumulator.markError(providerId ?? "unknown");
+    for (const provider of this.providers) {
+      if (providerIds && !providerIds.includes(provider.id)) continue;
+      accumulator.expectProvider(provider.id);
+      try {
+        for await (const page of provider.search(query)) accumulator.addPage(page);
+      } catch (error) {
+        if (error instanceof SatelliteError && error.code === "INVALID_QUERY") throw error;
+        accumulator.markError(provider.id);
+      }
     }
     return accumulator.summary();
   }
@@ -1012,4 +1030,121 @@ export class SatelliteCatalog {
     }
     return results.sort((a,b) => a.expectedAt.localeCompare(b.expectedAt));
   }
+}
+
+export interface MaxarOpenDataOptions {
+  /** Static STAC root; override for a mirror or fixture. */
+  catalogUrl?: string;
+  fetchImpl?: typeof fetch;
+  /** Total metadata documents per search, 1..10000. Default 2000. */
+  maxDocuments?: number;
+}
+const MAXAR_CATALOG = "https://maxar-opendata.s3.amazonaws.com/events/catalog.json";
+function maxarTimestamp(value: unknown): string | null {
+  return typeof value === "string" ? acquisitionTimestamp(value.replace(" ", "T")) : null;
+}
+function maxarBoxes(value: unknown): BoundingBox[] {
+  if (!Array.isArray(value) || value.length !== 4 || !value.every(v => typeof v === "number" && Number.isFinite(v))) return [];
+  const [w,s,e,n] = value as BoundingBox;
+  if (w < -180 || w > 180 || e < -180 || e > 180 || s < -90 || n > 90 || s > n) return [];
+  return w <= e ? [[w,s,e,n]] : [[w,s,180,n],[-180,s,e,n]];
+}
+function maxarOverlaps(value: unknown, boxes: BoundingBox[]): boolean {
+  return maxarBoxes(value).some(a => boxes.some(b => a[0] <= b[2] && a[2] >= b[0] && a[1] <= b[3] && a[3] >= b[1]));
+}
+/** Bounded discovery of Maxar's selected public releases; never fetches imagery. */
+export class MaxarOpenDataProvider implements SearchProvider {
+  readonly id = "maxar-open-data";
+  private readonly root: URL;
+  private readonly fetchImpl: typeof fetch;
+  private readonly maxDocuments: number;
+  constructor(options: MaxarOpenDataOptions = {}) {
+    try { this.root = new URL(options.catalogUrl ?? MAXAR_CATALOG); }
+    catch { throw new SatelliteError("INVALID_PROVIDER", "Invalid Maxar catalogue URL", this.id); }
+    if ((this.root.protocol !== "https:" && !(this.root.protocol === "http:" && ["localhost","127.0.0.1"].includes(this.root.hostname))) ||
+        this.root.username || this.root.password || this.root.search || this.root.hash)
+      throw new SatelliteError("INVALID_PROVIDER", "Maxar catalogue must use HTTPS without credentials/query/fragment", this.id);
+    this.fetchImpl = options.fetchImpl ?? ((input,init) => fetch(input,init));
+    this.maxDocuments = options.maxDocuments ?? 2000;
+    if (!Number.isInteger(this.maxDocuments) || this.maxDocuments < 1 || this.maxDocuments > 10000)
+      throw new SatelliteError("INVALID_PROVIDER", "maxDocuments must be 1..10000", this.id);
+  }
+  async *search(query: SearchQuery): AsyncGenerator<SearchPage> {
+    const maxPages = validateQuery(query), { boxes } = resolveAreas(query);
+    const limit = query.limit ?? 50;
+    const from = query.from + "T00:00:00.000Z", until = query.to + "T23:59:59.999Z";
+    const directory = new URL(".", this.root).pathname;
+    type Node = { href: string; release: string | null; license: string | null };
+    const pending: Node[] = [{ href: this.root.href, release: null, license: null }];
+    const scheduled = new Set([this.root.href]), seen = new Set<string>();
+    let documents = 0, pageDocuments = 0, pageNumber = 0, skipped = 0;
+    let items: Scene[] = [];
+    while (pending.length && documents < this.maxDocuments && pageNumber < maxPages) {
+      if (query.signal?.aborted) throw new SatelliteError("ABORTED", "Maxar search aborted", this.id);
+      const node = pending.pop()!;
+      const signal = query.signal ? AbortSignal.any([query.signal,AbortSignal.timeout(20000)]) : AbortSignal.timeout(20000);
+      let response: Response;
+      try { response = await this.fetchImpl(node.href, { method:"GET", headers:{Accept:"application/json"}, redirect:"error", credentials:"omit", signal }); }
+      catch (error) { throw new SatelliteError(signal.aborted ? "ABORTED" : "NETWORK", "Maxar metadata request failed: " + String(error), this.id); }
+      if (!response.ok) { await response.body?.cancel(); throw new SatelliteError("HTTP_ERROR", "Maxar catalogue returned HTTP " + response.status, this.id); }
+      const data = object(await readJsonBounded(response,this.id));
+      documents++; pageDocuments++;
+      const type = data.type;
+      if (!["Catalog","Collection","Feature"].includes(String(type)))
+        throw new SatelliteError("INVALID_RESPONSE", "Unsupported static STAC document", this.id);
+      const release = node.release ?? (type === "Collection" ? stringOrNull(data.id) : null);
+      const license = stringOrNull(data.license) ?? node.license;
+      let include = true;
+      if (type === "Collection") {
+        const extent = object(data.extent);
+        const bounds = object(extent.spatial).bbox;
+        if (Array.isArray(bounds) && bounds.length && bounds.every(box => maxarBoxes(box).length))
+          include = bounds.some(box => maxarOverlaps(box,boxes));
+        const intervals = object(extent.temporal).interval;
+        if (include && Array.isArray(intervals) && intervals.length && intervals.every(interval => Array.isArray(interval) && interval.length === 2 &&
+            interval.every(value => value === null || maxarTimestamp(value))))
+          include = intervals.some(interval => (!interval[0] || maxarTimestamp(interval[0])! <= until) && (!interval[1] || maxarTimestamp(interval[1])! >= from));
+        if (include && !node.release && query.collections?.length && !query.collections.includes(this.id) && !query.collections.includes(release ?? "")) include = false;
+      }
+      if (type === "Feature") {
+        const at = maxarTimestamp(object(data.properties).datetime);
+        if (!at || !stringOrNull(data.id) || !maxarBoxes(data.bbox).length) skipped++;
+        else if (at >= from && at <= until && maxarOverlaps(data.bbox,boxes)) {
+          const prepared = { ...data, collection: stringOrNull(data.collection) ?? release ?? this.id,
+            properties:{ ...object(data.properties),datetime:at, ...(license ? {license} : {}) },
+            assets:Object.fromEntries(Object.entries(object(data.assets)).map(([key,value]) => {
+              const asset = object(value);
+              return [key,{ ...asset,href:typeof asset.href === "string" ? new URL(asset.href,node.href).href : asset.href }];
+            })),
+            links:[{rel:"self",href:node.href}, ...(license === "CC-BY-NC-4.0" ? [{rel:"license",href:"https://creativecommons.org/licenses/by-nc/4.0/"}] : []),
+              ...(Array.isArray(data.links) ? data.links.map(link => { const record=object(link); return {...record,href:typeof record.href === "string" ? new URL(record.href,node.href).href : record.href}; }) : [])],
+          };
+          const scene = { ...normalise(prepared,this.id,boxes),raw:data };
+          const key = sceneKey(scene);
+          if (!seen.has(key)) { seen.add(key); items.push(scene); }
+        }
+      } else if (include) {
+        if (!Array.isArray(data.links) || data.links.length > 10000) throw new SatelliteError("INVALID_RESPONSE", "Invalid static catalogue links", this.id);
+        const children = data.links.map(object).filter(link => link.rel === "child" || link.rel === "item");
+        const queued: Node[] = [];
+        for (const link of children) {
+          if (typeof link.href !== "string") throw new SatelliteError("INVALID_RESPONSE", "Static catalogue link lacks a URL", this.id);
+          const href = new URL(link.href,node.href);
+          if (href.origin !== this.root.origin || !href.pathname.startsWith(directory) || href.username || href.password || href.search || href.hash)
+            throw new SatelliteError("UNSAFE_NEXT_LINK", "Static catalogue cannot leave its root directory/origin", this.id);
+          if (!scheduled.has(href.href)) { scheduled.add(href.href); queued.push({href:href.href,release,license}); }
+          if (scheduled.size > 100000) throw new SatelliteError("INVALID_RESPONSE", "Static catalogue has too many links", this.id);
+        }
+        pending.push(...queued.reverse());
+      }
+      if (items.length >= limit || pageDocuments >= 100 || !pending.length || documents === this.maxDocuments) {
+        pageNumber++;
+        yield {providerId:this.id,items,pageNumber,hasNext:pending.length > 0,matched:null,skipped};
+        items=[]; skipped=0; pageDocuments=0;
+      }
+    }
+  }
+}
+export function maxarOpenData(options: MaxarOpenDataOptions = {}): MaxarOpenDataProvider {
+  return new MaxarOpenDataProvider(options);
 }

@@ -21,12 +21,18 @@
 - [x] Resumable bounded historical catalogue paging (5-page batches; 50-page safety limit), and cancellation of stale searches
 - [x] Correct STAC POST next-link merge defaults across all three SDKs
 - [x] Browser E2E tests (Playwright) with fully offline fixtures in CI
+- [x] Shared cross-language conformance fixtures for requests, scenes and availability JSON, including unknown sources and dictionary keys
+- [x] Minimum/current runtime CI matrices, strict Rust formatting/Clippy, and isolated package acceptance with reviewable archives/checksums
+- [x] Public preview viewer, exact-product Copernicus OData fallback and paid-provider map links
+- [x] Product-identity grouping in the explorer with retained catalogue provenance
+
+- [x] Anonymous Maxar metadata-only searches in all SDKs and commercial-satellite filters in the explorer
+- [x] Removed preview-less Maxar explorer scans after full-year verification
 
 ## Next (not delivered)
 
-- [ ] Duplicate observation grouping across providers without losing provenance
+- [ ] Expand verified observation identity across additional providers and product families
 - [ ] Copernicus STAC authenticated download handling
-- [ ] Shared cross-language conformance fixtures for availability JSON serialization and unknown sources
 - [ ] Provider-specific pagination and summary optimization for multi-year queries
 - [ ] Optional browser-safe proxy for API keys and provider CORS limits
 - [ ] Public releases (npm, PyPI, crates.io) with ownership checks and trusted publishing (workflows staged; not yet run)

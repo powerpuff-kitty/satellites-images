@@ -5,23 +5,23 @@
 Three native language packages implement a small common scene-discovery contract and official ESA Sentinel-1/-2 KML acquisition plan parsing. No satellite orbit prediction or raster processing is shipped yet. All packages are usable independently and search directly against an external public STAC API.
 
 - TypeScript: browser/Node/Worker fetch transport and ESM library. Earth Search, Planetary Computer, Copernicus Data Space Ecosystem, USGS LandsatLook, NASA CMR-STAC, ASF SAR and JAXA G-Portal providers.
-- Python: standard-library urllib transport; Earth Search, Copernicus, USGS LandsatLook, CMR-STAC, ASF and JAXA.
-- Rust: serde + reqwest async transport; Earth Search, Copernicus, USGS LandsatLook, CMR-STAC, ASF and JAXA.
+- Python: standard-library urllib transport; Earth Search, Planetary Computer, Copernicus, USGS LandsatLook, CMR-STAC, ASF, JAXA and OpenAerialMap.
+- Rust: serde + reqwest async transport; Earth Search, Planetary Computer, Copernicus, USGS LandsatLook, CMR-STAC, ASF, JAXA and OpenAerialMap.
 - Shared: a versioned registry, normalized response schemas and recorded synthetic STAC fixtures.
 
 The *registry* is the canonical source of provider metadata. Run `npm run generate:registry` to copy it into package-local resources. The generator is deterministic and CI checks the outputs are committed.
 
 ## Semantics
 
-- A scene is a **published** STAC item. `acquiredAt` is sourced from `properties.datetime` (or fallback start datetime), never from indexing time.
+- A scene is a **published** catalogue item. `acquiredAt` is sourced from the observation timestamp (STAC `properties.datetime` or fallback start datetime), never from indexing time. Scene timestamps require a real RFC 3339 calendar date and an explicit timezone, and are normalized to UTC.
 - Assets are references. The presence of `href` never guarantees download permission.
 - Future `planned` / `predicted` acquisition opportunities have separate contracts. V0.2 returns actual ESA `planned` KML swaths where supported, never fabricated orbital `predicted` passes. Configure the ESA plan adapter explicitly and use its independent upcoming query.
 - The same physical observation can appear through multiple providers. Do not de-duplicate by approximate timestamps; preserve provider-native item identity.
 - Cloud cover is scene metadata, not guaranteed AOI cloud coverage.
 - Search is bounded and returns provider pages. A provider outage raises a typed failure rather than an empty success.
-- AOI may be a centre/radius circle or a GeoJSON `Polygon`/`MultiPolygon` (RFC 7946 lon/lat order). A radius is approximated as a geographic bbox. Antimeridian-crossing areas are **split** into two STAC-safe bounding boxes and the results are merged with per-provider `id` de-duplication; pole-containing areas use the full longitude range. A non-splitting polygon is additionally sent as STAC `intersects`. The page budget applies per box, so a split query can return up to two times `maxPages` pages.
+- AOI may be a centre/radius circle or a GeoJSON `Polygon`/`MultiPolygon` (RFC 7946 lon/lat order). A radius is approximated as a geographic bbox. Antimeridian-crossing areas are **split** into two STAC-safe bounding boxes and the results are merged with per-provider `(collection, id)` de-duplication; pole-containing areas use the full longitude range. A non-splitting polygon is additionally sent as STAC `intersects`. The page budget applies per box, so a split query can return up to two times `maxPages` pages.
 - Each scene carries an approximate `coveragePercent` (0-100) computed as bounding-box overlap with the requested area. It is a bbox heuristic, not an exact geometric intersection area.
-- `availabilitySummary` / `availability_summary` aggregates collected pages into UTC day and month counts, de-duplicated by provider-native item id with cross-provider provenance, and reports `complete=false` plus `truncatedProviders` when any page was truncated. It never asserts that absent days have no imagery.
+- Availability summaries aggregate collected pages into UTC day and month counts, de-duplicated by `(provider, collection, item id)`, and report `complete=false` when a provider is pending, failed or truncated. They never assert that absent days have no imagery. The catalogue availability convenience methods retain partial results and continue with the other providers after a failure.
 - STAC `next` links may specify HTTP GET or POST and JSON bodies; `merge` defaults to **false**, so a `next` POST body replaces the query unless it explicitly sets `merge: true`. Follow only same-origin HTTPS links for production endpoints to avoid SSRF and credential exfiltration.
 - Provider HTTP **redirects are refused (fail-closed)** in all three SDKs so a same-origin redirect cannot carry a request off-origin past the pagination guard. A legitimate provider redirect is therefore surfaced as an error; validate each provider's live behavior before relying on redirects.
 
@@ -33,13 +33,28 @@ Pixel downloads/reprojection, NDVI analysis, paywall purchases, predicted orbita
 
 Cross-language APIs follow their host-language conventions rather than trying to marshal Python/Rust through JavaScript. Shared JSON examples and schemas define the on-wire semantics. Tests are deterministic and never bill a commercial API.
 
+The canonical conformance fixture (`tests/fixtures/conformance/stac.json`) is checked
+by all three native suites and by consumers of the actual packaged artifacts.
+Python serialization converts dataclass field names while preserving dictionary
+keys and provider metadata. CI covers minimum/current runtimes, strict Rust
+formatting/Clippy, offline browser requests, and isolated package acceptance.
+`npm run check:packages` creates local candidates with digest manifests; it does
+not publish or tag releases. See `tools/release/README.md`.
+
+Minimum SDK runtimes are Node 20.19, Python 3.10 and Rust 1.88. Rust's minimum
+matches the committed dependency graph. Python caches its bundled registry and
+provider access lookup; `list_sources()` still returns detached mutable copies.
+Rust availability counting borrows scenes instead of cloning their raw metadata.
+TypeScript and Python availability counters keep bounded caches of 1,024 validated
+acquisition timestamps, so tiles sharing an observation do not repeatedly parse its date.
+
 ## Official future plans (V0.2)
 
 - Sentinel-1C/-1D and Sentinel-2A/-2B/-2C acquisition indices are sourced from ESA's current public plan pages, using official KML links.
 - One current (most recently starting) relevant plan is selected per satellite to prevent duplicates across superseded plans; this is a current-plan query, not a complete archive.
 - Parses `ObservationTimeStart`, `ObservationTimeStop`, swath polygon and optional relative orbit. ESA timestamps lacking a timezone are interpreted as UTC.
 - Only Sentinel-2 `NOMINAL` style datatakes are included; calibration/VIC/non-user acquisitions are excluded. It does not guarantee actual image products or optical cloud-free observations.
-- An upcoming query is anchored to the actual current UTC time and limited to 31 days; older dates aren't mislabeled future.
+- An upcoming query is anchored to the actual current UTC time and accepts 1–366 days (or an explicit window of at most 367 days); older dates aren't mislabeled future.
 - Per-datatake footprints are matched to a bounded rectangle around user GPS coordinates with polygon/edge intersection, not simply the centroid of a swath.
 - Each item includes the original plan URL and `status=planned`; no `status=published` image is generated from planning data.
 - KML/HTML responses have size ceilings, timeouts and allowlisted ESA hosts; provider outages raise errors.
@@ -61,14 +76,18 @@ The ESA plan adapters now keep a bounded in-memory cache per provider instance: 
 - All three SDKs now provide a `summarizeAvailability` / `summarize_availability` or Rust `summarize_availability` utility and convenience historical `availability()` method. The TypeScript `AvailabilityAccumulator` also supports incremental pages.
 - Days use the observation's **UTC acquisition date**; months aggregate actual scene counts and `daysWithObservations` / `days_with_observations`.
 - Counts are of unique STAC item identities within each provider, collection and native item ID. Items returned by multiple providers are **not** silently fused into a single observation; cross-provider physical deduplication requires stronger identity evidence.
-- `complete=true` means all next links provided by the queried catalogue(s) were exhausted within the search. It does *not* guarantee that any catalogue indexes every satellite scene in the world.
+- `complete=true` means all expected providers were scanned without errors or indicated truncation. It does *not* guarantee that any catalogue indexes every satellite scene in the world.
 - If the maximum page count is reached and another `next` link exists, `complete=false` and `truncatedProviders` identifies the affected provider. A missing day in partial results must not be presented as certain non-availability.
+- OpenAerialMap uses the same per-box page budget as STAC. ASF's `maxResults` and JAXA's `count` are bounded result caps, so a full response without evidence of exhaustion is marked partial. ASF does not expose a total through these responses: `matched` stays null. `hasNext` also represents possible truncation for capped adapters; it does not promise that they support a resumable next request.
+- Incremental callers can register not-yet-scanned providers with `expectProvider` / `expect_provider`. Recorded failures prevent completeness; malformed pages are rejected before changing counters.
 - STAC Item Search pagination `merge` defaults to `false`: the explicit `body` in a next link replaces the previous POST body unless `merge=true`. We test both forms. See https://docs.ogc.org/cs/25-005/25-005.html
 - The browser explorer loads the whole selected window up front in 5-page batches (75 scenes/page) up to the SDK's 50-page hard limit, rather than requerying already scanned pages.
 - A single date control drives the query: picking a date loads that date's whole calendar year and selects its day, so the day matrix always shows a year. The day matrix is the date-selection surface: one cell per UTC day across the loaded window, every in-window cell selectable by mouse or keyboard (days with no observations included) to filter the result cards. Cells are coloured by the chosen metric (observations, cloud, mission, provider, resolution, sensor, time of day, orbit) and narrowed by the quick filters. Results, footprints and counts update together.
 - URL links restore validated coordinates, radius, provider, the picked date (which loads its
   calendar year) and optionally the selected day; a link that names a scene also selects that
   scene's day, so the day filter cannot hide the image it points at. Only actual returned scene metadata is shown; scene previews are loaded from provider-provided URLs.
+- Maxar Open Data uses bounded static STAC traversal rather than an Item Search API; all SDKs prune collection extents and preserve ARD tile identity. The metadata-only adapter is not queried by the explorer after full-year checks found no browser previews. The explorer supports excluding commercial satellites returned by its connected catalogues.
+- Public preview discovery, exact-product matching, map alignment, paid-provider map links and dated endpoint observations are documented in [PUBLIC_PREVIEWS.md](PUBLIC_PREVIEWS.md).
 - Browser searches are cancelable between user interactions, and an abandoned search cannot overwrite the currently selected location's results.
 - `Scene.access` records the access class the provider declares for that collection, derived from `imageryAccess` in the shared registry plus verified per-collection refinements (`declaredImageryAccess`). It is a statement about the published catalogue, not a licence or a guarantee. Per-asset `SceneAsset.access` stays `unknown`: an individual href can be expired, signed or gone (a signed URL may be anonymous, as at Planetary Computer, or credential-bound), so asset-level entitlement is never assumed.
 

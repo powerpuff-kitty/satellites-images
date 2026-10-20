@@ -1,0 +1,2 @@
+{"language": "python", "boxes": [[-180.0, 0, -1, 12], [1, 0, 180.0, 12]], "requestedInteriorPoint": [0, 0.5], "boxesCoverRequestedPoint": false}
+{"language": "python", "requestedDatetime": "2025-01-01T00:00:00Z/2025-01-01T23:59:59Z", "omittedTimestamp": "2025-01-01T23:59:59.500Z", "items": 0, "complete": true}
