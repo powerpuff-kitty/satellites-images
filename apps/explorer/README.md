@@ -174,17 +174,17 @@ matrix to load another year. Cloud cover is scene-wide metadata, not per-AOI.
 
 ## Shared interface
 
-The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.7.0`. Its shared header,
-footer, Geist fonts and 2400px page frame match the other TCSN apps. The satellite theme
-uses orbital navy `#102A43` on pale sky `#EDF4F7` as its two authored interface colours.
+The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.8.0`. Its shared header,
+Geist fonts and 2400px page frame match the other TCSN apps. The satellite theme
+uses pale sky `#EDF4F7` on orbital navy `#102A43` through the shared inverse theme.
 Map imagery, basemap styling, footprints and scientific calendar colour scales retain their
-data colours; map/provider attribution stays visible beside the map.
+data colours; map/provider attribution is available in the sidebar disclosure.
 
 Inputs, checkboxes, buttons, tabs, native preview buttons and all visible dropdowns use
 shared primitives. The hidden native selects remain the form/value bridge for existing
 catalogue/filter state. The extra calendar metrics use that same dropdown rather than a
-separate menu. Scene, source and acquisition metadata use shared description lists; the
-existing details panels, empty/recovery states and labelled scroll regions use shared
+separate menu. Scene and acquisition metadata use shared description lists;
+empty/recovery states and labelled scroll regions use shared
 patterns. Persistent task status and indeterminate progress follow actual catalogue/ESA
 requests; unknown scan totals are never shown as invented percentages. Cancellation is
 not advertised for tasks without a user-facing cancel action.
@@ -195,9 +195,11 @@ CDN, browser kit or icon web font is loaded. Native date-picker popup internals 
 browser-owned. Icon attribution is in `public/THIRD_PARTY_NOTICES.txt`; the bundled Geist
 font license is `public/licenses/Geist-OFL.txt`.
 
-The footer contains © YEAR TCSN, Contact and the common cup support button. Portfolio
-links/socials and Fireflies remain exclusive to tcsn.io. Support validation checks the
-existing destination without opening checkout.
+Contact and the common **Buy me a hot chocolate** button align right in the header.
+© YEAR TCSN sits at the end of the left sidebar; there is no page footer or Source code
+link. This is an owner-requested layout exception to the shared full-footer shell.
+Portfolio links/socials and Fireflies remain exclusive to tcsn.io. Support validation
+checks the existing destination without opening checkout.
 
 Run `npm run design:check` for the deterministic dependency/style guard. The mocked E2E
 suite covers shared shell/control geometry and colour roles at 320/390/768/1280/1440px,
@@ -213,3 +215,18 @@ the MapLibre worker remains an explicit asset. npm registry scope mappings are c
 registry credentials belong only in per-user npm configuration. The private design package
 requires `read:packages` access. Native TypeScript/Python/Rust SDK contracts and package
 versions are independent of this UI adoption.
+
+The public canonical origin is `https://satellite.tcsn.io/`; existing GitHub Pages
+URLs are legacy hosting locations. This is canonical metadata policy, not a DNS
+or hosting deployment. Coordinate/filter/scene query states canonicalize to the
+root explorer rather than publishing an unbounded scene URL sitemap. The static
+robots and sitemap name that authoritative origin.
+
+The response HTML includes a canonical shared header, sidebar copyright, labelled
+`sm` controls and a data/methods/provenance overview before JavaScript runs.
+Native selects remain styled fallbacks when JavaScript is unavailable; enhancement
+replaces visible selects with shared dropdowns. Interactive search, maps and
+previews still require JavaScript. Default control density is `sm` (32px/14px);
+support remains the fixed shared `sm` component. The no-JavaScript browser checks
+verify the two theme colours, local Geist typography, initial controls, canonical
+metadata and useful public explanation at 390px and 1440px.

@@ -119,30 +119,22 @@ test("the built app serves the maplibre worker as javascript", async ({ page }) 
   expect(errors.filter((text) => /Worker failed to load/i.test(text))).toEqual([]);
 });
 
-test("map credits appear below the map without a floating attribution badge", async ({ page }) => {
-  await page.route("**/search", (route) => respond(route, { json: collection(
+test("map credits are disclosed in the sidebar and leave the map clear", async ({ page }) => {
+  await page.route("**/search", route => respond(route, { json: collection(
     [stacScene("a1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await expect(page.locator("#map-matrix")).toBeVisible();
-  await expect(page.locator("#map .maplibregl-ctrl-attrib")).toHaveCount(0);
+  await expect(page.locator("#map-container .maplibregl-ctrl-attrib")).toHaveCount(0);
+  await expect(page.locator("#map-credits")).toBeHidden();
+  await page.getByText("Map credits", { exact: true }).click();
+  await expect(page.locator(".panel #map-credits")).toBeVisible();
   await expect(page.locator("#map-credits")).toContainText("Test basemap");
-  const boxes = await page.evaluate(() => {
-    const rect = (sel: string) => document.querySelector(sel)?.getBoundingClientRect() ?? null;
-    const attribution = rect(".maplibregl-ctrl-attrib");
-    const matrix = rect("#map-matrix");
-    const pane = rect("#map-container");
-    const canvas = rect("#map");
-    return { attribution, matrix, pane, canvas, text: document.querySelector(".maplibregl-ctrl-attrib-inner")?.textContent ?? "" };
-  });
-  expect(boxes.text).toContain("Test basemap");
-  const overlaps = boxes.attribution && boxes.matrix
-    && boxes.attribution.left < boxes.matrix.right && boxes.attribution.right > boxes.matrix.left
-    && boxes.attribution.top < boxes.matrix.bottom && boxes.attribution.bottom > boxes.matrix.top;
-  expect(overlaps).toBe(false);
-  // It also stays inside the map, rather than being pushed out of the pane.
-  expect(boxes.attribution!.left).toBeGreaterThanOrEqual(boxes.pane!.left);
-  expect(boxes.attribution!.right).toBeLessThanOrEqual(boxes.pane!.right + 1);
-  expect(boxes.attribution!.top).toBeGreaterThanOrEqual(boxes.canvas!.bottom);
+  const boxes = await page.evaluate(() => ({
+    credits: document.querySelector("#map-credits")!.getBoundingClientRect().toJSON(),
+    panel: document.querySelector(".panel")!.getBoundingClientRect().toJSON(),
+  }));
+  expect(boxes.credits.left).toBeGreaterThanOrEqual(boxes.panel.left);
+  expect(boxes.credits.right).toBeLessThanOrEqual(boxes.panel.right);
 });
 
 test("a scene with no tile set still draws its preview via a fetched image", async ({ page }) => {

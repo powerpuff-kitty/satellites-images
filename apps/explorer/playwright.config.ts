@@ -1,5 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
+const port = Number(process.env.EXPLORER_TEST_PORT ?? 4319);
+if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid loopback test port");
+const origin = `http://127.0.0.1:${port}`;
+
 // Browser E2E for the explorer. All catalogue, map-style and ESA responses are
 // intercepted per test, so no live provider is ever called and no API key is used.
 export default defineConfig({
@@ -9,12 +13,12 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [["list"]],
   use: {
-    baseURL: "http://127.0.0.1:4319",
+    baseURL: origin,
     trace: "retain-on-failure",
   },
   webServer: {
-    command: "npx vite preview --host 127.0.0.1 --port 4319 --strictPort",
-    url: "http://127.0.0.1:4319",
+    command: `node ../../node_modules/vite/bin/vite.js preview --host 127.0.0.1 --port ${port} --strictPort`,
+    url: origin,
     reuseExistingServer: false,
     timeout: 60000,
   },

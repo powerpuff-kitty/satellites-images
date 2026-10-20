@@ -3,10 +3,12 @@ html {
   margin: 0;
 }
 body.tcsn {
+  color-scheme: dark;
   margin: 0;
   height: auto;
   min-height: 100svh;
 }
+.tcsn-shell__main { padding-bottom: var(--tcsn-space-6); }
 .explorer-layout {
   display: grid;
   grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(
@@ -14,7 +16,7 @@ body.tcsn {
       360px
     );
   gap: var(--tcsn-space-6);
-  height: min(900px, calc(100dvh - var(--tcsn-header-height, 64px) - 96px));
+  height: calc(100dvh - var(--tcsn-measured-header, 64px) - var(--tcsn-space-8) - var(--tcsn-space-6));
   min-height: 600px;
 }
 .explorer-layout .panel,
@@ -251,4 +253,38 @@ body.tcsn {
 }
 .explorer-layout .preview-thumbnail img {
   margin: 0;
+}
+
+/* Product chrome lives in the header and at the end of the search sidebar. */
+#app-header .tcsn-navigation {
+  margin-left: auto;
+  justify-content: flex-end;
+}
+.explorer-layout .sidebar-end {
+  margin-top: auto;
+  padding-top: var(--tcsn-space-6);
+  font-size: var(--tcsn-text-small);
+}
+.explorer-layout .sidebar-copyright {
+  margin: var(--tcsn-space-3) 0 0;
+}
+.explorer-layout .map-credit-disclosure summary {
+  cursor: pointer;
+}
+@media (max-width: 760px) {
+  #app-header .tcsn-shell__bar {
+    flex-wrap: wrap;
+    gap: var(--tcsn-space-3);
+    padding-block: var(--tcsn-space-3);
+  }
+  #app-header .tcsn-navigation {
+    flex-wrap: wrap;
+  }
+}
+
+/* Without scripting the empty map cannot perform a search; keep the explanation first. */
+@media (scripting: none) {
+  .explorer-layout { display: block; height: auto; min-height: 0; }
+  .explorer-layout .map-container { display: none; }
+  .explorer-layout .panel, .explorer-layout .observations { overflow: visible; }
 }

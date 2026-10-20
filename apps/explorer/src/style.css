@@ -46,7 +46,7 @@ h2 {font-size:13px;letter-spacing:.005em;font-weight:600;margin:0;}
 .map-viewport {position:relative;flex:1;min-height:0;min-width:0;}
 #map {position:absolute;inset:0;}
 .map-label {position:absolute;z-index:3;left:14px;top:14px;background:var(--tcsn-surface);padding:10px 12px;pointer-events:none;}
-.map-credits {flex:none;min-height:24px;padding:4px 10px;background:var(--tcsn-surface);color:var(--tcsn-text);text-align:right;}
+.map-credits {padding-top:var(--tcsn-space-2);color:var(--tcsn-text);}
 .map-credits .maplibregl-ctrl-attrib {float:none;margin:0;padding:0;border-radius:0;background:none;color:inherit;font-size:10px;line-height:16px;}
 .map-credits a {color:inherit;}
 @media(max-width:760px) {

@@ -1,7 +1,6 @@
 import { test, expect } from "./offline.js";
 import {
   auditDesignSystem,
-  auditShell,
 } from "@powerpuff-kitty/tcsn-design-system/compliance";
 
 const cors = {
@@ -51,7 +50,7 @@ const scenes = {
       platform: "sentinel-2a",
       "eo:cloud_cover": 12.5,
     },
-    assets: {},
+    assets: { tilejson: { href: "https://example.test/native-tilejson.json", roles: ["tiles"], type: "application/json" } },
     links: [],
   })),
   links: [],
@@ -89,10 +88,13 @@ for (const width of [320, 390, 768, 1280, 1440]) {
       "Synthetic map attribution",
     );
     await expect(
-      page.locator("#app-footer .tcsn-footer__copyright"),
+      page.locator(".panel #sidebar-copyright"),
     ).toHaveText(`© ${new Date().getFullYear()} TCSN`);
-    await expect(page.locator("#app-footer nav a")).toHaveText(["Contact"]);
-    const support = page.locator("#app-footer .tcsn-support-button");
+    await expect(page.locator("#app-header nav a")).toHaveText(["Contact", "Buy me a hot chocolate"]);
+    await expect(page.getByRole("link", { name: "Contact", exact: true })).toHaveAttribute("href", "https://tcsn.io/contact");
+    await expect(page.getByRole("link", { name: "Source code" })).toHaveCount(0);
+    await expect(page.locator("footer")).toHaveCount(0);
+    const support = page.locator("#app-header .tcsn-support-button");
     await expect(support).toHaveAttribute(
       "href",
       "https://buy.stripe.com/3cI00dccs37i3Ftad73oA00",
@@ -110,9 +112,6 @@ for (const width of [320, 390, 768, 1280, 1440]) {
     ).toContainText("12.5% (scene-wide)");
     await expect(page.locator(".tcsn-scroll-region")).toHaveCount(3);
     await expect(
-      page.locator("#sources.tcsn-panel > .tcsn-panel__body"),
-    ).toHaveCount(1);
-    await expect(
       page.locator(".maplibregl-ctrl-zoom-in .tcsn-icon"),
     ).toHaveCount(1);
     await expect(
@@ -129,7 +128,15 @@ for (const width of [320, 390, 768, 1280, 1440]) {
         .locator(".maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon")
         .evaluate((element) => getComputedStyle(element).backgroundImage),
     ).toBe("none");
-    expect(await page.evaluate(auditShell)).toMatchObject({ status: "passed" });
+    // The owner-requested sidebar copyright replaces the design system's full footer.
+    // Check the retained header geometry directly; auditShell requires a full footer.
+    const headerGeometry = await page.evaluate(() => {
+      const nav = document.querySelector("#app-header nav")!.getBoundingClientRect();
+      const bar = document.querySelector("#app-header .tcsn-shell__bar")!;
+      const box = bar.getBoundingClientRect();
+      return { navRight: nav.right, contentRight: box.right - parseFloat(getComputedStyle(bar).paddingRight) };
+    });
+    expect(Math.abs(headerGeometry.navRight - headerGeometry.contentRight)).toBeLessThan(1);
     expect(await page.evaluate(auditDesignSystem)).toMatchObject({
       status: "passed",
     });
@@ -143,20 +150,9 @@ for (const width of [320, 390, 768, 1280, 1440]) {
     }));
     expect(geometry).toEqual({
       overflow: false,
-      colours: ["rgb(237, 244, 247)", "rgb(16, 42, 67)"],
+      colours: ["rgb(16, 42, 67)", "rgb(237, 244, 247)"],
       maxWidth: "2400px",
     });
-    if (width <= 760) {
-      const finalCard = await page
-        .locator("#results > li")
-        .last()
-        .boundingBox();
-      const footerBox = await page.locator("#app-footer").boundingBox();
-      expect(finalCard).not.toBeNull();
-      expect(footerBox!.y).toBeGreaterThanOrEqual(
-        finalCard!.y + finalCard!.height,
-      );
-    }
     const button = page.locator("#draw-area");
     await button.scrollIntoViewIfNeeded();
     const before = await button.boundingBox();

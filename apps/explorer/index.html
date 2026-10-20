@@ -3,18 +3,40 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#EDF4F7" />
+    <meta name="theme-color" content="#102A43" />
     <meta name="description" content="Explore public historical and upcoming satellite observations by coordinate, mission and date." />
-    <title>Satellite Images — Explorer</title>
+    <link rel="canonical" href="https://satellite.tcsn.io/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Satellite Images" />
+    <meta property="og:title" content="Satellite Images — Catalogue explorer" />
+    <meta property="og:description" content="Search published satellite catalogues and inspect planned ESA acquisitions, source provenance and access conditions." />
+    <meta property="og:url" content="https://satellite.tcsn.io/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Satellite Images — Catalogue explorer" />
+    <meta name="twitter:description" content="Search published satellite catalogues and inspect planned ESA acquisitions, source provenance and access conditions." />
+    <title>Satellite Images — Catalogue explorer</title>
+    <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"Satellite Images","url":"https://satellite.tcsn.io/","description":"A browser explorer for published satellite catalogue metadata and planned ESA acquisitions. Provider access conditions and imagery terms apply.","applicationCategory":"ScienceApplication","operatingSystem":"Web browser"}</script>
   </head>
-  <body class="tcsn tcsn-shell">
+  <body class="tcsn tcsn-inverse tcsn-shell">
     <a class="tcsn-skip" href="#main-content">Skip to explorer</a>
-    <header id="app-header" class="tcsn-shell__header"></header>
+    <header id="app-header" class="tcsn-shell__header"><div class="tcsn-shell__bar"><a class="tcsn-brand" href="./">satellite images.</a><nav class="tcsn-navigation" aria-label="Main navigation"><a class="tcsn-link" href="https://tcsn.io/contact">Contact</a><a class="tcsn-button tcsn-support-button" href="https://buy.stripe.com/3cI00dccs37i3Ftad73oA00">Buy me a hot chocolate</a></nav></div></header>
     <main id="main-content" class="tcsn-shell__main">
     <div class="layout explorer-layout">
       <section class="panel" aria-label="Satellite image search">
         <h1>Explore observations</h1>
         <p class="intro">Discover available historical and upcoming satellite observations.</p>
+        <details class="tcsn-panel explorer-about">
+          <summary><span class="tcsn-panel__title">About the data and methods</span></summary>
+          <div class="tcsn-panel__body">
+            <h2>Search satellite catalogue metadata</h2>
+            <p>Search published observations by coordinate, date and mission. The explorer queries Earth Search and Microsoft Planetary Computer and preserves each catalogue's provenance. Results describe available assets and access conditions; they do not promise free imagery or complete historical coverage.</p>
+            <h2>Published observations and acquisition plans</h2>
+            <p>Historical results are published catalogue records. Upcoming ESA acquisitions are planned datatakes, not images that already exist or guaranteed future captures. Partial searches and missing metadata remain explicitly labelled. Cloud percentages describe the scene, not cloud conditions inside a selected area.</p>
+            <h2>Sources, access and limitations</h2>
+            <p>Dates are shown in UTC. Footprints and area coverage are approximate. Preview access is checked when opened, and each provider's imagery terms still apply. The map, interactive search and scene previews require JavaScript; this overview and the form labels remain available without it.</p>
+            <p><a href="https://earth-search.aws.element84.com/v1">Earth Search catalogue</a> · <a href="https://planetarycomputer.microsoft.com/catalog">Planetary Computer catalogue</a> · <a href="https://sentinels.copernicus.eu/copernicus/sentinel-2/acquisition-plans">ESA acquisition plans</a></p>
+          </div>
+        </details>
         <details class="paid-maps" id="paid-maps">
           <summary>Paid imagery maps <span data-shared-icon="arrow-up-right-from-square" aria-hidden="true"></span></summary>
           <p class="status">Browse commercial imagery on the provider’s map. An account may be required; purchases happen there.</p>
@@ -23,68 +45,68 @@
             <a class="secondary-button" href="https://console.up42.com/" target="_blank" rel="noopener noreferrer">Open UP42 map <span data-shared-icon="arrow-up-right-from-square" aria-hidden="true"></span></a>
           </div>
           <p class="status">Use your search coordinates and dates in the provider’s search.</p>
-          <button id="copy-paid-search" type="button" class="text-button">Copy location and dates</button>
+          <button id="copy-paid-search" type="button" class="text-button tcsn-button">Copy location and dates</button>
           <p id="paid-search-status" class="status" role="status"></p>
         </details>
         <form id="search-form">
           <div class="pair">
-            <label>Latitude<input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="-8.5833" required></label>
-            <label>Longitude<input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="116.1167" required></label>
+            <label class="tcsn-field"><span class="tcsn-field__label">Latitude</span><input id="latitude" name="latitude" type="number" min="-90" max="90" step="any" value="-8.5833" required class="tcsn-input"></label>
+            <label class="tcsn-field"><span class="tcsn-field__label">Longitude</span><input id="longitude" name="longitude" type="number" min="-180" max="180" step="any" value="116.1167" required class="tcsn-input"></label>
           </div>
-          <label class="full-field">Radius<select id="radius"><option value="1000">1 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="25000">25 km</option></select></label>
+          <label class="full-field tcsn-field"><span class="tcsn-field__label">Radius</span><select id="radius" class="tcsn-input"><option value="1000">1 km</option><option value="5000" selected>5 km</option><option value="10000">10 km</option><option value="25000">25 km</option></select></label>
           <div class="area-controls">
-            <button id="draw-area" type="button" class="secondary-button">Draw area</button>
-            <button id="clear-area" type="button" class="text-button" hidden>Use a point + radius</button>
+            <button id="draw-area" type="button" class="secondary-button tcsn-button">Draw area</button>
+            <button id="clear-area" type="button" class="text-button tcsn-button" hidden>Use a point + radius</button>
           </div>
 
           <div class="tablist" role="tablist" aria-label="Observation type">
-            <button id="tab-historical" class="tab" type="button" role="tab" aria-selected="true" aria-controls="panel-historical">Historical</button>
-            <button id="tab-upcoming" class="tab" type="button" role="tab" aria-selected="false" aria-controls="panel-upcoming">Upcoming</button>
+            <button id="tab-historical" class="tab tcsn-button" type="button" role="tab" aria-selected="true" aria-controls="panel-historical">Historical</button>
+            <button id="tab-upcoming" class="tab tcsn-button" type="button" role="tab" aria-selected="false" aria-controls="panel-upcoming">Upcoming</button>
           </div>
 
           <section id="panel-historical" role="tabpanel" aria-labelledby="tab-historical">
-            <label class="full-field">Date<input id="date" type="date" min="1970-01-01" required></label>
+            <label class="full-field tcsn-field"><span class="tcsn-field__label">Date</span><input id="date" type="date" min="1970-01-01" required class="tcsn-input"></label>
             <input id="date-from" type="hidden"><input id="date-to" type="hidden">
             <fieldset class="additional-satellites">
               <legend>Additional satellites</legend>
-              <label class="check-label"><input type="checkbox" data-source-toggle="asf-vertex">Search NISAR &amp; ALOS-2 (radar)</label>
-              <label class="check-label"><input type="checkbox" data-source-toggle="inpe-cbers">Search CBERS-4A (Brazil)</label>
+              <label class="check-label tcsn-check"><input type="checkbox" data-source-toggle="asf-vertex">Search NISAR &amp; ALOS-2 (radar)</label>
+              <label class="check-label tcsn-check"><input type="checkbox" data-source-toggle="inpe-cbers">Search CBERS-4A (Brazil)</label>
               <p class="status">Enable a source to search it. Satellites appear below when observations are returned for this location and year.</p>
             </fieldset>
             <section class="history-calendar" aria-label="Historical observation availability">
               <div class="heading">
                 <h2>Filters</h2>
-                <button id="clear-filters" type="button" class="text-button"><span data-shared-icon="rotate-left" aria-hidden="true"></span> Reset</button>
+                <button id="clear-filters" type="button" class="text-button tcsn-button"><span data-shared-icon="rotate-left" aria-hidden="true"></span> Reset</button>
               </div>
-              <label class="mission-field">Satellite · loaded observations<select id="mission-filter" aria-label="Filter observations by satellite"><option value="">All satellites</option></select></label>
-              <label class="mission-field">Collection<select id="collection-filter" aria-label="Filter observations by collection"><option value="">All collections</option></select></label>
-              <label class="mission-field">Satellite type<select id="satellite-type-filter" aria-label="Filter observations by satellite operator"><option value="">All satellites</option><option value="public">Exclude commercial satellites</option><option value="commercial">Commercial satellites only</option></select></label>
-              <label class="mission-field">Catalogue<select id="provider-filter" aria-label="Filter observations by catalogue"><option value="">All catalogues</option></select></label>
-              <label class="mission-field">Orbit<select id="orbit-filter" aria-label="Filter observations by orbit direction"><option value="">Any orbit</option><option value="ascending">Ascending</option><option value="descending">Descending</option><option value="unknown">Unknown</option></select></label>
+              <label class="mission-field tcsn-field"><span class="tcsn-field__label">Satellite · loaded observations</span><select id="mission-filter" aria-label="Filter observations by satellite" class="tcsn-input"><option value="">All satellites</option></select></label>
+              <label class="mission-field tcsn-field"><span class="tcsn-field__label">Collection</span><select id="collection-filter" aria-label="Filter observations by collection" class="tcsn-input"><option value="">All collections</option></select></label>
+              <label class="mission-field tcsn-field"><span class="tcsn-field__label">Satellite type</span><select id="satellite-type-filter" aria-label="Filter observations by satellite operator" class="tcsn-input"><option value="">All satellites</option><option value="public">Exclude commercial satellites</option><option value="commercial">Commercial satellites only</option></select></label>
+              <label class="mission-field tcsn-field"><span class="tcsn-field__label">Catalogue</span><select id="provider-filter" aria-label="Filter observations by catalogue" class="tcsn-input"><option value="">All catalogues</option></select></label>
+              <label class="mission-field tcsn-field"><span class="tcsn-field__label">Orbit</span><select id="orbit-filter" aria-label="Filter observations by orbit direction" class="tcsn-input"><option value="">Any orbit</option><option value="ascending">Ascending</option><option value="descending">Descending</option><option value="unknown">Unknown</option></select></label>
               <div class="pair filter-pair">
-                <label>Cloud ≥<select id="cloud-min" aria-label="Minimum scene cloud cover"></select></label>
-                <label>Cloud ≤<select id="cloud-max" aria-label="Maximum scene cloud cover"></select></label>
-              </div>
-              <div class="pair filter-pair">
-                <label>From hour<select id="hour-min" aria-label="Earliest hour (UTC)"></select></label>
-                <label>To hour<select id="hour-max" aria-label="Latest hour (UTC)"></select></label>
+                <label class="tcsn-field"><span class="tcsn-field__label">Cloud ≥</span><select id="cloud-min" aria-label="Minimum scene cloud cover" class="tcsn-input"></select></label>
+                <label class="tcsn-field"><span class="tcsn-field__label">Cloud ≤</span><select id="cloud-max" aria-label="Maximum scene cloud cover" class="tcsn-input"></select></label>
               </div>
               <div class="pair filter-pair">
-                <label>Resolution<select id="resolution-filter" aria-label="Maximum ground sample distance"><option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option></select></label>
-                <label class="check-label"><input type="checkbox" id="has-preview"> Has preview</label>
+                <label class="tcsn-field"><span class="tcsn-field__label">From hour</span><select id="hour-min" aria-label="Earliest hour (UTC)" class="tcsn-input"></select></label>
+                <label class="tcsn-field"><span class="tcsn-field__label">To hour</span><select id="hour-max" aria-label="Latest hour (UTC)" class="tcsn-input"></select></label>
               </div>
-              <label class="check-label filters-unknown"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
-              <label class="check-label filters-tiles"><input type="checkbox" id="tiles-only"> Native-resolution tiles only</label>
+              <div class="pair filter-pair">
+                <label class="tcsn-field"><span class="tcsn-field__label">Resolution</span><select id="resolution-filter" aria-label="Maximum ground sample distance" class="tcsn-input"><option value="">Any</option><option value="10">≤ 10 m</option><option value="20">≤ 20 m</option><option value="30">≤ 30 m</option></select></label>
+                <label class="check-label tcsn-check"><input type="checkbox" id="has-preview"> Has preview</label>
+              </div>
+              <label class="check-label filters-unknown tcsn-check"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
+              <label class="check-label filters-tiles tcsn-check"><input type="checkbox" id="tiles-only"> Native-resolution tiles only</label>
               <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
               <p id="coverage" class="status" role="status"></p>
-              <button id="load-next-pages" type="button" class="secondary-button" hidden>Load next 5 catalogue pages <span data-shared-icon="arrow-down" aria-hidden="true"></span></button>
-              <button id="show-all-days" type="button" class="text-button" hidden>Show all loaded dates</button>
+              <button id="load-next-pages" type="button" class="secondary-button tcsn-button" hidden>Load next 5 catalogue pages <span data-shared-icon="arrow-down" aria-hidden="true"></span></button>
+              <button id="show-all-days" type="button" class="text-button tcsn-button" hidden>Show all loaded dates</button>
             </section>
           </section>
 
           <section id="panel-upcoming" role="tabpanel" aria-labelledby="tab-upcoming" hidden>
             <div class="pair">
-              <label class="mission-field">Mission<select id="upcoming-mission"><option value="">All missions</option><option value="S1">Sentinel-1</option><option value="S2">Sentinel-2</option></select></label>
+              <label class="mission-field tcsn-field"><span class="tcsn-field__label">Mission</span><select id="upcoming-mission" class="tcsn-input"><option value="">All missions</option><option value="S1">Sentinel-1</option><option value="S2">Sentinel-2</option></select></label>
             </div>
             <p class="status" id="upcoming-status" role="status">Planned ESA acquisitions are intended datatakes, not images that already exist. Select a location to load the current plan.</p>
           </section>
@@ -94,6 +116,13 @@
           <p class="status">The registry lists every catalogue the SDK knows: what it searches, how imagery is accessed, and which SDKs implement it. Extra catalogues are queried only if you tick them.</p>
           <div class="source-list" id="source-list"></div>
         </details>
+        <div class="sidebar-end">
+          <details class="map-credit-disclosure">
+            <summary>Map credits</summary>
+            <div class="map-credits" id="map-credits"></div>
+          </details>
+          <p id="sidebar-copyright" class="sidebar-copyright">© 2026 TCSN</p>
+        </div>
       </section>
       <section class="map-container" id="map-container" aria-label="Interactive map">
         <div class="map-viewport">
@@ -101,17 +130,17 @@
         <div class="map-label" id="map-label">SELECT ANY LOCATION ON THE MAP</div>
         <div class="map-matrix" id="map-matrix" hidden>
           <div class="matrix-year-nav" role="group" aria-label="Change year">
-            <button id="matrix-prev-year" class="matrix-year-button" type="button" aria-label="Previous year"><span data-shared-icon="chevron-left" aria-hidden="true"></span></button>
-            <button id="matrix-next-year" class="matrix-year-button" type="button" aria-label="Next year"><span data-shared-icon="chevron-right" aria-hidden="true"></span></button>
+            <button id="matrix-prev-year" class="matrix-year-button tcsn-button" type="button" aria-label="Previous year"><span data-shared-icon="chevron-left" aria-hidden="true"></span></button>
+            <button id="matrix-next-year" class="matrix-year-button tcsn-button" type="button" aria-label="Next year"><span data-shared-icon="chevron-right" aria-hidden="true"></span></button>
           </div>
           <div class="matrix-head" id="matrix-head">
           <div class="matrix-links" id="matrix-links" role="group" aria-label="Choose what the day matrix shows">
-            <button class="matrix-link" type="button" data-metric="total" aria-pressed="true">Observations</button>
-            <button class="matrix-link" type="button" data-metric="cloud" aria-pressed="false">Cloud</button>
-            <button class="matrix-link" type="button" data-metric="mission" aria-pressed="false">Mission</button>
-            <button class="matrix-link" type="button" data-metric="provider" aria-pressed="false">Provider</button>
+            <button class="matrix-link tcsn-button" type="button" data-metric="total" aria-pressed="true">Observations</button>
+            <button class="matrix-link tcsn-button" type="button" data-metric="cloud" aria-pressed="false">Cloud</button>
+            <button class="matrix-link tcsn-button" type="button" data-metric="mission" aria-pressed="false">Mission</button>
+            <button class="matrix-link tcsn-button" type="button" data-metric="provider" aria-pressed="false">Provider</button>
             <div class="matrix-more">
-              <select id="matrix-more" aria-label="Additional calendar metric">
+              <select id="matrix-more" aria-label="Additional calendar metric" class="tcsn-input">
                 <option value="" disabled selected>More</option>
                 <option value="resolution">Resolution</option>
                 <option value="sensor">Sensor</option>
@@ -122,9 +151,9 @@
           </div>
           <div class="matrix-right">
             <div class="matrix-quick" id="matrix-quick" role="group" aria-label="Quick filter">
-              <button class="matrix-chip" type="button" data-sensor="all" aria-pressed="true">All</button>
-              <button class="matrix-chip" type="button" data-sensor="optical" aria-pressed="false">Image</button>
-              <button class="matrix-chip" type="button" data-sensor="radar" aria-pressed="false">Radar</button>
+              <button class="matrix-chip tcsn-button" type="button" data-sensor="all" aria-pressed="true">All</button>
+              <button class="matrix-chip tcsn-button" type="button" data-sensor="optical" aria-pressed="false">Image</button>
+              <button class="matrix-chip tcsn-button" type="button" data-sensor="radar" aria-pressed="false">Radar</button>
             </div>
           </div>
           </div>
@@ -133,18 +162,17 @@
           </div>
         </div>
         <div class="map-preview" id="map-preview" hidden role="group" aria-label="Public scene preview">
-          <button id="preview-prev" class="map-preview-arrow" type="button" aria-label="Previous image"><span data-shared-icon="chevron-left" aria-hidden="true"></span></button>
+          <button id="preview-prev" class="map-preview-arrow tcsn-button" type="button" aria-label="Previous image"><span data-shared-icon="chevron-left" aria-hidden="true"></span></button>
           <p id="preview-caption" class="map-preview-caption"></p>
-          <button id="preview-next" class="map-preview-arrow" type="button" aria-label="Next image"><span data-shared-icon="chevron-right" aria-hidden="true"></span></button>
-          <button id="preview-close" class="map-preview-close" type="button" aria-label="Close image view"><span data-shared-icon="xmark" aria-hidden="true"></span></button>
+          <button id="preview-next" class="map-preview-arrow tcsn-button" type="button" aria-label="Next image"><span data-shared-icon="chevron-right" aria-hidden="true"></span></button>
+          <button id="preview-close" class="map-preview-close tcsn-button" type="button" aria-label="Close image view"><span data-shared-icon="xmark" aria-hidden="true"></span></button>
         </div>
         <section id="preview-still" class="preview-still" aria-label="Public preview image" hidden>
           <img id="preview-still-image" alt="" referrerpolicy="no-referrer">
           <p id="preview-still-status" class="status" role="status"></p>
-          <button id="preview-retry" type="button" class="text-button">Retry public preview</button>
+          <button id="preview-retry" type="button" class="text-button tcsn-button">Retry public preview</button>
         </section>
         </div>
-        <footer class="map-credits" id="map-credits" aria-label="Map data credits"></footer>
       </section>
       <aside class="observations" aria-label="Observations">
         <header class="observations-header">
@@ -156,11 +184,10 @@
         </header>
         <ol id="results" class="results" aria-label="Satellite scenes"></ol>
         <ol id="plans-results" class="results" aria-label="Planned satellite acquisitions" hidden></ol>
-        <button id="show-more-scenes" type="button" class="secondary-button" hidden>Show more scenes <span data-shared-icon="arrow-down" aria-hidden="true"></span></button>
+        <button id="show-more-scenes" type="button" class="secondary-button tcsn-button" hidden>Show more scenes <span data-shared-icon="arrow-down" aria-hidden="true"></span></button>
       </aside>
     </div>
     </main>
-    <footer id="app-footer" class="tcsn-shell__footer tcsn-footer"></footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

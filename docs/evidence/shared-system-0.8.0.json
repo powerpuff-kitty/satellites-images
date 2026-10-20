@@ -1,0 +1,96 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-20T00:30:07.824293+00:00",
+  "package": {
+    "name": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.8.0",
+    "source": "d65fbd8aacf30bb497d415afa611a41906c5a067",
+    "integrity": "sha512-QTNctl9VxleVOaKm6Eb/lRLCYPHJAKpTXzOwSRRSgYlbj/ieYZJ88aALmf4r2AQScnwoQYYDRRNpGTaQRI7yCA==",
+    "optionalVuePeer": true,
+    "htmlConsumerLockContainsVue": false
+  },
+  "publicOrigin": "https://satellite.tcsn.io/",
+  "canonicalPolicy": "Coordinate, filter and scene query states canonicalize to the root explorer. GitHub Pages is a legacy hosting location, not a separate canonical product.",
+  "theme": {
+    "ink": "#102A43",
+    "background": "#EDF4F7",
+    "display": "inverse"
+  },
+  "sizes": {
+    "default": "sm",
+    "heightPx": 32,
+    "fontPx": 14,
+    "support": "sm"
+  },
+  "documentedLayoutException": "Canonical shared header with Contact/support; sidebar copyright and map-credit disclosure replace the full document footer. The Source code link is absent.",
+  "commands": [
+    {
+      "command": "npm ci --omit=peer",
+      "status": "passed"
+    },
+    {
+      "command": "npm run check",
+      "status": "passed",
+      "typescriptUnitTests": 53,
+      "packageCheckerTests": 2,
+      "log": "/tmp/satellite-review-final-check080.log"
+    },
+    {
+      "command": "EXPLORER_TEST_PORT=4339 node ../../node_modules/@playwright/test/cli.js test --output=/tmp/tcsn080/satellite-review-final-results",
+      "cwd": "apps/explorer",
+      "status": "passed",
+      "mockedBrowserTests": 80,
+      "optInLiveTestsSkipped": 2,
+      "log": "/tmp/satellite-review-final-browser080.log"
+    }
+  ],
+  "publicHTML": {
+    "metadata": [
+      "canonical",
+      "description",
+      "Open Graph",
+      "summary card",
+      "WebApplication JSON-LD",
+      "robots",
+      "sitemap"
+    ],
+    "noJavaScriptWidths": [
+      390,
+      1440
+    ],
+    "status": "passed",
+    "sharedInitialControls": true,
+    "headerAndCopyrightInResponseHTML": true,
+    "nativeSelectFallback": "Styled while scripting is unavailable; enhanced dropdowns replace visible selects when JavaScript runs.",
+    "staticContent": "Published catalogue versus planned-acquisition distinction, UTC, approximate footprints, partial coverage, provider provenance and imagery access terms.",
+    "nonfunctionalMapWithoutScripting": "Hidden through the scripting:none media query so the public explanation and labelled forms appear first.",
+    "proof": ".local-ci/first-paint-0.8.0/report.json",
+    "screenshots": [
+      ".local-ci/first-paint-0.8.0/_-390.png",
+      ".local-ci/first-paint-0.8.0/_-1440.png"
+    ]
+  },
+  "concurrentOriginalValidation": {
+    "initialMockedRun": {
+      "passed": 71,
+      "failed": 2,
+      "skipped": 2,
+      "log": "/tmp/satellite-e2e080.log",
+      "limits": "Another independent original-checkout test run modified shared test-results artifacts. One failure was a trace ENOENT; the other was a scan wait. Timing cause is not established."
+    },
+    "isolatedFrozenSourceRerun": {
+      "status": "passed",
+      "tests": 2,
+      "port": 4329,
+      "log": "/tmp/satellite-isolated-failed080-final.log",
+      "output": "/tmp/tcsn080/satellite-isolated-failed-cases"
+    },
+    "latestForeignMatrixStyling": "Preserved unstaged. Changes made after the earlier original compliance run are not represented as passing the bounded branch's shared-control audit."
+  },
+  "nativeContracts": "TypeScript SDK tests ran; Python/Rust sources and catalogue registry are unchanged by this UI/SEO adoption. Historical native gates remain recorded in shared-system-0.7.0.json and were not rerun as new results.",
+  "boundaries": [
+    "No deployment or DNS change",
+    "No provider, account, payment or imagery download actions",
+    "Foreign catalogue/preview/data/screenshot changes remain uncommitted"
+  ]
+}

@@ -2,10 +2,8 @@ import {
   descriptionListMarkup,
   emptyStateMarkup,
   enhanceDropdowns,
-  enhanceFooter,
-  footerLinks,
-  footerMarkup,
   headerMarkup,
+  supportButtonMarkup,
   iconMarkup,
   observeShell,
   panelMarkup,
@@ -129,24 +127,14 @@ export function initializeSharedUi(): () => void {
   initializeTasks();
   initializePatterns();
   const header = document.querySelector<HTMLElement>("#app-header")!;
-  const footer = document.querySelector<HTMLElement>("#app-footer")!;
   header.innerHTML = headerMarkup({
     brand: "satellite images.",
     href: "./",
-    links: [
-      {
-        label: "Source code",
-        href: "https://github.com/powerpuff-kitty/satellites-images",
-        external: true,
-      },
-    ],
+    actions: [{ label: "Contact", href: "https://tcsn.io/contact" }],
   });
-  footer.innerHTML = footerMarkup({
-    links: footerLinks.filter((link) => link.label === "Contact"),
-    fireflies: false,
-  });
+  header.querySelector("nav")!.insertAdjacentHTML("beforeend", supportButtonMarkup());
+  document.querySelector("#sidebar-copyright")!.textContent = `© ${new Date().getFullYear()} TCSN`;
   const shell = observeShell();
-  const footerController = enhanceFooter(footer);
   const main = document.querySelector<HTMLElement>("main")!;
   const controller = new AbortController();
 
@@ -181,7 +169,7 @@ export function initializeSharedUi(): () => void {
           ".matrix-chip,.matrix-link,.matrix-menu-item,.matrix-more-toggle,.matrix-year-button,.map-preview-arrow,.map-preview-close,.maplibregl-ctrl button",
         )
       )
-        button.dataset.size = "small";
+        button.dataset.size = "sm";
       if (
         button.matches(
           ".matrix-year-button,.map-preview-arrow,.map-preview-close,.maplibregl-ctrl button",
@@ -195,7 +183,7 @@ export function initializeSharedUi(): () => void {
       if (input.type === "checkbox" || input.type === "radio") {
         input.closest("label")?.classList.add("tcsn-check");
       } else {
-        input.classList.add("tcsn-input");
+        input.classList.add(input.type === "range" ? "tcsn-slider" : input.type === "file" ? "tcsn-file" : "tcsn-input");
         labelField(input);
       }
     }
@@ -264,7 +252,6 @@ export function initializeSharedUi(): () => void {
     controller.abort();
     observer.disconnect();
     dropdowns();
-    footerController.destroy();
     shell();
   };
 }

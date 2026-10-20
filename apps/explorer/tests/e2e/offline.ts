@@ -8,7 +8,7 @@ export const test = base.extend({
     const unexpected: string[] = [];
     await context.route("**/*", async route => {
       const url = new URL(route.request().url());
-      if (url.origin === "http://127.0.0.1:4319") return route.continue();
+      if (url.origin === `http://127.0.0.1:${process.env.EXPLORER_TEST_PORT ?? 4319}`) return route.continue();
       // Common card thumbnails need fixtures even in tests that never open an overlay.
       if (url.hostname === "example.test" && /\/thumb-[^/]+\.jpg$/.test(url.pathname)) {
         return route.fulfill({ contentType: "image/png", body: thumbnail });

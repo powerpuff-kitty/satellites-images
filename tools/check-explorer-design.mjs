@@ -3,8 +3,8 @@ import { styleViolations } from "@powerpuff-kitty/tcsn-design-system/compliance"
 
 const read = (path) => readFile(new URL("../" + path, import.meta.url), "utf8");
 const manifest = JSON.parse(await read("apps/explorer/package.json"));
-if (manifest.dependencies["@powerpuff-kitty/tcsn-design-system"] !== "0.7.0")
-  throw new Error("Explorer must pin the verified shared design system 0.7.0");
+if (manifest.dependencies["@powerpuff-kitty/tcsn-design-system"] !== "0.8.0")
+  throw new Error("Explorer must pin the verified shared design system 0.8.0");
 if (manifest.dependencies["@fortawesome/fontawesome-free"])
   throw new Error(
     "Explorer icons must come from the shared Font Awesome collection",

@@ -122,7 +122,7 @@ const map = new maplibregl.Map({
   container: "map",
   center: [116.1167, -8.5833],
   zoom: 8,
-  // Source credits are rendered in the separate footer below the map.
+  // Source credits are available in the sidebar Map credits disclosure.
   attributionControl: false,
 });
 map.setStyle(mapStyle, {

@@ -1,6 +1,8 @@
 import { defineConfig } from "vite";
+import { satellitePublicShell } from "./public-shell.js";
 export default defineConfig({
   base: "./",
+  plugins: [{ name: "shared-public-shell", transformIndexHtml: satellitePublicShell }],
   build: {
     outDir: "dist",
     rolldownOptions: {
