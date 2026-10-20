@@ -166,6 +166,19 @@ for (const width of [320, 390, 768, 1280, 1440]) {
     await button.hover();
     const after = await button.boundingBox();
     expect(after).toEqual(before);
+    const latitude = page.locator("#latitude");
+    await latitude.focus();
+    const focus = await latitude.evaluate(input => {
+      const style = getComputedStyle(input);
+      return { outline: style.outlineStyle, border: style.borderTopWidth, shadow: style.boxShadow, weight: style.fontWeight,
+        label: getComputedStyle(input.closest("label")!.querySelector(".tcsn-field__label")!).textDecorationLine,
+        visible: input.matches(":focus-visible") };
+    });
+    expect(focus).toEqual({ outline: "none", border: "0px", shadow: "none", weight: "500", label: "underline", visible: true });
+    await page.emulateMedia({ forcedColors: "active" });
+    const systemFocus = await latitude.evaluate(input => ({ outline: getComputedStyle(input).outlineStyle, width: getComputedStyle(input).outlineWidth }));
+    expect(systemFocus).toEqual({ outline: "solid", width: "2px" });
+    await page.emulateMedia({ forcedColors: "none" });
     expect(errors).toEqual([]);
   });
 }
