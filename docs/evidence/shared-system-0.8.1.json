@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-20T00:57:55.119153+00:00",
+  "package": {
+    "name": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.8.1",
+    "source": "0175bef25bcc81e36b04599d50eb4380dc199913",
+    "releaseReceiptCommit": "6e50b735adfeaa83ecade62eaa5c939dff65d356",
+    "integrity": "sha512-rdLNoBPa+4Ll7welTBtZKbhh5lXT+p7fpN1SUcCj6MEtPa0JEGyDTQCty32Y9qb52bkMBnYvYPQb3klpSVLXng==",
+    "optionalVuePeer": true,
+    "htmlConsumerLockContainsVue": false
+  },
+  "historicalBaseline": "shared-system-0.8.0.json records the earlier 0.8.0 implementation/gates; current package/focus results are recorded here.",
+  "focusContract": {
+    "normal": "Filled borderless fields, no outline/shadow; underlined label and 500 weight text identify keyboard focus.",
+    "forcedColours": "System outline remains solid 2px.",
+    "defaultSize": "sm (32px/14px); icon buttons 32\u00d732px."
+  },
+  "boundaries": [
+    "No deployment, DNS or workflow changes",
+    "No live account/provider/email/payment writes or imagery downloads",
+    "Foreign feature changes preserved unstaged; only owned bounded changes committed"
+  ],
+  "publicOrigin": "https://satellite.tcsn.io/",
+  "reviewGate": {
+    "command": "npm ci --omit=peer && npm run check",
+    "status": "passed",
+    "typescriptTests": 53,
+    "packageCheckerTests": 2,
+    "log": "/tmp/satellite-review-ci081.log"
+  },
+  "browserGate": {
+    "command": "EXPLORER_TEST_PORT=4339 node ../../node_modules/@playwright/test/cli.js test --grep 'shared satellite shell|public HTML|icon-only buttons|clicking a preview overlays' --workers=2 --output=/tmp/tcsn081/satellite-review-browser",
+    "status": "passed",
+    "focusedCases": 9,
+    "coverage": "Five viewport widths verify canonical shell, 32\u00d732 icon bounds, normal labelled focus and forced-colour outlines; two initial no-JS HTML cases; year and preview navigation.",
+    "log": "/tmp/satellite-review-browser081.log"
+  },
+  "originalGate": {
+    "command": "npm ci --omit=peer; design:check; explorer typecheck/build; same focused browser selection on 4349",
+    "status": "passed",
+    "focusedCases": 9,
+    "buildLog": "/tmp/satellite-original-ci081.log",
+    "browserLog": "/tmp/satellite-original-browser081.log"
+  },
+  "layoutException": "Owner-requested GIS shell: header Contact/support, sidebar copyright/provider-credit disclosure and no full page footer. Map/scientific/imagery colours are data.",
+  "actualPreview": {
+    "url": "http://127.0.0.1:5173/",
+    "restart": "Only exact verified owned Vite PID97292 was restarted after 0.8.1 install.",
+    "newPid": 10574,
+    "session": 53291,
+    "log": "/tmp/satellite-user5173-081.log",
+    "renderedProof": "/tmp/tcsn-adoption-satellite5173-final-0.8.1/rendered.json",
+    "focusProof": "/tmp/tcsn-adoption-satellite5173-final-0.8.1/focus.json",
+    "result": "390/1440/1920px: design audit passed, all visible controls sm 14px/min32px, support explicit sm 32px/211.203px, no overflow/page errors. Normal and forced-colour field focus verified on actual 5173.",
+    "developmentNoJavaScriptLimit": "Vite development CSS imports require JS injection; built production HTML emits stylesheet links and current no-JS browser cases pass. No test manually injects styles."
+  },
+  "nativeContracts": "TypeScript SDK tests reran; native Python/Rust/catalogue source contracts remain unchanged by UI-only adoption and were not newly rerun."
+}

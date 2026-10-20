@@ -174,7 +174,7 @@ matrix to load another year. Cloud cover is scene-wide metadata, not per-AOI.
 
 ## Shared interface
 
-The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.8.0`. Its shared header,
+The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.8.1`. Its shared header,
 Geist fonts and 2400px page frame match the other TCSN apps. The satellite theme
 uses pale sky `#EDF4F7` on orbital navy `#102A43` through the shared inverse theme.
 Map imagery, basemap styling, footprints and scientific calendar colour scales retain their
@@ -230,3 +230,9 @@ previews still require JavaScript. Default control density is `sm` (32px/14px);
 support remains the fixed shared `sm` component. The no-JavaScript browser checks
 verify the two theme colours, local Geist typography, initial controls, canonical
 metadata and useful public explanation at 390px and 1440px.
+
+The final 0.8.1 package keeps editable fields borderless on focus, with an
+underlined label and heading-weight input text. Forced-colour mode retains its
+system outline. The focused five-width shell checks exercise both treatments
+and preserve 32px icon-button geometry. The 0.8.0 receipt remains historical;
+current results are in `docs/evidence/shared-system-0.8.1.json`.
