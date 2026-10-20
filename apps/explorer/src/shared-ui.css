@@ -105,8 +105,6 @@ body.tcsn {
 .explorer-layout .maplibregl-ctrl button {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
 }
 .explorer-layout .maplibregl-ctrl-icon {
   display: grid;
@@ -142,12 +140,6 @@ body.tcsn {
 }
 .explorer-layout .matrix-quick {
   gap: var(--tcsn-space-1);
-}
-.explorer-layout .matrix-year-button,
-.explorer-layout .map-preview-arrow,
-.explorer-layout .map-preview-close {
-  width: 36px;
-  height: 36px;
 }
 .explorer-layout .matrix-year-nav {
   right: calc(100% + 2px);

@@ -117,6 +117,13 @@ for (const width of [320, 390, 768, 1280, 1440]) {
     await expect(
       page.locator("main use[href*='icons.svg'],main .fa-solid"),
     ).toHaveCount(0);
+    for (const button of await page.locator(".maplibregl-ctrl button:visible,.matrix-year-button:visible").all()) {
+      await expect(button).toHaveAttribute("data-size", "sm");
+      await expect(button).toHaveAttribute("data-appearance", "icon");
+      const box = (await button.boundingBox())!;
+      expect(box.width).toBe(32);
+      expect(box.height).toBe(32);
+    }
     await page.locator(".maplibregl-ctrl-zoom-in").focus();
     expect(
       await page

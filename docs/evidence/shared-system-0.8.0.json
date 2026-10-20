@@ -20,7 +20,11 @@
     "default": "sm",
     "heightPx": 32,
     "fontPx": 14,
-    "support": "sm"
+    "support": "sm",
+    "iconButtonPx": {
+      "width": 32,
+      "height": 32
+    }
   },
   "documentedLayoutException": "Canonical shared header with Contact/support; sidebar copyright and map-credit disclosure replace the full document footer. The Source code link is absent.",
   "commands": [
@@ -92,5 +96,15 @@
     "No deployment or DNS change",
     "No provider, account, payment or imagery download actions",
     "Foreign catalogue/preview/data/screenshot changes remain uncommitted"
-  ]
+  ],
+  "iconButtonSizing": {
+    "checkedAt": "2026-10-20T00:32:52.629348+00:00",
+    "change": "Removed stale app-owned 30/36px icon-button dimensions; initial year/preview HTML explicitly authors shared sm/icon attributes. Runtime enhancement retains those same canonical attributes.",
+    "command": "EXPLORER_TEST_PORT=4339 node ../../node_modules/@playwright/test/cli.js test --grep 'shared satellite shell|icon-only buttons|clicking a preview overlays' --workers=2 --output=/tmp/tcsn080/satellite-icon-sm-results",
+    "tests": 7,
+    "status": "passed",
+    "log": "/tmp/satellite-icon-sm-browser080.log",
+    "measurements": "Year stepper and MapLibre navigation controls at 320/390/768/1280/1440px; visible previous/next/close preview controls: each 32\u00d732 CSS px with data-size=sm and data-appearance=icon. Glyph centering, preview navigation, keyboard Escape and unchanged camera assertions remain active.",
+    "foreignMetricHeaderAppearance": "Unchanged and excluded from this bounded patch."
+  }
 }

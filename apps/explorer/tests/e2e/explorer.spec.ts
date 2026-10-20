@@ -699,7 +699,10 @@ test("icon-only buttons centre their glyph", async ({ page }) => {
     const glyph = (await page.locator(id + " .icon").boundingBox())!;
     expect(Math.abs((glyph.x + glyph.width / 2) - (box.x + box.width / 2))).toBeLessThan(1.5);
     expect(Math.abs((glyph.y + glyph.height / 2) - (box.y + box.height / 2))).toBeLessThan(1.5);
-    expect(Math.round(box.width)).toBe(Math.round(box.height)); // square
+    expect(box.width).toBe(32);
+    expect(box.height).toBe(32);
+    await expect(page.locator(id)).toHaveAttribute("data-size", "sm");
+    await expect(page.locator(id)).toHaveAttribute("data-appearance", "icon");
   }
   // Square corners, not pills.
   expect(await page.locator("#matrix-next-year").evaluate((el) => getComputedStyle(el).borderTopLeftRadius)).toBe("0px");
@@ -720,6 +723,14 @@ test("clicking a preview overlays the image on the map with prev/next navigation
   const zoomBefore = Number(new URL(page.url()).searchParams.get("zoom"));
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
+  for (const id of ["#preview-prev", "#preview-next", "#preview-close"]) {
+    const button = page.locator(id);
+    await expect(button).toHaveAttribute("data-size", "sm");
+    await expect(button).toHaveAttribute("data-appearance", "icon");
+    const box = (await button.boundingBox())!;
+    expect(box.width).toBe(32);
+    expect(box.height).toBe(32);
+  }
   const firstCaption = (await page.locator("#preview-caption").textContent()) ?? "";
   expect(firstCaption.length).toBeGreaterThan(0);
   await page.locator("#preview-next").click();
