@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-21",
+  "status": "passed-with-scope-limits",
+  "node": "24.21.0",
+  "sdk": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.15.0",
+    "commit": "5916154a8123ec24d90d184a3762993deb5a414a",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "cc84611fa5e5c3c8ee48350f5494c328c6a51197338466b6f5845cf688664459",
+    "integrity": "sha512-6QAvWFZC7uc40EDCqF6cjxA3Mp7M69/3+NGxsFUcq8pKWqpUIjv3Jmg8be4p/9N2Et//Ws202UXF6AdMzlGbrQ=="
+  },
+  "installedArchiveFilesVerified": 63,
+  "installedArchiveMismatches": [],
+  "scope": "Explorer upgrade, shared editable date/calendar field, year and permalink synchronization, removal of local selected-option underline.",
+  "checks": [
+    {
+      "command": "npm run check",
+      "result": "passed: registry, SDK/explorer builds, strict explorer types, 53 SDK tests and 2 package-checker tests"
+    },
+    {
+      "command": "npm run test:e2e -w @satellites-images/explorer",
+      "result": "77 offline browser cases passed; 2 opt-in live cases skipped"
+    },
+    {
+      "command": "npm run test:e2e -w @satellites-images/explorer -- --grep 'shared date picker' --workers=1",
+      "result": "2 added desktop/mobile calendar, typing, Escape/focus, bounds and year-navigation cases passed"
+    },
+    {
+      "command": "npm install --package-lock-only --ignore-scripts --offline",
+      "result": "lock regenerated successfully; zero audit findings"
+    }
+  ],
+  "logs": [
+    "/tmp/tcsn-rollout-satellites-check-final.log",
+    "/tmp/tcsn-rollout-satellites-browser.log",
+    "/tmp/tcsn-rollout-satellites-date.log"
+  ],
+  "limits": [
+    "Live catalogues and the opt-in live README screenshot were not rerun. The existing owner-modified screenshot is preserved.",
+    "Python/Rust SDK contracts were unchanged and were not newly rerun. Package publication and deployments were not performed."
+  ]
+}

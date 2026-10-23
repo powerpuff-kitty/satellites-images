@@ -7,6 +7,7 @@ import * as maplibregl from "maplibre-gl";
 // and the worker never started (no tiles, no sources). Import the worker as a build asset.
 import maplibreWorkerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import type { FeatureCollection, Geometry } from "geojson";
+import { enhanceDateTime } from "@powerpuff-kitty/tcsn-design-system";
 import "./style.css";
 import "@powerpuff-kitty/tcsn-design-system/styles.css";
 import "./shared-ui.css";
@@ -34,6 +35,8 @@ const from = element<HTMLInputElement>("date-from");
 const to = element<HTMLInputElement>("date-to");
 // The visible control: picking a date loads that date's whole year and selects its day.
 const dateField = element<HTMLInputElement>("date");
+const dateControl = enhanceDateTime(dateField);
+if (import.meta.hot) import.meta.hot.dispose(() => dateControl.destroy());
 const status = element<HTMLElement>("status");
 const results = element<HTMLOListElement>("results");
 const counter = element<HTMLElement>("counter");
@@ -44,8 +47,6 @@ const mapContainer = element<HTMLElement>("map-container");
 const matrixHead = element<HTMLElement>("matrix-head");
 const drawAreaButton = element<HTMLButtonElement>("draw-area");
 const clearAreaButton = element<HTMLButtonElement>("clear-area");
-const sourceList = element<HTMLElement>("source-list");
-const coverage = element<HTMLElement>("coverage");
 const allDaysButton = element<HTMLButtonElement>("show-all-days");
 const showMoreButton = element<HTMLButtonElement>("show-more-scenes");
 const loadNextPagesButton = element<HTMLButtonElement>("load-next-pages");
@@ -53,7 +54,6 @@ const missionFilter = element<HTMLSelectElement>("mission-filter");
 const collectionFilter = element<HTMLSelectElement>("collection-filter");
 const providerFilter = element<HTMLSelectElement>("provider-filter");
 const orbitFilter = element<HTMLSelectElement>("orbit-filter");
-const tilesOnly = element<HTMLInputElement>("tiles-only");
 const cloudMin = element<HTMLSelectElement>("cloud-min");
 const cloudMax = element<HTMLSelectElement>("cloud-max");
 const hourMin = element<HTMLSelectElement>("hour-min");
@@ -67,7 +67,6 @@ const matrixPanel = element<HTMLElement>("map-matrix");
 const matrixLinks = element<HTMLElement>("matrix-links");
 const matrixSvg = element<SVGSVGElement>("matrix-svg");
 const matrixQuick = element<HTMLElement>("matrix-quick");
-const matrixMoreSelect = element<HTMLSelectElement>("matrix-more");
 const matrixPrevYear = element<HTMLButtonElement>("matrix-prev-year");
 const matrixNextYear = element<HTMLButtonElement>("matrix-next-year");
 const mapPreview = element<HTMLElement>("map-preview");
@@ -224,6 +223,7 @@ let autoSelectionPending=false;
 function applyWindowFromDate():void {
   const picked = validDate(dateField.value) ? dateField.value : new Date().toISOString().slice(0,10);
   dateField.value = picked;
+  dateControl.sync();
   const year = picked.slice(0,4);
   from.value = year + "-01-01";
   to.value = year + "-12-31";
@@ -410,7 +410,7 @@ async function showMapPreview(index:number, skipDirect=false):Promise<void> {
   try {
     const preview=await discoverPublicPreview(scene,controller.signal,skipDirect);
     if(token!==previewToken)return;
-    if(!preview.tiles&&!preview.image)throw new Error("No public preview is available for this scene. Open the source catalogue or a paid imagery map.");
+    if(!preview.tiles&&!preview.image)throw new Error("No public preview is available for this scene. Open the source catalogue or try again.");
     let objectUrl: string | null = null;
     if(!preview.tiles && preview.image && preview.coordinates) {
       try { objectUrl=await fetchOverlayImage(preview.image,controller.signal); }
@@ -505,16 +505,6 @@ element<HTMLButtonElement>("preview-retry").addEventListener("click",()=>{
   void showMapPreview(previewIndex);
 });
 document.addEventListener("keydown",(event)=>{ if(!event.defaultPrevented&&event.key==="Escape"&&!mapPreview.hidden)closeMapPreview(); });
-element<HTMLButtonElement>("copy-paid-search").addEventListener("click",async()=>{
-  const note=element<HTMLElement>("paid-search-status");
-  const location=`Latitude: ${lat.value}, longitude: ${lon.value}, radius: ${radius.value} m`;
-  const dates=`Dates: ${from.value} to ${to.value} (UTC)`;
-  const area=aoiRing ? `\nArea: ${JSON.stringify({type:"Polygon",coordinates:[[...aoiRing,aoiRing[0]]]})}` : "";
-  const query=location+"\n"+dates+area;
-  try { await navigator.clipboard.writeText(query); note.textContent="Location and dates copied. Paste them into the provider’s map search."; }
-  catch { note.textContent=query; }
-});
-
 // --- Day classification (cloud classes + palette used by the day matrix) ------
 type CloudClass = "clear" | "partial" | "cloudy" | "unknown";
 const CLOUD_FILL: Record<CloudClass, string> = { clear:"#4fbf7a", partial:"#e0ae54", cloudy:"#9aa0a2", unknown:"#5b665b" };
@@ -533,23 +523,15 @@ function selectTimelineDay(day:string):void {
   renderLoadedScenes();
   storeSearchLink();
 }
-// --- Year-at-a-glance day matrix (GitHub-style, 8x8 px cells) ------------------
-type MatrixMetric = "total" | "cloud" | "mission" | "provider" | "resolution" | "sensor" | "hour" | "orbit";
-const EXTRA_METRICS:{metric:MatrixMetric;label:string}[]=[
-  {metric:"resolution",label:"Resolution"},
-  {metric:"sensor",label:"Sensor"},
-  {metric:"hour",label:"Time of day"},
-  {metric:"orbit",label:"Orbit"},
-];
+// --- Year-at-a-glance day matrix (responsive, up to 14 px cells) --------------
+type MatrixMetric = "total" | "cloud" | "mission" | "provider" | "resolution";
 let matrixMetric:MatrixMetric = "total";
 let matrixItems:Scene[] = [];
-const MATRIX_EMPTY = "#2f3830";   // a day inside the window with no observations
 /** The bucket a scene falls into for a given metric. */
 function matrixKeyOf(scene:Scene, metric:MatrixMetric):string {
   switch(metric){
     case "mission": return scene.mission || "unknown";
     case "provider": return scene.providerId;
-    case "sensor": return isRadarScene(scene) ? "radar" : "optical";
     case "resolution": {
       const gsd=scene.gsdMeters;
       if(gsd===null)return "unknown";
@@ -557,14 +539,6 @@ function matrixKeyOf(scene:Scene, metric:MatrixMetric):string {
       if(gsd<=10)return "\u226410 m";
       if(gsd<=30)return "\u226430 m";
       return ">30 m";
-    }
-    case "hour": {
-      const block=Math.floor(new Date(scene.acquiredAt).getUTCHours()/6)*6;
-      return String(block).padStart(2,"0")+"\u2013"+String(block+6).padStart(2,"0");
-    }
-    case "orbit": {
-      const state=rawProperties(scene)["sat:orbit_state"];
-      return typeof state==="string" ? state.toLowerCase() : "unknown";
     }
     default: return "unknown";
   }
@@ -615,7 +589,8 @@ function matrixCellKeydown(event:KeyboardEvent, day:string):void {
 }
 const MATRIX_MAX_DAYS=731;   // ~2 years: beyond this the grid is not renderable
 const MATRIX_MIN_CELL=6;     // cells shrink to this before the grid is allowed to scroll
-const MATRIX_MAX_CELL=12;    // a year-at-a-glance grid keeps 12 px cells when the pane allows
+const MATRIX_MAX_CELL=14;    // larger day cells when the pane allows the whole year to fit
+const MATRIX_EDGE_INSET=4;   // room for edge-cell selection strokes and forced-colour focus rings
 let matrixTruncated=false;
 function renderMatrix():void {
   const NS="http://www.w3.org/2000/svg";
@@ -644,13 +619,13 @@ function renderMatrix():void {
   const nDays=Math.max(1,Math.round((end-start)/dayMs)+1);
   const weeks=Math.ceil(nDays/7);
   // The whole loaded range must be visible: a clipped December reads as a broken calendar.
-  // Cells shrink from 12 px down to 6 px to fit the map pane, and only scroll below that.
-  // 98 px = the panel's 76 px max-width gutter (which also holds the year stepper) plus
-  // 20 px padding and 2 px borders.
+  // Cells shrink from 14 px down to 6 px to fit the map pane, and only scroll below that.
+  // Reserve the panel's 76 px gutter (which also holds the year stepper), 16 px shared
+  // padding and the SVG's own inset: strokes can extend beyond a cell's fill bounds.
   const paneWidth=matrixPanel.parentElement?.clientWidth ?? 0;
-  const cell=Math.max(MATRIX_MIN_CELL,Math.min(MATRIX_MAX_CELL,Math.floor(Math.max(140,paneWidth-98)/weeks)-1));
+  const cell=Math.max(MATRIX_MIN_CELL,Math.min(MATRIX_MAX_CELL,Math.floor(Math.max(140,paneWidth-92-MATRIX_EDGE_INSET*2)/weeks)-1));
   const step=cell+1;
-  const width=weeks*step, height=7*step;
+  const width=weeks*step+MATRIX_EDGE_INSET*2, height=7*step+MATRIX_EDGE_INSET*2;
   matrixSvg.setAttribute("viewBox",`0 0 ${width} ${height}`);
   matrixSvg.setAttribute("width",String(width));
   matrixSvg.setAttribute("height",String(height));
@@ -683,13 +658,14 @@ function renderMatrix():void {
     const rect=document.createElementNS(NS,"rect");
     rect.setAttribute("class","matrix-cell");
     rect.setAttribute("data-day",day);
-    rect.setAttribute("x",String(Math.floor(d/7)*step));
-    rect.setAttribute("y",String((d%7)*step));
+    rect.setAttribute("x",String(MATRIX_EDGE_INSET+Math.floor(d/7)*step));
+    rect.setAttribute("y",String(MATRIX_EDGE_INSET+(d%7)*step));
     rect.setAttribute("width",String(cell));
     rect.setAttribute("height",String(cell));
-    rect.setAttribute("rx","1");
+    rect.setAttribute("rx","0");
     const tip=document.createElementNS(NS,"title");
     const classes=["matrix-cell"];
+    if(!inWindow)classes.push("outside-window");
     if(list)classes.push("has-scenes");
     if(day===selectedDay)classes.push("selected");
     rect.setAttribute("class",classes.join(" "));
@@ -699,9 +675,7 @@ function renderMatrix():void {
     if(list){
       rect.setAttribute("fill",matrixColourOf(list,metric,max,order,keyOf));
     }else{
-      // In-window days with no observations get a placeholder; padding days outside the
-      // window are left with no fill so they read as background, not as dark blocks.
-      rect.setAttribute("fill",inWindow?MATRIX_EMPTY:"transparent");
+      rect.setAttribute("fill","transparent");
     }
     // Every day inside the loaded window is hoverable and selectable, including days with no
     // observations; padding days outside the window carry a tooltip but are not selectable.
@@ -726,7 +700,7 @@ function renderMatrix():void {
     const column=Math.floor(Math.round((monthStart-start)/dayMs)/7);
     const label=document.createElementNS(NS,"text");
     label.setAttribute("class","matrix-month");
-    label.setAttribute("x",String(column*step+1));
+    label.setAttribute("x",String(MATRIX_EDGE_INSET+column*step+1));
     label.setAttribute("y",String(height+11));
     label.setAttribute("text-anchor","start");
     label.textContent=new Date(month+"-01T00:00:00Z")
@@ -735,18 +709,17 @@ function renderMatrix():void {
   }
 }
 function setMatrixMetric(metric:MatrixMetric):void {
+  const inputs=[...matrixLinks.querySelectorAll<HTMLInputElement>('input[type="radio"]')];
+  const selected=inputs.find(input=>input.value===metric);
+  if(!selected)return;
   matrixMetric=metric;
-  for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
-    link.setAttribute("aria-pressed",String(link.dataset.metric===metric));
-  const extra = EXTRA_METRICS.find(entry => entry.metric === metric);
-  matrixMoreSelect.value = extra ? extra.metric : "";
+  for(const input of inputs)input.checked=input===selected;
   renderMatrix();
 }
-for(const link of matrixLinks.querySelectorAll<HTMLButtonElement>(".matrix-link"))
-  link.addEventListener("click",()=>setMatrixMetric((link.dataset.metric as MatrixMetric) ?? "total"));
-matrixMoreSelect.addEventListener("change", () => {
-  if (matrixMoreSelect.value) setMatrixMetric(matrixMoreSelect.value as MatrixMetric);
-});
+for(const input of matrixLinks.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
+  input.addEventListener("change",()=>{
+    if(input.checked){setMatrixMetric(input.value as MatrixMetric);storeSearchLink();}
+  });
 // The grid is sized to the map pane, so a resize (or a pane-width change) must re-fit it.
 let matrixRefitTimer:number|undefined;
 window.addEventListener("resize",()=>{
@@ -858,9 +831,9 @@ function restoreSearchLink():void {
   if(wantedCatalogue)providerFilter.value=wantedCatalogue;
   const wantedOrbit=params.get("orbit");
   if(wantedOrbit)orbitFilter.value=wantedOrbit;
-  tilesOnly.checked=params.get("tiles")==="1";
   const sensor=params.get("sensor");
   if(sensor==="optical"||sensor==="radar"||sensor==="all")sensorFilter=sensor;
+  syncFilterUI();
   const wantedAoi=params.get("aoi");
   if(wantedAoi){
     const ring=wantedAoi.split(" ").map((pair)=>pair.split(",").map(Number))
@@ -874,7 +847,7 @@ function restoreSearchLink():void {
     for(const id of wantedExtras.split(","))
       if(EXTRA_SOURCES.some((source)=>source.id===id))enabledExtraSources.add(id);
   }
-  renderSources();
+  syncSourceToggles();
   const wantedScene=params.get("scene");
   if(wantedScene)initialPermalinkScene=wantedScene;
   const wantedTab=params.get("tab");
@@ -884,7 +857,7 @@ function restoreSearchLink():void {
     await runSearch();
     if(wantedTab==="upcoming")setTab("upcoming");
     if(initialPermalinkScene){
-      const scene=loadedScenes.find((candidate)=>candidate.id===initialPermalinkScene);
+      const scene=loadedScenes.find((candidate)=>tileAssetFor(candidate)&&candidate.id===initialPermalinkScene);
       initialPermalinkScene=null;
       if(scene){
         // The link names an image, so make sure its day is the selected one first: otherwise the
@@ -923,7 +896,6 @@ function storeSearchLink():void {
   if(collectionFilter.value)url.searchParams.set("collection",collectionFilter.value);
   if(providerFilter.value)url.searchParams.set("catalogue",providerFilter.value);
   if(orbitFilter.value)url.searchParams.set("orbit",orbitFilter.value);
-  if(tilesOnly.checked)url.searchParams.set("tiles","1");
   if(cloudMin.value!=="")url.searchParams.set("cloudmin",cloudMin.value);
   if(cloudMax.value!=="")url.searchParams.set("cloudmax",cloudMax.value);
   if(hourMin.value!=="0")url.searchParams.set("hmin",hourMin.value);
@@ -975,7 +947,12 @@ function dedupeScenes(scenes:Scene[]):Scene[] {
       if(!group.some(item=>item.providerId===original.providerId && item.id===original.id && item.collection===original.collection))group.push(original);
     groups.set(key,group);
   }
-  return [...groups.values()].map(group=>{sceneProvenance.set(group[0],group);return group[0];});
+  return [...groups.values()].map(group=>{
+    // A native-tile copy keeps the observation eligible while retaining every catalogue record.
+    const scene=group.find(item=>tileAssetFor(item))??group[0];
+    sceneProvenance.set(scene,group);
+    return scene;
+  });
 }
 function sceneCatalogues(scene:Scene):string[] {
   return [...new Set((sceneProvenance.get(scene)??[scene]).map(item=>item.providerId))];
@@ -1023,6 +1000,7 @@ function sceneMatchesLocation(scene:Scene):boolean {
   return !Number.isFinite(pointLng) || !Number.isFinite(pointLat) || sceneCoversPoint(scene,pointLng,pointLat);
 }
 function passesFilters(scene:Scene):boolean {
+  if(!tileAssetFor(scene))return false;
   const commercial=isCommercialScene(scene);
   if(satelliteTypeFilter.value==="public" && commercial)return false;
   if(satelliteTypeFilter.value==="commercial" && !commercial)return false;
@@ -1037,7 +1015,6 @@ function passesFilters(scene:Scene):boolean {
     const orbit=typeof state==="string"?state.toLowerCase():"unknown";
     if(orbit !== orbitFilter.value) return false;
   }
-  if (tilesOnly.checked && !tileAssetFor(scene)) return false;
   if (!includeUnknown.checked && scene.cloudCoverPercent === null) return false;
   if (cloudMin.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent < Number(cloudMin.value)) return false;
   if (cloudMax.value !== "" && scene.cloudCoverPercent !== null && scene.cloudCoverPercent > Number(cloudMax.value)) return false;
@@ -1048,14 +1025,15 @@ function passesFilters(scene:Scene):boolean {
   return true;
 }
 function hasActiveFilters():boolean {
-  return Boolean(satelliteTypeFilter.value || sensorFilter!=="all" || tilesOnly.checked || providerFilter.value || orbitFilter.value ||
+  return Boolean(satelliteTypeFilter.value || sensorFilter!=="all" || providerFilter.value || orbitFilter.value ||
     missionFilter.value || collectionFilter.value || cloudMin.value || cloudMax.value ||
     resolutionFilter.value || hasPreview.checked || !includeUnknown.checked ||
     Number(hourMin.value) > 0 || Number(hourMax.value) < 23);
 }
 function updateFilterChoices():void {
+  const eligible=loadedScenes.filter(scene=>tileAssetFor(scene));
   const wasMission=missionFilter.value||pendingMissionFilter;
-  const missions=[...new Set(loadedScenes.map(scene=>scene.mission || "unknown"))].sort();
+  const missions=[...new Set(eligible.map(scene=>scene.mission || "unknown"))].sort();
   if(wasMission&&!missions.includes(wasMission))missions.push(wasMission);
   pendingMissionFilter="";
   const missionFragment=document.createDocumentFragment();
@@ -1067,7 +1045,7 @@ function updateFilterChoices():void {
   missionFilter.replaceChildren(missionFragment);
   missionFilter.value=missions.includes(wasMission)?wasMission:"";
   const wasCollection=collectionFilter.value||pendingCollectionFilter;
-  const collections=[...new Set(loadedScenes.map(scene=>scene.collection).filter(Boolean))].sort();
+  const collections=[...new Set(eligible.map(scene=>scene.collection).filter(Boolean))].sort();
   if(wasCollection&&!collections.includes(wasCollection))collections.push(wasCollection);
   pendingCollectionFilter="";
   const collectionFragment=document.createDocumentFragment();
@@ -1079,7 +1057,7 @@ function updateFilterChoices():void {
   collectionFilter.replaceChildren(collectionFragment);
   collectionFilter.value=collections.includes(wasCollection)?wasCollection:"";
   const wasProvider=providerFilter.value;
-  const providers=[...new Set(loadedScenes.flatMap(sceneCatalogues).filter(Boolean))].sort();
+  const providers=[...new Set(eligible.flatMap(sceneCatalogues).filter(Boolean))].sort();
   const providerFragment=document.createDocumentFragment();
   const allProviders=document.createElement("option");
   allProviders.value=""; allProviders.textContent="All catalogues"; providerFragment.append(allProviders);
@@ -1130,7 +1108,7 @@ function renderLoadedScenes():void {
       description = "No commercial-satellite observations match these filters in the connected public catalogues. Full paid-archive search requires a provider account.";
     } else description = selectedDay
       ? "No observations on " + selectedDay + " for this location. Pick another day on the matrix."
-      : "No observations match the current filters.";
+      : "No observations match the current filters. Only observations with native-resolution tiles are shown.";
     const empty = sharedEmptyState(description, canRecover
       ? [{label: "Show all loaded observations", action: "show-all-observations"}] : []);
     empty.querySelector('[data-tcsn-action="show-all-observations"]')?.addEventListener("click", () => {
@@ -1140,30 +1118,12 @@ function renderLoadedScenes():void {
     fragment.append(empty);
   }
   results.replaceChildren(fragment);
-  const counted=loadedScenes.filter(sceneMatchesLocation).length;
+  const counted=loadedScenes.filter(scene=>tileAssetFor(scene)&&sceneMatchesLocation(scene)).length;
   const filtering=hasActiveFilters();
   counter.textContent=String(visible.length)+(filtering?" / "+counted:"");
   showMoreButton.hidden=visible.length<=displayedLimit;
   matrixItems=loadedScenes.filter(passesFilters);
   renderMatrix();
-}
-/** Coverage rollup from the availability summary (days/months/provider split). */
-function renderCoverage():void {
-  const summary=currentSummary;
-  if(!summary){ coverage.textContent=""; return; }
-  const shown=loadedScenes.filter(passesFilters).length;
-  const days=summary.days.length, months=summary.months.length;
-  const catalogues=summary.providers.map((provider)=>
-    provider.id+(provider.uniqueItems?" "+provider.uniqueItems:"")+(provider.hasMore?"+":""));
-  const failed=summary.erroredProviders;
-  coverage.textContent=[
-    shown+" observation"+(shown===1?"":"s")+" shown",
-    days+" day"+(days===1?"":"s")+" with data",
-    months+" month"+(months===1?"":"s"),
-    matrixTruncated?"grid shows the last 2 years":
-    catalogues.join(" \u00b7 "),
-    failed.length?failed.join(", ")+" failed":"",
-  ].filter((part)=>part.length>0).join(" \u00b7 ");
 }
 function redrawAvailability():void {
   const full=currentSummary;
@@ -1172,14 +1132,13 @@ function redrawAvailability():void {
   const statusParts:string[]=[];
   const pointLng=Number(lon.value), pointLat=Number(lat.value);
   if(!aoiRing&&Number.isFinite(pointLng)&&Number.isFinite(pointLat)){
-    const hidden=loadedScenes.filter((scene)=>!sceneCoversPoint(scene,pointLng,pointLat)).length;
+    const hidden=loadedScenes.filter((scene)=>tileAssetFor(scene)&&!sceneCoversPoint(scene,pointLng,pointLat)).length;
     if(hidden)statusParts.push(hidden+" scene"+(hidden===1?"":"s")+
       " hidden: the footprint does not cover this location.");
   }
   if(!full.complete)statusParts.push("Additional pages may exist. Counts are partial.");
   if(searchErrored)statusParts.push("Provider search failed; shown results are incomplete.");
   calendarStatus.textContent=statusParts.join(" ");
-  renderCoverage();
 }
 function monthChunks(fromMonth:string,toMonth:string,size:number):{from:string;to:string}[] {
   const chunks:{from:string;to:string}[]=[];
@@ -1212,20 +1171,19 @@ fillSelect(hourMin,hourOptions); fillSelect(hourMax,[...hourOptions]);
 hourMin.value="0"; hourMax.value="23";
 function applySensorFilter(choice:string):void {
   sensorFilter=choice==="radar"||choice==="optical"?choice:"all";
-  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
-    button.setAttribute("aria-pressed",String(button.dataset.sensor===sensorFilter));
+  syncFilterUI();
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();
+  storeSearchLink();
 }
-for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
-  button.addEventListener("click",()=>applySensorFilter(button.dataset.sensor ?? "all"));
+for(const input of matrixQuick.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
+  input.addEventListener("change",()=>{if(input.checked)applySensorFilter(input.value);});
 clearFilters.addEventListener("click",()=>{
   sensorFilter="all";
-  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
-    button.setAttribute("aria-pressed",String(button.dataset.sensor==="all"));
+  syncFilterUI();
   missionFilter.value=""; collectionFilter.value=""; providerFilter.value=""; orbitFilter.value="";
-  tilesOnly.checked=false; cloudMin.value=""; cloudMax.value="";
+  cloudMin.value=""; cloudMax.value="";
   satelliteTypeFilter.value="";
   hourMin.value="0"; hourMax.value="23"; resolutionFilter.value=""; hasPreview.checked=false; includeUnknown.checked=true;
   displayedLimit=40; redrawAvailability(); renderLoadedScenes(); storeSearchLink();
@@ -1245,7 +1203,7 @@ missionFilter.addEventListener("change",()=>{
   redrawAvailability();
   renderLoadedScenes();
 });
-for(const control of [missionFilter,collectionFilter,providerFilter,orbitFilter,tilesOnly,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown,satelliteTypeFilter]) control.addEventListener("change",()=>{
+for(const control of [missionFilter,collectionFilter,providerFilter,orbitFilter,cloudMin,cloudMax,hourMin,hourMax,resolutionFilter,hasPreview,includeUnknown,satelliteTypeFilter]) control.addEventListener("change",()=>{
   displayedLimit=40;
   redrawAvailability();
   renderLoadedScenes();
@@ -1299,7 +1257,7 @@ async function scanNextBatch(session:HistoryScan):Promise<void> {
     // pixel is left alone, so the "no observations" state is still reachable on purpose.
     if(autoSelectionPending && summary.complete){
       autoSelectionPending=false;
-      if(selectedDay && !loadedScenes.some((scene)=>scene.acquiredAt.slice(0,10)===selectedDay)){
+      if(selectedDay && !loadedScenes.some((scene)=>tileAssetFor(scene)&&scene.acquiredAt.slice(0,10)===selectedDay)){
         selectedDay=null;
         displayedLimit=40;
         redrawAvailability();
@@ -1407,7 +1365,7 @@ async function runSearch(opts:{append?:boolean;chunks?:{from:string;to:string}[]
   }
   const accumulator=scanAccumulator??(scanAccumulator=new AvailabilityAccumulator());
   // Both public catalogues are queried together; duplicates are merged on display.
-  // Extra catalogues are opt-in from the Data sources panel.
+  // Additional satellites and shared URLs opt into extra catalogues.
   const providers:SearchProvider[]=[planetaryComputer(),earthSearch()];
   for(const source of EXTRA_SOURCES)
     if(enabledExtraSources.has(source.id))providers.push(source.create());
@@ -1473,65 +1431,19 @@ const enabledExtraSources=new Set<string>();
 function setExtraSource(id:string,enabled:boolean):void {
   if(enabled)enabledExtraSources.add(id);
   else enabledExtraSources.delete(id);
-  renderSources();
+  syncSourceToggles();
   void runSearch();
 }
-function renderSources():void {
+function syncSourceToggles():void {
   for(const input of document.querySelectorAll<HTMLInputElement>("[data-source-toggle]"))
     input.checked=enabledExtraSources.has(input.dataset.sourceToggle!);
-  const fragment=document.createDocumentFragment();
-  for(const source of listSources()){
-    const item=document.createElement("div");
-    item.className="source";
-    const heading=document.createElement("div");
-    heading.className="source-heading";
-    const name=document.createElement("strong");
-    name.textContent=source.name;
-    const type=document.createElement("span");
-    type.className="muted";
-    type.textContent=source.type;
-    heading.append(name,type);
-    item.append(heading);
-    const metadataItems: {term: string; value: string}[] = [];
-    metadataItems.push(line("Search",source.searchAccess));
-    metadataItems.push(line("Imagery",source.imageryAccess));
-    const implemented=[source.implemented.typescript?"TS":null,
-      source.implemented.python?"Python":null,source.implemented.rust?"Rust":null]
-      .filter(Boolean).join(" / ");
-    metadataItems.push(line("SDK",implemented||"planned"));
-    item.append(sharedDescriptionList(metadataItems));
-    const extra=EXTRA_SOURCES.find((candidate)=>candidate.id===source.id);
-    if(extra){
-      const label=document.createElement("label");
-      label.className="check-label";
-      const input=document.createElement("input");
-      input.type="checkbox";
-      input.setAttribute("data-source",source.id);
-      input.checked=enabledExtraSources.has(source.id);
-      input.addEventListener("change",()=>{
-        setExtraSource(source.id,input.checked);
-      });
-      label.append(input,document.createTextNode(" query this catalogue"));
-      item.append(label);
-    }
-    if(source.docs){
-      const link=document.createElement("a");
-      link.href=source.docs;
-      link.target="_blank";
-      link.rel="noopener noreferrer";
-      link.textContent="Documentation";
-      item.append(link);
-    }
-    fragment.append(item);
-  }
-  sourceList.replaceChildren(fragment);
 }
 for(const input of document.querySelectorAll<HTMLInputElement>("[data-source-toggle]"))
   input.addEventListener("change",()=>setExtraSource(input.dataset.sourceToggle!,input.checked));
-renderSources();
+syncSourceToggles();
 function syncFilterUI():void {
-  for(const button of matrixQuick.querySelectorAll<HTMLButtonElement>(".matrix-chip[data-sensor]"))
-    button.setAttribute("aria-pressed",String(button.dataset.sensor===sensorFilter));
+  for(const input of matrixQuick.querySelectorAll<HTMLInputElement>('input[type="radio"]'))
+    input.checked=input.value===sensorFilter;
 }
 syncFilterUI();
 
@@ -1697,7 +1609,7 @@ function setTab(tab:"historical"|"upcoming"):void{
   if(tab!=="historical") showMoreButton.hidden=true;
   obsTitle.textContent = tab==="upcoming" ? "Upcoming planned acquisitions" : "Published observations";
   // The window (and therefore the grid's size) is the same on both tabs; only the data
-  // behind it changes. The metric links and quick filters describe published scenes, so
+  // behind it changes. The metric and observation-type toggles describe published scenes, so
   // they are hidden on the upcoming tab.
   matrixHead.hidden = tab==="upcoming";
   matrixItems=tab==="upcoming"?[]:loadedScenes.filter(passesFilters);

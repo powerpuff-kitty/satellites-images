@@ -1,0 +1,209 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T17:02:04.080889+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Match standard button and single-select defaults to md inputs: 40px, 16px type and md padding; preserve explicit densities and compact navigation/support. Align consumer adapters and standard body controls.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.18.2",
+    "commit": "9c22999acf8050e05b7711936bd25e1060b6b805",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "1cf3092757e3ac0eb5c2929d9ad1d95809251130bf0eac74f1548712cdbdafb1",
+    "integrity": "sha512-NI62lYcwhupCmcj+LredJ5/0Iiwkb9P9PCVmVIG6uRFaj/bmPk2acegji4oWMG7Z+O/Pcowndym1GeAvS0VKrA=="
+  },
+  "adoption": {
+    "version": "0.18.2",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.18.2/35026f184f851904833e5d5ca0172c066a435296",
+    "integrity": "sha512-NI62lYcwhupCmcj+LredJ5/0Iiwkb9P9PCVmVIG6uRFaj/bmPk2acegji4oWMG7Z+O/Pcowndym1GeAvS0VKrA==",
+    "archiveFilesVerified": 72,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T16:47:08.167Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-22T16:47:08.559Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:47:27.267Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T16:47:27.271Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:47:29.153Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T16:47:29.153Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:47:33.885Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T16:47:33.917Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:48:04.528Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T16:48:04.559Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:48:15.409Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-22T16:48:15.423Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:51:42.584Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T16:51:42.589Z"
+  },
+  "sdkValidation": {
+    "ciReport": ".local-ci/2026-10-22T16-26-04-271Z/report.json",
+    "steps": [
+      {
+        "name": "install",
+        "startedAt": "2026-10-22T16:26:04.358Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:06.469Z"
+      },
+      {
+        "name": "check",
+        "startedAt": "2026-10-22T16:26:06.469Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:08.885Z"
+      },
+      {
+        "name": "unit",
+        "startedAt": "2026-10-22T16:26:08.885Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:09.521Z"
+      },
+      {
+        "name": "node22",
+        "startedAt": "2026-10-22T16:26:09.521Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:10.512Z"
+      },
+      {
+        "name": "gallery-build",
+        "startedAt": "2026-10-22T16:26:10.512Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:14.082Z"
+      },
+      {
+        "name": "package-smoke",
+        "startedAt": "2026-10-22T16:26:14.083Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:35.116Z"
+      },
+      {
+        "name": "chromium",
+        "startedAt": "2026-10-22T16:26:35.118Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:26:39.510Z"
+      },
+      {
+        "name": "browser",
+        "startedAt": "2026-10-22T16:26:39.511Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:43:22.829Z"
+      },
+      {
+        "name": "audit",
+        "startedAt": "2026-10-22T16:43:22.832Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T16:43:25.326Z"
+      }
+    ],
+    "nativeTestsPerRuntime": 104,
+    "runtimes": ["22.16.0", "24.21.0"],
+    "browserPassed": 359,
+    "browserSkipped": 1,
+    "skipReason": "Desktop-only catalogue navigation case is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "audit": "passed",
+    "focusedChromiumDesktopMobileCases": 12,
+    "crossEngineCasesPassed": 36,
+    "matrix": "Chromium/Firefox/WebKit at 1440/390px; HTML/Vue five explicit densities, md button/select/input defaults, menu/disclosure triggers, icon/disabled actions, dropdown size synchronization, hover/focus/press and enlarged root text; catalogue default controls share height and alignment.",
+    "screenshotWidthsReviewed": [1440, 390],
+    "runner": "Full Chromium 156.0.8078.4 for the full source gate; installed Firefox 1555 and WebKit 2370 for the optional matrix.",
+    "caseBudgetMs": 300000,
+    "retries": 0,
+    "supersededTargetedSetup": "Initial default-height fixture accidentally included the explicitly compact support action; the final size run excludes it while retaining its sm assertion. Firefox exposed a 0.00003px bounding-box difference; numeric comparisons now use 0.001px precision, with exact computed minimum-height assertions retained. Separate Vue example apps have unique ID prefixes. Compact navigation references explicitly select sm; their cross-engine measurements normalize subpixel width/line-height serialization and use native macOS WebKit Option-Tab. Final density matrix passed 36 cases and final navigation follow-up passed 12.",
+    "compactNavigationCrossEngineCasesPassed": 12,
+    "supersededCI": [
+      {
+        "directory": ".local-ci/2026-10-22T15-58-09-413Z",
+        "status": "interrupted",
+        "reason": "Correct fractional browser geometry comparisons and unique Vue fixture ID prefixes before publication."
+      },
+      {
+        "directory": ".local-ci/2026-10-22T16-01-31-415Z",
+        "status": "failed",
+        "passed": 355,
+        "failed": 4,
+        "skipped": 1,
+        "reason": "Legacy compact-navigation comparison omitted an explicit sm size on its standalone example. Corrected fixture retains fixed 32px navigation references and 40px standard-default assertions."
+      },
+      {
+        "directory": ".local-ci/2026-10-22T16-21-40-919Z",
+        "status": "interrupted",
+        "reason": "Finish cross-engine subpixel line-height normalization in test inspection; production src/tokens/dist bytes unchanged."
+      }
+    ]
+  },
+  "limits": [
+    "Selected browser fixtures and host flows do not prove every possible composition or physical device.",
+    "GitHub CLI package-visibility read returned HTTP 403 because its credential lacks read:packages; restricted publication and exact registry bytes are verified by the existing authenticated npm release guard.",
+    "Basemap and domain-data proof uses synthetic/offline fixtures. No app deployment, credential inspection, real payment/mail, live provider operations or remote model downloads."
+  ],
+  "browser": {
+    "command": "EXPLORER_TEST_PORT=4329 npx playwright test --config .local-ci/support-browser.config.ts --workers=1",
+    "passed": 79,
+    "skipped": 2,
+    "skipReason": "Live capture/search remain opt-in.",
+    "runner": "Full Chromium 156; 90s case budget, unchanged assertions, offline fixtures."
+  }
+}

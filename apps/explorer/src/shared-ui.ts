@@ -2,11 +2,13 @@ import {
   descriptionListMarkup,
   emptyStateMarkup,
   enhanceDropdowns,
+  enhanceSegmentedToggles,
+  enhanceTabs,
+  enhanceMapLibre,
   headerMarkup,
   supportButtonMarkup,
   iconMarkup,
   observeShell,
-  panelMarkup,
   progressMarkup,
   taskStatusMarkup,
   type IconName,
@@ -90,23 +92,6 @@ function initializeTasks(): void {
 }
 
 function initializePatterns(): void {
-  for (const selector of ["#sources", "#paid-maps"]) {
-    const existing = document.querySelector<HTMLDetailsElement>(selector);
-    if (!existing) continue;
-    const summary = existing.querySelector("summary")!;
-    const panel = fromMarkup<HTMLDetailsElement>(
-      panelMarkup({
-        title: summary.textContent!.trim(),
-        open: existing.open,
-        id: existing.id,
-      }),
-    );
-    panel.classList.add(...existing.classList);
-    const body = panel.querySelector(".tcsn-panel__body")!;
-    for (const node of [...existing.childNodes])
-      if (node !== summary) body.append(node);
-    existing.replaceWith(panel);
-  }
   const regions = [
     [".panel", "Satellite image search", "y"],
     [".observations", "Observations", "y"],
@@ -132,13 +117,18 @@ export function initializeSharedUi(): () => void {
     href: "./",
     actions: [{ label: "Contact", href: "https://tcsn.io/contact" }],
   });
-  header.querySelector("nav")!.insertAdjacentHTML("beforeend", supportButtonMarkup());
-  document.querySelector("#sidebar-copyright")!.textContent = `© ${new Date().getFullYear()} TCSN`;
+  header
+    .querySelector("nav")!
+    .insertAdjacentHTML("beforeend", supportButtonMarkup());
+  document.querySelector("#sidebar-copyright")!.textContent =
+    `© ${new Date().getFullYear()} TCSN`;
   const shell = observeShell();
   const main = document.querySelector<HTMLElement>("main")!;
   const controller = new AbortController();
 
-  main.querySelector("#search-form")?.classList.add("tcsn-tabs");
+  const tabRoot = main.querySelector<HTMLElement>("#search-form")!;
+  tabRoot.classList.add("tcsn-tabs");
+  tabRoot.dataset.tcsnTabs = "";
   function labelField(control: HTMLInputElement | HTMLSelectElement) {
     const label = control.closest("label");
     if (!label) return;
@@ -158,15 +148,10 @@ export function initializeSharedUi(): () => void {
       "button:not(.tcsn-dropdown__trigger)",
     )) {
       button.classList.add("tcsn-button");
+      if (button.matches(".text-button")) button.dataset.variant = "ghost";
       if (
         button.matches(
-          ".text-button,.matrix-link,.matrix-more-toggle,.matrix-menu-item",
-        )
-      )
-        button.dataset.variant = "ghost";
-      if (
-        button.matches(
-          ".matrix-chip,.matrix-link,.matrix-menu-item,.matrix-more-toggle,.matrix-year-button,.map-preview-arrow,.map-preview-close,.maplibregl-ctrl button",
+          ".matrix-year-button,.map-preview-arrow,.map-preview-close,.maplibregl-ctrl button",
         )
       )
         button.dataset.size = "sm";
@@ -181,9 +166,16 @@ export function initializeSharedUi(): () => void {
       "input:not([type=hidden])",
     )) {
       if (input.type === "checkbox" || input.type === "radio") {
-        input.closest("label")?.classList.add("tcsn-check");
+        if (!input.closest(".tcsn-segments"))
+          input.closest("label")?.classList.add("tcsn-check");
       } else {
-        input.classList.add(input.type === "range" ? "tcsn-slider" : input.type === "file" ? "tcsn-file" : "tcsn-input");
+        input.classList.add(
+          input.type === "range"
+            ? "tcsn-slider"
+            : input.type === "file"
+              ? "tcsn-file"
+              : "tcsn-input",
+        );
         labelField(input);
       }
     }
@@ -203,55 +195,29 @@ export function initializeSharedUi(): () => void {
         sharedIcon(placeholder.dataset.sharedIcon as IconName),
       );
     }
-    const controls: Record<string, IconName> = {
-      "maplibregl-ctrl-zoom-in": "plus",
-      "maplibregl-ctrl-zoom-out": "minus",
-      "maplibregl-ctrl-compass": "compass",
-      "maplibregl-ctrl-attrib-button": "circle-info",
-    };
-    for (const [className, name] of Object.entries(controls)) {
-      for (const button of main.querySelectorAll<HTMLButtonElement>(
-        `.${className}`,
-      )) {
-        const host =
-          button.querySelector<HTMLElement>(".maplibregl-ctrl-icon") || button;
-        if (!host.querySelector(".tcsn-icon"))
-          host.replaceChildren(sharedIcon(name));
-      }
-    }
   }
+  const segments = enhanceSegmentedToggles(main);
+  const refreshSegments = () => segments.refresh();
+  main.addEventListener("change", refreshSegments);
   decorate();
   const dropdowns = enhanceDropdowns(main);
   // Dynamic scene cards and renderer controls are ordinary DOM, independent of SDK search state.
-  const observer = new MutationObserver(decorate);
+  const observer = new MutationObserver(() => {
+    decorate();
+    segments.refresh();
+  });
   observer.observe(main, { childList: true, subtree: true });
-  const tabs = [...main.querySelectorAll<HTMLButtonElement>('[role="tab"]')];
-  main.querySelector('[role="tablist"]')?.addEventListener(
-    "keydown",
-    (event) => {
-      const key = (event as KeyboardEvent).key;
-      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(key)) return;
-      const current = tabs.indexOf(document.activeElement as HTMLButtonElement);
-      if (current < 0) return;
-      event.preventDefault();
-      const next =
-        key === "Home"
-          ? 0
-          : key === "End"
-            ? tabs.length - 1
-            : (current + (key === "ArrowRight" ? 1 : -1) + tabs.length) %
-              tabs.length;
-      // Click runs the existing catalogue/tab state transition as well as updating ARIA.
-      tabs[next].click();
-      tabs[next].focus();
-    },
-    { signal: controller.signal },
-  );
+  const releaseTabs = enhanceTabs(main);
+  const releaseMapChrome = enhanceMapLibre(main);
   return () => {
     tasks.clear();
     controller.abort();
     observer.disconnect();
     dropdowns();
+    releaseTabs();
+    releaseMapChrome();
+    main.removeEventListener("change", refreshSegments);
+    segments();
     shell();
   };
 }

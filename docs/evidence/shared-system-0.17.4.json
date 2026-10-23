@@ -1,0 +1,163 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T13:29:13.188316+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Adopt all seven visual review fixes from shared package 0.17.4.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.17.4",
+    "commit": "3444c2cbcb3cf61f0d48cb6f34c701dc54bca83a",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "fae6a19a6b1b05ca810449f8b551d6f2aa94417b21bcbde3f07288c898eae420",
+    "integrity": "sha512-mNeFwbuCeYyIPOWEr8B85fxZcsBaTLD7GgWSTIJk4WVLlPj66MU3CRjOe6MTyYjwkbjTXyYZj8PB0QkuZW1Dvg=="
+  },
+  "adoption": {
+    "version": "0.17.4",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.17.4/8a852d0a972e783e18904838955d6106275c6c5c",
+    "integrity": "sha512-mNeFwbuCeYyIPOWEr8B85fxZcsBaTLD7GgWSTIJk4WVLlPj66MU3CRjOe6MTyYjwkbjTXyYZj8PB0QkuZW1Dvg==",
+    "archiveFilesVerified": 71,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T13:24:33.473Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": [
+          "npm",
+          "run",
+          "check"
+        ],
+        "startedAt": "2026-10-22T13:24:33.482Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T13:24:45.274Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T13:24:45.280Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T13:24:47.479Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T13:24:47.480Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T13:24:48.751Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T13:24:48.763Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T13:24:59.294Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T13:24:59.301Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T13:25:04.409Z"
+      },
+      {
+        "name": "package-check",
+        "command": [
+          "npm",
+          "run",
+          "check:packages"
+        ],
+        "startedAt": "2026-10-22T13:25:04.423Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T13:26:26.949Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T13:26:26.950Z"
+  },
+  "nativeCounts": [
+    {
+      "step": "typescript-check",
+      "testGroups": [
+        53,
+        2
+      ]
+    }
+  ],
+  "browser": {
+    "status": "passed",
+    "command": "EXPLORER_TEST_PORT=4329 npm run test:e2e -w @satellites-images/explorer -- --workers=1",
+    "passed": 79,
+    "skipped": 2,
+    "skipReason": "Opt-in live provider capture/search checks; executed network uses offline fixtures."
+  },
+  "sdkGate": {
+    "nativeTestsPerRuntime": 101,
+    "runtimes": [
+      "22.16.0",
+      "24.21.0"
+    ],
+    "browserPassed": 329,
+    "browserSkipped": 1,
+    "skipReason": "Desktop-only catalogue navigation check is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "dependencyAudit": "passed",
+    "refinementCrossEnginePassed": 54,
+    "crossEngineMatrix": "Chromium, Firefox, WebKit at 1440px and 390px; all nine refinement cases per engine/width.",
+    "reviewedScreenshotWidths": [
+      1440,
+      390,
+      320
+    ],
+    "caseBudgetMs": 300000,
+    "retries": 0,
+    "providerTiles": "Synthetic fixtures; no live basemap fetch for this task.",
+    "supersededCI": [
+      {
+        "report": ".local-ci/2026-10-22T13-10-31-599Z/report.json",
+        "reason": "Interrupted after visual review caught a missing generated minus mask, rendering a square. Mask bundling and browser asset assertion added before release."
+      },
+      {
+        "report": ".local-ci/2026-10-22T13-12-51-749Z/report.json",
+        "reason": "Interrupted to include stronger browser-native scrolling/Tab-exit fixtures. Add a following focus target, use native PageDown and macOS WebKit Option-Tab. No component bytes changed in this test-only follow-up."
+      }
+    ],
+    "crossFixtureCorrections": "Preliminary optional runs exposed missing next focus target and macOS keyboard navigation conventions. Final 54-case run passes without skipping assertions."
+  },
+  "limits": [
+    "Bounded shared-component and selected host-flow proof, not all possible compositions or physical devices.",
+    "No app deployment, secrets, live user data/provider collection, real payment/account/mail operation or blanket consumer commit/push."
+  ]
+}

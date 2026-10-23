@@ -41,7 +41,10 @@ function stacScene(id: string, datetime: string, platform = "sentinel-2a") {
     geometry: { type: "Polygon", coordinates: [[[116.0, -8.7], [116.3, -8.7], [116.3, -8.4], [116.0, -8.4], [116.0, -8.7]]] },
     bbox: [116.0, -8.7, 116.3, -8.4],
     properties: { datetime, platform, "eo:cloud_cover": 12.5 },
-    assets: { thumbnail: { href: "https://example.test/thumb-" + id + ".jpg", roles: ["thumbnail"], type: "image/jpeg" } },
+    assets: {
+      thumbnail: { href: "https://example.test/thumb-" + id + ".jpg", roles: ["thumbnail"], type: "image/jpeg" },
+      tilejson: { href: "https://example.test/native-tilejson.json", roles: ["tiles"], type: "application/json" },
+    },
     links: [{ rel: "self", href: "https://example.test/items/" + id }],
   };
 }
@@ -137,10 +140,8 @@ test("map credits are disclosed in the sidebar and leave the map clear", async (
   expect(boxes.credits.right).toBeLessThanOrEqual(boxes.panel.right);
 });
 
-test("a scene with no tile set still draws its preview via a fetched image", async ({ page }) => {
-  // Earth Search Sentinel-2 previews can be read as a plain CORS fetch but fail MapLibre's own
-  // image request, so the app fetches the bytes and hands over an object URL. Without that the
-  // map showed a caption with no raster.
+test("an unavailable native tile set shows its still preview and respects Escape", async ({ page }) => {
+  // An eligible observation may have a temporary tile-service failure; its still preview remains available.
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   const previewRequests: string[] = [];
   await page.route("https://example.test/**", (route) => {
@@ -158,7 +159,7 @@ test("a scene with no tile set still draws its preview via a fetched image", asy
   await expect(page.locator("#results img")).toHaveCount(1);
   await page.locator("#results img").first().click();
   await expect(page.locator("#map-preview")).toBeVisible();
-  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "image");
+  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
   expect(previewRequests.length).toBeGreaterThan(0); // the page fetched the bytes itself
   // An open dropdown consumes Escape before the page-level preview shortcut.
   const radiusDropdown = page.locator("#radius").locator("..").getByRole("combobox");
@@ -166,7 +167,7 @@ test("a scene with no tile set still draws its preview via a fetched image", asy
   await radiusDropdown.press("Escape");
   await expect(radiusDropdown).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("#map-preview")).toBeVisible();
-  // A second Escape still closes the preview and revokes its overlay.
+  // A second Escape closes the preview.
   await page.keyboard.press("Escape");
   await expect(page.locator("#map-preview")).toBeHidden();
   await expect(page.locator("#map-container")).not.toHaveAttribute("data-preview-source", "image");
@@ -200,10 +201,6 @@ test("coordinate search builds a calendar and result cards", async ({ page }) =>
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#counter")).toHaveText("2");
-  // The availability rollup summarises what was loaded, per catalogue.
-  await expect(page.locator("#coverage")).toContainText(/2 observations shown/);
-  await expect(page.locator("#coverage")).toContainText(/2 days with data/);
-  await expect(page.locator("#coverage")).toContainText(/earth-search/);
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(2);
 });
 
@@ -273,8 +270,8 @@ test("the date control is bounded and its year is what the grid renders", async 
   // Nothing optical predates Landsat-1, and nothing is published more than a year ahead.
   await expect(page.locator("#date")).toHaveAttribute("min", "1970-01-01");
   await expect(page.locator("#date")).toHaveAttribute("max", new Date(Date.now() + 365 * 86400000).toISOString().slice(0, 10));
-  await page.fill("#date", "2025-03-10");
-  await page.dispatchEvent("#date", "change");
+  await page.getByRole("textbox", { name: "Date", exact: true }).fill("2025-03-10");
+  await page.getByRole("textbox", { name: "Date", exact: true }).press("Tab");
   // Picking a date loads its whole calendar year and selects that day's pixel.
   await expect(page.locator("#date-from")).toHaveValue("2025-01-01");
   await expect(page.locator("#date-to")).toHaveValue("2025-12-31");
@@ -284,14 +281,16 @@ test("the date control is bounded and its year is what the grid renders", async 
   expect(await page.locator("#matrix-svg .matrix-cell").count()).toBeLessThan(400);
 });
 
-test("catalogue, orbit and native-tile filters narrow the results", async ({ page }) => {
+test("native-tile eligibility is permanent across reset, day selection and legacy links", async ({ page }) => {
   const a = stacScene("a1", "2025-03-10T02:00:00Z");
   (a.properties as Record<string, unknown>)["sat:orbit_state"] = "ascending";
   a.assets.tiles = { href: "https://example.test/tilejson.json", roles: ["tiles"], type: "application/json" };
-  // A collection with no Planetary Computer render mapping, so the tile filter can exclude it.
+  // A thumbnail-only observation must never enter the list, calendar or mission choices.
   const b = { ...stacScene("b1", "2025-03-11T02:00:00Z"), collection: "landsat-c2-l1" };
   (b.properties as Record<string, unknown>)["sat:orbit_state"] = "descending";
-  await page.route("**/search", (route) => respond(route, { json: collection([a, b], [], 2) }));
+  const c = stacScene("untiled", "2025-03-12T02:00:00Z", "thumbnail-only-satellite");
+  delete (c.assets as Record<string, unknown>).tilejson;
+  await page.route("**/search", route => respond(route, { json: collection([a, b, c], [], 3) }));
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
@@ -301,11 +300,17 @@ test("catalogue, orbit and native-tile filters narrow the results", async ({ pag
   await chooseOption(page, "#orbit-filter", "descending");
   await expect(page.locator("#results li")).toHaveCount(1);
   await chooseOption(page, "#orbit-filter", "");
-  // Only the scene with a native-resolution tile set survives.
-  await page.locator("#tiles-only").check();
-  await expect(page.locator("#results li")).toHaveCount(1);
-  await page.locator("#tiles-only").uncheck();
   await expect(page.locator("#results li")).toHaveCount(2);
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(2);
+  await expect(page.locator('#mission-filter option[value="thumbnail-only-satellite"]')).toHaveCount(0);
+  await page.locator("#clear-filters").click();
+  await expect(page.locator("#results li:not(.empty)")).toHaveCount(2);
+  // Older links cannot disable the permanent rule.
+  await page.goto("/?date=2025-03-10&tiles=0");
+  await clearDay(page);
+  await expect(page.locator("#results li")).toHaveCount(2);
+  expect(new URL(page.url()).searchParams.has("tiles")).toBe(false);
+
 });
 
 test("the form defaults to today, loads its year and selects that pixel", async ({ page }) => {
@@ -390,7 +395,7 @@ test("a failed catalogue does not prevent the other catalogue from loading", asy
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#status")).toContainText(/failed.*planetary-computer/i);
   await expect(page.locator("#calendar-status")).toContainText(/incomplete/i);
-  await expect(page.locator("#coverage")).toContainText("earth-search");
+  await expect(page.locator("#results")).toContainText("earth-search");
 });
 
 test("deep link restores the location, range and selected day and replays the search", async ({ page }) => {
@@ -412,7 +417,7 @@ test("responsive viewport keeps the search form usable", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, { json: collection([], [], 0) }));
   await page.goto("/");
   await expect(page.locator("#search-form")).toBeVisible();
-  await expect(page.locator("#date")).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Date", exact: true })).toBeVisible();
 });
 
 test("left tabs switch between historical and upcoming views", async ({ page }) => {
@@ -544,6 +549,41 @@ test("the full-year grid fits the map pane instead of clipping December", async 
   expect(fit.stepperLeft).toBeGreaterThanOrEqual(fit.paneLeft);
 });
 
+for (const width of [1920, 390]) {
+  test(`matrix edge cells retain their full selection outline at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 1080 });
+    await page.route("**/search", (route) => respond(route, { json: collection([], [], 0) }));
+    await setDate(page, "2025-01-01");
+    // First column, top and bottom rows, and final column exercise every SVG edge.
+    // Narrow screens may scroll; selecting the final column must reveal its whole outline.
+    for (const day of ["2025-01-01", "2025-01-06", "2025-01-05", "2025-12-31"]) {
+      await page.locator(`#matrix-svg .matrix-cell[data-day="${day}"]`).click();
+      const selected = page.locator("#matrix-svg .matrix-cell.selected");
+      await expect(selected).toHaveAttribute("data-day", day);
+      const bounds = await selected.evaluate(element => {
+        const cell = element.getBoundingClientRect();
+        const svg = element.closest("svg")!.getBoundingClientRect();
+        const viewport = element.closest(".matrix-scroll")!.getBoundingClientRect();
+        const halfStroke = Number.parseFloat(getComputedStyle(element).strokeWidth) / 2;
+        return {
+          left: cell.left - halfStroke,
+          right: cell.right + halfStroke,
+          top: cell.top - halfStroke,
+          bottom: cell.bottom + halfStroke,
+          clipLeft: Math.max(svg.left, viewport.left),
+          clipRight: Math.min(svg.right, viewport.right),
+          clipTop: Math.max(svg.top, viewport.top),
+          clipBottom: Math.min(svg.bottom, viewport.bottom),
+        };
+      });
+      expect(bounds.left).toBeGreaterThanOrEqual(bounds.clipLeft);
+      expect(bounds.right).toBeLessThanOrEqual(bounds.clipRight);
+      expect(bounds.top).toBeGreaterThanOrEqual(bounds.clipTop);
+      expect(bounds.bottom).toBeLessThanOrEqual(bounds.clipBottom);
+    }
+  });
+}
+
 test("the day matrix plots one square cell per day across the loaded range", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z"), stacScene("t2", "2025-03-10T14:00:00Z", "sentinel-2b"), stacScene("t3", "2025-03-11T02:00:00Z")], [], 3) }));
@@ -556,15 +596,15 @@ test("the day matrix plots one square cell per day across the loaded range", asy
   const sizes = await page.locator("#matrix-svg .matrix-cell")
     .evaluateAll((cells) => cells.map((c) => c.getAttribute("width") + "x" + c.getAttribute("height")));
   expect(sizes.length).toBeGreaterThanOrEqual(365); // ≥ one cell per day of the loaded year
-  // Uniform square cells, 12 px when the range fits and smaller (≥ 6 px) when it must.
+  // Uniform square cells, 14 px when the range fits and smaller (≥ 6 px) when it must.
   expect([...new Set(sizes)].length).toBe(1);
   const side = Number(sizes[0].split("x")[0]);
   expect(Number(sizes[0].split("x")[1])).toBe(side);
   expect(side).toBeGreaterThanOrEqual(6);
-  expect(side).toBeLessThanOrEqual(12);
+  expect(side).toBeLessThanOrEqual(14);
   // A day with no observations still renders a placeholder cell, not a gap.
-  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]')).toHaveAttribute("fill", "#2f3830");
-  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).not.toHaveAttribute("fill", "#2f3830");
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-05"]')).toHaveAttribute("fill", "transparent");
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).not.toHaveAttribute("fill", "transparent");
   // Every cell — with or without observations — carries a hover tooltip.
   const allCells = await page.locator("#matrix-svg .matrix-cell").count();
   const titledCells = await page.locator("#matrix-svg .matrix-cell:has(title)").count();
@@ -576,35 +616,35 @@ test("the day matrix plots one square cell per day across the loaded range", asy
   await expect(page.locator("#matrix-svg .matrix-month")).toHaveCount(12);
 });
 
-test("the metric links and shared dropdown align on a wide toolbar", async ({ page }) => {
+test("the metric segmented toggle aligns on a wide toolbar", async ({ page }) => {
   await page.setViewportSize({width: 1920, height: 1000});
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#matrix-head")).toBeVisible();
-  const centres = await page.locator("#matrix-links .matrix-link, #matrix-links .tcsn-dropdown__trigger")
+  const centres = await page.locator("#matrix-links .matrix-metric")
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top + el.getBoundingClientRect().height / 2)));
   expect(centres.length).toBe(5);
   expect(new Set(centres).size).toBe(1);
 });
 
-test("the matrix data links switch the metric it shows", async ({ page }) => {
+test("the metric segmented toggle switches the calendar metric", async ({ page }) => {
   await page.setViewportSize({width: 1920, height: 1000});
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#map-matrix")).toBeVisible();
-  await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "true");
-  await page.locator('.matrix-link[data-metric="mission"]').click();
-  await expect(page.locator('.matrix-link[data-metric="mission"]')).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator('.matrix-link[data-metric="total"]')).toHaveAttribute("aria-pressed", "false");
-  // The data links sit on one horizontal row, aligned to the container's left edge.
-  const tops = await page.locator(".matrix-links .matrix-link")
+  await expect(page.getByRole("radio", {name:"Observations", exact:true})).toBeChecked();
+  await page.locator('.matrix-metric[data-metric="mission"]').click();
+  await expect(page.getByRole("radio", {name:"Mission", exact:true})).toBeChecked();
+  await expect(page.getByRole("radio", {name:"Observations", exact:true})).not.toBeChecked();
+  // The metric options sit on one row, aligned to the container's left edge.
+  const tops = await page.locator("#matrix-links .matrix-metric")
     .evaluateAll((els) => els.map((el) => Math.round(el.getBoundingClientRect().top)));
   expect(new Set(tops).size).toBe(1);
-  const linkLefts = await page.locator(".matrix-links .matrix-link")
+  const linkLefts = await page.locator("#matrix-links .matrix-metric")
     .evaluateAll((els) => els.map((el) => el.getBoundingClientRect().left));
   const matrixBox = (await page.locator("#map-matrix").boundingBox())!;
   const mapBox = (await page.locator(".map-container").boundingBox())!;
@@ -616,7 +656,7 @@ test("the matrix data links switch the metric it shows", async ({ page }) => {
   expect(Math.abs(mapCentre - matrixCentre)).toBeLessThan(4);
 });
 
-test("matrix cells are 12 px when they fit and shrink to fit narrower panes", async ({ page }) => {
+test("matrix cells are 14 px when they fit and shrink to fit narrower panes", async ({ page }) => {
   await page.route("**/search", (route) => respond(route, {
     json: collection([stacScene("t1", "2025-03-10T02:00:00Z")], [], 1) }));
   const sizesFor = async () => {
@@ -629,7 +669,7 @@ test("matrix cells are 12 px when they fit and shrink to fit narrower panes", as
     return svg.width <= pane.width - 76 + 0.5;
   });
 
-  // The shared frame reserves its gutters; this viewport leaves room for 12px cells.
+  // The shared frame reserves its gutters; this viewport leaves room for 14px cells.
   await page.setViewportSize({ width: 1920, height: 940 });
   await page.goto("/");
   await setDate(page, "2025-03-10");
@@ -637,7 +677,7 @@ test("matrix cells are 12 px when they fit and shrink to fit narrower panes", as
   await expect(page.locator(".matrix-scroll")).toHaveCount(1);
   const wide = await sizesFor();
   expect(wide.length).toBeGreaterThan(300);
-  expect([...new Set(wide)]).toEqual(["12x12"]); // a full year still gets full-size cells when there is room
+  expect([...new Set(wide)]).toEqual(["14x14"]); // a full year still gets full-size cells when there is room
   expect(await fitsPane()).toBe(true);
 
   // A narrower pane shrinks the cells (never below 6 px) instead of clipping the year.
@@ -646,11 +686,11 @@ test("matrix cells are 12 px when they fit and shrink to fit narrower panes", as
   const narrow = await sizesFor();
   expect([...new Set(narrow)].length).toBe(1);
   const side = Number(narrow[0].split("x")[0]);
-  expect(side).toBeLessThan(12);
+  expect(side).toBeLessThan(14);
   expect(side).toBeGreaterThanOrEqual(6);
   // Resizing back restores the full-size grid.
   await page.setViewportSize({ width: 1920, height: 940 });
-  await expect.poll(async () => [...new Set(await sizesFor())]).toEqual(["12x12"]);
+  await expect.poll(async () => [...new Set(await sizesFor())]).toEqual(["14x14"]);
 });
 
 test("the matrix year arrows load the previous/next year", async ({ page }) => {
@@ -662,6 +702,7 @@ test("the matrix year arrows load the previous/next year", async ({ page }) => {
   await expect(page.locator("#date")).toHaveValue("2025-03-10");
   await page.locator("#matrix-next-year").click();
   await expect(page.locator("#date")).toHaveValue("2026-03-10");
+  await expect(page.getByRole("textbox", { name: "Date", exact: true })).toHaveValue("2026-03-10");
   await expect(page.locator("#date-from")).toHaveValue("2026-01-01");
   await page.locator("#matrix-prev-year").click();
   await expect(page.locator("#date")).toHaveValue("2025-03-10");
@@ -679,12 +720,13 @@ test("the matrix stays visible for a year with no observations", async ({ page }
   await expect(page.locator("#map-matrix")).toBeVisible();
   await page.locator("#matrix-next-year").click();
   await expect(page.locator("#date")).toHaveValue("2026-03-10");
+  await expect(page.getByRole("textbox", { name: "Date", exact: true })).toHaveValue("2026-03-10");
   await expect(page.locator("#results li.empty")).toContainText(/No observations/);
   // The 2026 grid is still drawn, entirely as placeholder cells.
   await expect(page.locator("#map-matrix")).toBeVisible();
   const cells = await page.locator("#matrix-svg .matrix-cell").count();
   expect(cells).toBeGreaterThan(360);
-  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2026-06-15"]')).toHaveAttribute("fill", "#2f3830");
+  await expect(page.locator('#matrix-svg .matrix-cell[data-day="2026-06-15"]')).toHaveAttribute("fill", "transparent");
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveCount(0);
 });
 
@@ -752,12 +794,13 @@ test("cross-catalogue copies of one tile merge; different acquisitions stay", as
   const product = "S2A_MSIL2A_20250310T021600_N0513_R003_T50LMR_20250310T055857.SAFE";
   Object.assign(earthSearch.properties, { "s2:product_uri": product });
   Object.assign(planetary.properties, { "s2:product_uri": product });
+  delete (planetary.assets as Record<string, unknown>).tilejson;
   const otherDay = stacScene("other-day", "2025-03-11T02:16:00Z");
   await page.route("**/search", (route) => respond(route, { json: collection(
-    [earthSearch, planetary, otherDay], [], 3) }));
+    route.request().url().includes("planetarycomputer") ? [planetary, otherDay] : [earthSearch, otherDay], [], 2) }));
   await page.goto("/");
   await setDate(page, "2025-03-10");
-  // Product identity groups the copies while retaining both catalogues.
+  // Prefer the later native-tile copy while retaining both catalogues.
   await expect(page.locator("#results li")).toHaveCount(2);
   await expect(page.locator("#results li").filter({hasText:"es-copy"})).toContainText("planetary-computer");
   await chooseOption(page, "#provider-filter", "planetary-computer");
@@ -873,7 +916,10 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
     geometry: { type: "Polygon", coordinates: [[[116.0, -8.7], [116.3, -8.7], [116.3, -8.4], [116.0, -8.4], [116.0, -8.7]]] },
     bbox: [116.0, -8.7, 116.3, -8.4],
     properties: { datetime: "2025-03-10T02:00:00Z", platform: "landsat-9", "eo:cloud_cover": 5 },
-    assets: { thumbnail: { href: "s3://usgs-landsat/collection02/LC09_1_thumb_small.jpeg", type: "image/jpeg", roles: ["thumbnail"] } },
+    assets: {
+      thumbnail: { href: "s3://usgs-landsat/collection02/LC09_1_thumb_small.jpeg", type: "image/jpeg", roles: ["thumbnail"] },
+      tilejson: { href: "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?item=LC09_1", roles: ["tiles"], type: "application/json" },
+    },
     links: [
       { rel: "self", href: "https://example.test/items/LC09_1" },
       { rel: "thumbnail", href: "https://example.test/items/LC09_1/thumbnail" },
@@ -895,21 +941,19 @@ test("a Landsat-style scene uses the item thumbnail link for its image", async (
   await expect.poll(() => renderUrls.some((u) => u.includes("tilejson"))).toBe(true);
 });
 
-test("an Earth Search Sentinel-2 scene resolves a native-resolution tile set", async ({ page }) => {
+test("an Earth Search Sentinel-2 scene uses its advertised native-resolution tile set", async ({ page }) => {
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64");
   const requested: string[] = [];
   await page.route("https://example.test/**", (route) => route.fulfill({ contentType: "image/png", body: png }));
   const scene = stacScene("s2a", "2025-03-10T02:00:00Z");
   (scene.properties as Record<string, unknown>)["grid:code"] = "MGRS-50MRV";
+  scene.assets.tilejson.href = "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?item=S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000";
   // Register the STAC search first: later routes win, so the Planetary Computer routes
   // below take precedence for their own URLs (**/search would otherwise match them).
   await page.route("**/search", (route) => respond(route, { json: collection([scene], [], 1) }));
   await page.route("https://planetarycomputer.microsoft.com/api/stac/v1/search", (route) => {
     requested.push("search");
-    return respond(route, { json: { features: [
-      { id: "S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000", collection: "sentinel-2-l2a",
-        properties: { datetime: "2025-03-10T02:00:00Z", "s2:mgrs_tile": "50MRV" },
-        assets: { tilejson: { href: "https://planetarycomputer.microsoft.com/api/data/v1/item/tilejson.json?item=S2C_MSIL2A_20250310T020000_R047_T50MRV_20250310T020000", roles: ["tiles"], type: "application/json" } } }] } });
+    return respond(route, { json: collection([], [], 0) });
   });
   await page.route("https://planetarycomputer.microsoft.com/api/data/v1/**", (route) => {
     const url = route.request().url();
@@ -942,27 +986,16 @@ test("scenes whose footprint misses the searched point are never shown", async (
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(1);
 });
 
-test("the Data sources panel lists the registry and enables extra catalogues", async ({ page }) => {
+test("additional catalogue permalinks work without a Data sources section", async ({ page }) => {
   const requests: string[] = [];
-  await page.route("**/search", (route) => {
+  await page.route("**/search", route => {
     requests.push(route.request().url());
     return respond(route, { json: collection([stacScene("s1", "2025-03-10T02:00:00Z")], [], 1) });
   });
-  await page.goto("/");
-  await setDate(page, "2025-03-10");
-  await expect(page.locator("#results li")).toHaveCount(1);
-  // The panel lists registry sources with their access terms.
-  await page.locator("#sources summary").click();
-  await expect(page.locator("#source-list")).toContainText(/Earth Search/);
-  await expect(page.locator("#source-list")).toContainText(/Planetary Computer/);
-  await expect(page.locator("#source-list")).toContainText(/Copernicus Data Space/);
-  await expect(page.locator("#source-list")).toContainText(/JAXA G-Portal/);
-  await expect(page.locator('#source-list input[data-source="jaxa-gportal"]')).toHaveCount(1);
-  // Extra catalogues are opt-in: ticking one queries that catalogue too.
-  await page.locator('#source-list input[data-source="copernicus"]').check();
-  await expect.poll(() => requests.some((url) => url.includes("dataspace.copernicus.eu"))).toBe(true);
-  await page.locator('#source-list input[data-source="nasa-cmr"]').check();
-  await expect.poll(() => requests.some((url) => url.includes("cmr.earthdata.nasa.gov"))).toBe(true);
+  await page.goto("/?date=2025-03-10&src=copernicus,nasa-cmr");
+  await expect.poll(() => requests.some(url => url.includes("dataspace.copernicus.eu"))).toBe(true);
+  await expect.poll(() => requests.some(url => url.includes("cmr.earthdata.nasa.gov"))).toBe(true);
+  await expect(page.locator("#sources,#source-list")).toHaveCount(0);
 });
 
 test("INPE opt-in searches its collection and displays observations", async ({ page }) => {
@@ -984,16 +1017,14 @@ test("INPE opt-in searches its collection and displays observations", async ({ p
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#results")).toContainText("CB4A-WPM-PCA-FUSED-1");
   expect(requested).toContainEqual(["CB4A-WPM-PCA-FUSED-1"]);
-  await expect(page.locator('#source-list input[data-source="inpe-cbers"]')).toBeChecked();
   await page.reload();
   await expect(quickSource).toBeChecked();
   await expect(page.locator("#results")).toContainText("CB4A-WPM-PCA-FUSED-1");
-  await page.locator("#sources summary").click();
-  await page.locator('#source-list input[data-source="inpe-cbers"]').uncheck();
+  await quickSource.uncheck();
   await expect(quickSource).not.toBeChecked();
 });
 
-test("ASF opt-in includes NISAR and ALOS-2 and classifies NISAR as radar", async ({ page }) => {
+test("ASF opt-in queries NISAR and ALOS-2 but excludes records without native tiles", async ({ page }) => {
   await page.route("**/search",route=>respond(route,{json:collection([],[],0)}));
   let platforms: string[] = [];
   await page.route("https://api.daac.asf.alaska.edu/**",route=>{
@@ -1005,29 +1036,34 @@ test("ASF opt-in includes NISAR and ALOS-2 and classifies NISAR as radar", async
   });
   await page.goto("/?date=2025-03-10&src=asf-vertex");
   await expect(page.locator('[data-source-toggle="asf-vertex"]')).toBeChecked();
-  await expect(page.locator("#results")).toContainText("NISAR");
+  await expect(page.locator("#status")).toHaveText("");
+  await expect(page.locator("#results li:not(.empty)")).toHaveCount(0);
   expect(platforms).toEqual(["SENTINEL-1","NISAR","ALOS-2"]);
   await page.locator('.matrix-chip[data-sensor="radar"]').click();
-  await expect(page.locator("#results")).toContainText("NISAR");
+  await expect(page.locator("#results li:not(.empty)")).toHaveCount(0);
 });
 
-test("the More dropdown picks an extra metric", async ({ page }) => {
-  await page.route("**/search", (route) => respond(route, { json: collection(
-    [stacScene("m1", "2025-03-10T02:00:00Z")], [], 1) }));
-  await page.goto("/");
-  await setDate(page, "2025-03-10");
-  await expect(page.locator("#results li")).toHaveCount(1);
-  const dropdown = page.locator("#matrix-more").locator("..");
-  const cell = page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]');
-  const previousFill = await cell.getAttribute("fill");
-  await chooseOption(page, "#matrix-more", "resolution");
-  await expect(dropdown.getByRole("combobox")).toHaveText(/Resolution/);
-  await expect(dropdown.getByRole("combobox")).toHaveAttribute("aria-expanded", "false");
-  await expect(page.locator('.matrix-link[aria-pressed="true"]')).toHaveCount(0);
-  await expect(cell).not.toHaveAttribute("fill", previousFill!);
+test("Resolution is a direct metric toggle with keyboard and permalink support", async ({ page }) => {
+  await page.route("**/search", route=>respond(route,{json:collection(
+    [stacScene("m1","2025-03-10T02:00:00Z")],[],1)}));
+  await setDate(page,"2025-03-10");
+  await expect(page.locator("#matrix-more,.matrix-more")).toHaveCount(0);
+  await expect(page.locator("#matrix-links").getByRole("radio")).toHaveCount(5);
+  const cell=page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]');
+  const previousFill=await cell.getAttribute("fill");
+  const resolution=page.getByRole("radio",{name:"Resolution",exact:true});
+  await page.locator('.matrix-metric[data-metric="resolution"]').click();
+  await expect(resolution).toBeChecked();
+  await expect(cell).not.toHaveAttribute("fill",previousFill!);
+  await expect.poll(()=>new URL(page.url()).searchParams.get("metric")).toBe("resolution");
+  await page.reload();
+  await expect(resolution).toBeChecked();
+  await resolution.focus();
+  await resolution.press("ArrowLeft");
+  await expect(page.getByRole("radio",{name:"Provider",exact:true})).toBeChecked();
 });
 
-test("the Image/Radar quick filter narrows the view and sits right", async ({ page }) => {
+test("the shared Image/Radar segmented filter supports keyboard, reset and permalink state", async ({ page }) => {
   const optical = stacScene("opt", "2025-03-10T02:00:00Z");
   const radarBase = stacScene("rad", "2025-03-11T02:00:00Z");
   const radar = { ...radarBase, collection: "sentinel-1-rtc",
@@ -1036,18 +1072,31 @@ test("the Image/Radar quick filter narrows the view and sits right", async ({ pa
   await page.goto("/");
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results li")).toHaveCount(2);
-  // The quick filters are right-aligned against the metric links.
+  // The quick filters are right-aligned against the metric toggle.
   const links = (await page.locator("#matrix-links").boundingBox())!;
   const quick = (await page.locator("#matrix-quick").boundingBox())!;
   expect(quick.x).toBeGreaterThan(links.x + 50);
   await page.locator('.matrix-chip[data-sensor="radar"]').click();
-  await expect(page.locator('.matrix-chip[data-sensor="radar"]')).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("radio", {name:"Radar", exact:true})).toBeChecked();
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#results li")).toContainText(/sentinel-1-rtc/);
   await page.locator('.matrix-chip[data-sensor="optical"]').click();
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#results li")).toContainText(/sentinel-2-l2a/);
   await page.locator('.matrix-chip[data-sensor="all"]').click();
+  await expect(page.locator("#results li")).toHaveCount(2);
+  const all = page.getByRole("radio", {name:"All", exact:true});
+  await all.focus();
+  await all.press("ArrowRight");
+  await expect(page.getByRole("radio", {name:"Images", exact:true})).toBeChecked();
+  await expect(page.locator("#results li")).toHaveCount(1);
+  await expect.poll(() => new URL(page.url()).searchParams.get("sensor")).toBe("optical");
+  await page.reload();
+  await expect(page.getByRole("radio", {name:"Images", exact:true})).toBeChecked();
+  await expect(page.locator("#results li")).toContainText("sentinel-2-l2a");
+  await clearDay(page);
+  await page.locator("#clear-filters").click();
+  await expect(all).toBeChecked();
   await expect(page.locator("#results li")).toHaveCount(2);
 });
 
@@ -1077,7 +1126,7 @@ test("a radar scene renders its tile set and is listed in the collection filter"
   await page.locator("#results img").click();
   await expect(page.locator("#map-preview")).toBeVisible();
   // Radar has no cloud cover, so the cloud metric reports "no cloud metadata" for that day.
-  await page.locator('.matrix-link[data-metric="cloud"]').click();
+  await page.locator('.matrix-metric[data-metric="cloud"]').click();
   await expect(page.locator('#matrix-svg .matrix-cell[data-day="2025-03-10"]')).toHaveAttribute("fill", "#5b665b");
 });
 
@@ -1141,8 +1190,8 @@ test("an auto-selected date with no observations falls back to the whole year", 
   await page.route("**/search", (route) => respond(route, { json: collection(
     [stacScene("j1", "2025-06-01T02:00:00Z")], [], 1) }));
   await page.goto("/");
-  await page.fill("#date", "2025-03-10");
-  await page.dispatchEvent("#date", "change");
+  await page.getByRole("textbox", { name: "Date", exact: true }).fill("2025-03-10");
+  await page.getByRole("textbox", { name: "Date", exact: true }).press("Tab");
   await expect(page.locator("#results li")).toHaveCount(1);
   await expect(page.locator("#matrix-svg .matrix-cell.selected")).toHaveCount(0);
   await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(1);
@@ -1237,6 +1286,7 @@ test("an unaligned public preview stays separate from the map and supports keybo
 test("has-preview includes advertised tiles and excludes a GeoTIFF disguised as a JPEG", async ({ page }) => {
   const bad = stacScene("geotiff", "2025-03-10T02:00:00Z");
   bad.assets.thumbnail.type = "image/tiff; application=geotiff";
+  delete (bad.assets as Record<string, unknown>).tilejson;
   const tiled = stacScene("tiles-only", "2025-03-11T02:00:00Z");
   (tiled as { assets: unknown }).assets = { tilejson: { href: "https://example.test/tilejson.json", roles: ["tiles"], type: "application/json" } };
   await page.route("**/search", route => respond(route, { json: collection([bad, tiled], [], 2) }));
@@ -1247,127 +1297,35 @@ test("has-preview includes advertised tiles and excludes a GeoTIFF disguised as 
   await expect(page.locator("#results li")).toContainText("tiles-only");
 });
 
-const ODATA_PRODUCT = "S2B_MSIL2A_20250310T020000_N0513_R003_T50LMR_20250310T055857";
-const ODATA_ASSET = "https://catalogue.dataspace.copernicus.eu/odata/v1/Assets(3b55eb2e-c778-4171-8b23-3862e9b70a47)/$value";
-async function copernicusWithoutPreview(page: Page) {
-  const scene = stacScene(ODATA_PRODUCT, "2025-03-10T02:00:00Z");
-  (scene as { assets: unknown }).assets = {};
-  await page.route("**/search", route => respond(route, { json: collection(
-    route.request().url().includes("dataspace.copernicus.eu") ? [scene] : [], [], 1) }));
-  await page.goto("/?lat=-8.58330&lon=116.11670&radius=5000&from=2025-03-01&to=2025-03-31&src=copernicus");
-  await expect(page.locator("#results li")).toHaveCount(1);
-}
-function odataProduct(assets: unknown[], name = ODATA_PRODUCT + ".SAFE") {
-  return { value: [{ Name: name, Id: "0c65ef71-e70d-4ecd-98c7-bc813f41f48d", Assets: assets }] };
-}
-
-test("Copernicus discovers an exact product quicklook on demand and reuses it", async ({ page }) => {
-  const requests: URL[] = [];
-  await page.route("**/odata/v1/Products?**", route => {
-    requests.push(new URL(route.request().url()));
-    return respond(route, { json: odataProduct([{ Type: "QUICKLOOK", DownloadLink: ODATA_ASSET }]) });
+test("thumbnail-only and quicklook-only observations remain excluded", async ({ page }) => {
+  const scene = stacScene("S2A_MSIL2A_20250310T020000_N0500_R047_T50MRV_20250310T040000", "2025-03-10T02:00:00Z");
+  delete (scene.assets as Record<string, unknown>).tilejson;
+  const locked = stacScene("authenticated-tiles", "2025-03-11T02:00:00Z");
+  Object.assign(locked.assets.tilejson, { "auth:refs": ["oidc"] });
+  const lookups: string[] = [];
+  await page.route("**/odata/v1/**", route => {
+    lookups.push(route.request().url());
+    return respond(route, { json: { value: [] } });
   });
-  await page.route(ODATA_ASSET, route => route.fulfill({ contentType: "application/octet-stream",
-    body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAD0lEQVR4nGNg+M8AQhAKABvyA/1tVLjHAAAAAElFTkSuQmCC", "base64") }));
-  await copernicusWithoutPreview(page);
-  expect(requests).toHaveLength(0);
-  await page.getByRole("button", { name: "View public preview", exact: true }).click();
-  await expect(page.locator("#preview-caption")).toContainText("Copernicus OData");
-  await expect.poll(() => page.locator("#preview-still-image").evaluate(image => (image as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-  expect(requests).toHaveLength(1);
-  expect(requests[0].searchParams.get("$filter")).toBe("Name eq '" + ODATA_PRODUCT + ".SAFE'");
-  expect(requests[0].searchParams.get("$expand")).toBe("Assets");
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "View public preview", exact: true }).click();
-  await expect(page.locator("#preview-caption")).toContainText("Copernicus OData");
-  expect(requests).toHaveLength(1);
-});
-
-for (const scenario of ["missing", "wrong product", "unapproved host", "account required", "oversized"] as const) {
-  test("Copernicus preview lookup handles " + scenario, async ({ page }) => {
-    await page.route("**/odata/v1/Products?**", route => {
-      if (scenario === "account required") return respond(route, { status: 403 });
-      if (scenario === "oversized") return route.fulfill({ headers: { ...CORS, "content-length": "1048577" }, body: "{}" });
-      const assets = [{ Type: "QUICKLOOK", DownloadLink: scenario === "unapproved host" ? "https://unapproved.test/preview.jpg" : ODATA_ASSET }];
-      return respond(route, { json: scenario === "missing" ? { value: [] } : odataProduct(assets,
-        scenario === "wrong product" ? "OTHER_PRODUCT.SAFE" : ODATA_PRODUCT + ".SAFE") });
-    });
-    await copernicusWithoutPreview(page);
-    await page.getByRole("button", { name: "View public preview", exact: true }).click();
-    await expect(page.locator("#map-preview")).toBeHidden();
-    await expect(page.locator("#status")).toContainText(scenario === "account required" ? "requires an account"
-      : scenario === "oversized" ? "too large" : "No public preview");
-    await page.locator("#paid-maps summary").click();
-    await expect(page.getByRole("link", { name: "Open SkyFi map" })).toBeVisible();
-  });
-}
-
-test("closing a pending preview cancels it without reopening a stale view", async ({ page }) => {
-  let finish!: () => void;
-  const gate = new Promise<void>(resolve => { finish = resolve; });
-  let requested = false;
-  await page.route("**/odata/v1/Products?**", async route => {
-    requested = true;
-    await gate;
-    await respond(route, { json: odataProduct([]) }).catch(() => {});
-  });
-  await copernicusWithoutPreview(page);
-  await page.getByRole("button", { name: "View public preview", exact: true }).click();
-  await expect.poll(() => requested).toBe(true);
-  await expect(page.locator("#preview-caption")).toHaveText("Loading public preview…");
-  await page.keyboard.press("Escape");
-  finish();
-  await page.waitForLoadState("networkidle");
+  await page.route("**/search", route => respond(route, { json: collection([scene, locked], [], 2) }));
+  await page.goto(`/?date=2025-03-10&src=copernicus&tiles=0&scene=${scene.id}`);
+  await expect(page.locator("#status")).toHaveText("");
+  await expect(page.locator("#counter")).toHaveText("0");
+  await expect(page.locator("#results li:not(.empty)")).toHaveCount(0);
+  await expect(page.locator("#matrix-svg .matrix-cell.has-scenes")).toHaveCount(0);
+  await expect(page.locator("#results")).toContainText("native-resolution tiles");
+  await page.locator("#clear-filters").click();
+  await page.reload();
+  await expect(page.locator("#counter")).toHaveText("0");
   await expect(page.locator("#map-preview")).toBeHidden();
-  await expect(page.locator("#status")).not.toContainText("No public preview");
+  expect(lookups).toEqual([]);
 });
 
-test("a nearby Planetary Computer acquisition cannot replace the selected scene", async ({ page }) => {
-  const scene = stacScene("selected-original", "2025-03-10T02:00:00Z");
-  Object.assign(scene.properties, { "s2:mgrs_tile": "50LMR" });
-  await page.route("**/search", route => respond(route, { json: collection([scene], [], 1) }));
-  await page.route("https://planetarycomputer.microsoft.com/api/stac/v1/search", route => {
-    const nearby = stacScene("different-acquisition", "2025-03-10T02:05:00Z");
-    Object.assign(nearby.properties, { "s2:mgrs_tile": "50LMR" });
-    (nearby as { assets: unknown }).assets = { tilejson: { href: "https://never-request.test/tilejson.json", roles: ["tiles"] } };
-    return respond(route, { json: collection([nearby], [], 1) });
-  });
-  await setDate(page, "2025-03-10");
-  await expect(page.locator("#results li")).toHaveCount(2);
-  await page.locator('[data-scene-id="selected-original"] img').click();
-  await expect(page.locator("#preview-still-image")).toHaveAttribute("src", /thumb-selected-original/);
-  await expect(page.locator("#map-container")).toHaveAttribute("data-preview-source", "unplaced-image");
-});
-
-test("paid map links open only on request and copied search context contains the selected area and dates", async ({ page, context }) => {
+test("removed search controls and commercial map links are absent", async ({ page }) => {
   await page.route("**/search", route => respond(route, { json: collection([], [], 0) }));
-  const visited: string[] = [];
-  await context.route("https://app.skyfi.com/**", route => {
-    visited.push(route.request().url());
-    expect(route.request().headers()["referer"]).toBeUndefined();
-    return route.fulfill({ contentType: "text/html", body: "<h1>Provider map fixture</h1>" });
-  });
-  await page.addInitScript(() => Object.defineProperty(navigator.clipboard, "writeText", { value: async (text: string) => {
-    (window as unknown as { copiedSearch: string }).copiedSearch = text;
-  } }));
-  await page.goto("/?lat=-8.5833&lon=116.1167&radius=5000&from=2025-03-01&to=2025-03-31");
-  await page.locator("#paid-maps summary").click();
-  const link = page.getByRole("link", { name: "Open SkyFi map" });
-  await expect(link).toHaveAttribute("href", "https://app.skyfi.com/");
-  await expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  await expect(page.getByRole("link", { name: "Open UP42 map" })).toHaveAttribute("href", "https://console.up42.com/");
-  expect(visited).toHaveLength(0);
-  await page.getByRole("button", { name: "Copy location and dates" }).click();
-  const copied = await page.evaluate(() => (window as unknown as { copiedSearch: string }).copiedSearch);
-  expect(copied).toContain("Latitude: -8.58330, longitude: 116.11670, radius: 5000 m");
-  expect(copied).toContain("Dates: 2025-01-01 to 2025-12-31 (UTC)");
-  const popupPromise = page.waitForEvent("popup");
-  await link.click();
-  const popup = await popupPromise;
-  await popup.waitForLoadState();
-  expect(popup.url()).toBe("https://app.skyfi.com/");
-  expect(visited).toEqual(["https://app.skyfi.com/"]);
-  await popup.close();
+  await page.goto("/?date=2025-03-10");
+  await expect(page.locator("#paid-maps,#copy-paid-search,#coverage,#tiles-only")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Open (SkyFi|UP42) map/ })).toHaveCount(0);
 });
 
 test("a public tile-service failure falls back to the scene's unaligned still preview", async ({ page }) => {
@@ -1390,7 +1348,8 @@ test("a thumbnail with declared authentication is not offered as a public image"
   await setDate(page, "2025-03-10");
   await expect(page.locator("#results img")).toHaveCount(0);
   await page.locator("#has-preview").check();
-  await expect(page.locator("#results li.empty")).toContainText("No observations match");
+  await expect(page.locator("#results li:not(.empty)")).toHaveCount(1);
+  await expect(page.locator("#results img")).toHaveCount(0);
 });
 
 test("paid imagery and known commercial satellites from another catalogue can be excluded", async ({page})=>{

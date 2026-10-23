@@ -1,0 +1,161 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T14:13:52.179982+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Adopt content-sized support action 0.17.5; preserve existing app content and domain behavior.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.17.5",
+    "commit": "f9ea075259834a58168bd1731a34c4851aec0db5",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "1d9e55742ac6219f3b83a2f7bf4a6595d90d36a1af7f57d5994ba2099af61a5c",
+    "integrity": "sha512-v/9MzUFgXv0GvwsHvotdfuFP3GlWNr6SyboDba8G4XaeZpwo4P2AZO6o/DE30kCiyibxD3WT2/mptgaCC3uVaw=="
+  },
+  "adoption": {
+    "version": "0.17.5",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.17.5/4cc7a43038c554e4c9f99d95f014b24627f125d7",
+    "integrity": "sha512-v/9MzUFgXv0GvwsHvotdfuFP3GlWNr6SyboDba8G4XaeZpwo4P2AZO6o/DE30kCiyibxD3WT2/mptgaCC3uVaw==",
+    "archiveFilesVerified": 71,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T14:01:23.438Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-22T14:01:23.442Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T14:01:38.876Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T14:01:38.917Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T14:01:41.800Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T14:01:41.836Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T14:01:46.419Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T14:01:46.471Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T14:02:13.744Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T14:02:13.745Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T14:02:21.994Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-22T14:02:21.999Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T14:03:23.782Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T14:03:23.786Z"
+  },
+  "nativeCounts": [
+    {
+      "step": "typescript-check",
+      "nodeTests": [53, 2]
+    },
+    {
+      "step": "python-tests",
+      "nodeTests": []
+    },
+    {
+      "step": "rust-format",
+      "nodeTests": []
+    },
+    {
+      "step": "rust-tests",
+      "nodeTests": []
+    },
+    {
+      "step": "clippy",
+      "nodeTests": []
+    },
+    {
+      "step": "package-check",
+      "nodeTests": []
+    }
+  ],
+  "sdkGate": {
+    "nativeTestsPerRuntime": 101,
+    "runtimes": ["22.16.0", "24.21.0"],
+    "browserPassed": 337,
+    "browserSkipped": 1,
+    "skipReason": "Desktop-only catalogue navigation case is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "dependencyAudit": "passed",
+    "crossEnginePassed": 36,
+    "crossEngineMatrix": "HTML/Vue drift, footprint, RTL, enlarged narrow and full-footer breakpoint tests in Chromium/Firefox/WebKit at 1440/390px.",
+    "caseBudgetMs": 300000,
+    "retries": 0,
+    "supersededCI": {
+      "report": ".local-ci/2026-10-22T13-39-22-479Z/report.json",
+      "reason": "Intentionally interrupted before publication after full TCSN footer review caught target movement at tablet width. Compact footer layout and a full-footer regression added; final gate uses corrected source."
+    },
+    "hostNavigationBudget": "A preliminary dev-server navigation exceeded the default load-event budget under concurrent builds. Final 28-case verification waits for DOM readiness, fonts and the actual component, with a 90s navigation budget and unchanged geometry assertions.",
+    "preliminaryFixtureCorrection": "Doubled-type fixture heading now wraps; scroll the target into view before measuring pointer stability. Early preflight temporarily overlaid CSS on the preceding package; final host proof uses installed registry package only."
+  },
+  "browser": {
+    "sharedSupportCrossEnginePassed": 36,
+    "hostSpecificScope": "Shared HTML/Vue component matrix plus consumer source/native/build gates.",
+    "command": "EXPLORER_TEST_PORT=4329 npx playwright test --config .local-ci/support-browser.config.ts --workers=1",
+    "runner": "Full Chromium 156 executable, 90s test budget, unchanged assertions, no retries. Uses the production build from npm run test:e2e.",
+    "supersededRun": "Default headless-shell run was interrupted after two narrow map checks timed out dispatching hover; traces show visible/stable target and pointer dispatch. Both original cases pass in full Chromium at 3.3s/2.1s; fresh full-suite result follows.",
+    "offlineE2EPassed": 79,
+    "skipped": 2,
+    "skipReason": "Opt-in live provider tests are not part of the offline gate."
+  },
+  "limits": [
+    "Shared components and selected host flows, not every possible composition or physical device.",
+    "No app deployment, secrets, live data/provider collection, real payment/account/mail operation or public npm publication."
+  ]
+}

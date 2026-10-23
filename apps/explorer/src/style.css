@@ -29,17 +29,10 @@ h2 {font-size:13px;letter-spacing:.005em;font-weight:600;margin:0;}
 .meta-line span:last-child {text-align:right;max-width:60%;}
 .results img {display:block;width:100%;height:140px;object-fit:cover;margin:12px 0;background:var(--tcsn-surface);}
 .results a {font-size:12px;}
-.sources {margin-top:18px;font-size:11px;color:var(--tcsn-text);}
-.sources summary {cursor:pointer;color:var(--tcsn-text);font-size:11px;letter-spacing:.03em;}
-.sources .status {margin:8px 0;}
 .additional-satellites {border:1px solid var(--tcsn-text);margin:14px 0 0;padding:10px 12px;}
 .additional-satellites legend {padding:0 4px;color:var(--tcsn-text);font-size:11px;}
 .additional-satellites .check-label + .check-label {margin-top:8px;}
 .additional-satellites .status {margin:10px 0 0;font-size:11px;}
-.source-list {display:flex;flex-direction:column;gap:10px;margin-top:8px;}
-.source {border:1px solid var(--tcsn-text);padding:8px 10px;}
-.source-heading {display:flex;justify-content:space-between;gap:8px;font-size:11px;margin-bottom:6px;}
-.source a {font-size:11px;}
 .footnote {margin-top:auto;padding-top:15px;line-height:1.7;}
 .footnote a {display:block;margin-top:10px;}
 .map-container {position:relative;display:flex;flex-direction:column;background:var(--tcsn-surface);min-width:0;}
@@ -98,30 +91,23 @@ button.text-button {text-decoration:underline;margin:0 0 10px;width:auto;text-un
 .results img {cursor:zoom-in;}
 
 /* Year-at-a-glance day matrix (GitHub-style), pinned to the bottom of the map. */
-/* The controls strip and the grid card are separate boxes: the strip is sized by the controls
-   and the card hugs the grid, so a short window does not leave a mostly empty panel. */
-.map-matrix {position:absolute;z-index:3;left:0;right:0;bottom:14px;margin:0 auto;width:fit-content;max-width:calc(100% - 76px);display:flex;flex-direction:column;align-items:center;gap:6px;}
+/* One shared surface contains the controls and grid; the year stepper sits beside the grid. */
+.map-matrix {position:absolute;z-index:3;left:0;right:0;bottom:14px;margin:0 auto;width:fit-content;max-width:calc(100% - 76px);display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;background:var(--tcsn-surface);}
 /* 76px = the 28px edge gutter plus 38px either side of the centred panel: the left side
-   holds the 30px year stepper + 8px gap, so it never overlaps the neighbouring column.
+   holds the 32px year stepper + 4px gap, so it never overlaps the neighbouring column.
    The panel centres its children so a grid narrower than the controls row (a short window)
    reads as deliberate rather than as a grid clipped into the corner; the header row still
    fills the panel through width:100%. */
-.matrix-head {display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;background:var(--tcsn-surface);border:1px solid var(--tcsn-text);padding:6px 10px;}
-.matrix-links {display:flex;flex-wrap:nowrap;justify-content:flex-start;align-items:center;gap:14px;padding-bottom:2px;}
+.matrix-head {display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;}
+.matrix-links {display:flex;flex-wrap:nowrap;justify-content:flex-start;align-items:center;gap:14px;}
 .matrix-right {display:flex;align-items:center;gap:8px;flex-shrink:0;}
-.matrix-more {position:relative;display:flex;align-items:center;}
-.matrix-more-toggle {display:inline-flex;align-items:center;width:auto;gap:4px;margin:0;letter-spacing:.04em;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
-.matrix-menu {position:absolute;top:calc(100% + 6px);left:0;z-index:6;display:flex;flex-direction:column;min-width:110px;background:var(--tcsn-surface);border:1px solid var(--tcsn-text);padding:4px;}
-.matrix-menu[hidden] {display:none;}
-.matrix-menu-item {display:block;width:100%;margin:0;letter-spacing:.03em;text-align:left;cursor:pointer;}
 .matrix-quick {display:flex;flex-shrink:0;gap:6px;}
-.matrix-chip {letter-spacing:.06em;text-transform:uppercase;margin:0;width:auto;cursor:pointer;}
-.matrix-link {display:inline-flex;align-items:center;width:auto;margin:0;letter-spacing:.04em;white-space:nowrap;cursor:pointer;text-decoration:underline;text-underline-offset:2px;}
-/* Year stepper sits outside the panel, to its left, arrows stacked vertically. */
-.matrix-year-nav {position:absolute;top:0;right:calc(100% + 8px);display:flex;flex-direction:column;gap:6px;}
+.matrix-body {position:relative;width:100%;min-width:0;}
+/* Align the stacked arrows with the first pixel row, including the SVG's 4px inset. */
+.matrix-year-nav {position:absolute;top:4px;right:calc(100% + 12px);display:flex;flex-direction:column;gap:4px;}
 .matrix-year-button {display:grid;place-items:center;margin:0;cursor:pointer;}
-.matrix-scroll {max-width:100%;overflow-x:auto;padding:8px 10px;background:var(--tcsn-surface);border:1px solid var(--tcsn-text);scrollbar-width:thin;}
-.matrix-svg {display:block;}
+.matrix-scroll {max-width:100%;overflow-x:auto;scrollbar-width:thin;}
+.matrix-svg {display:block;margin-inline:auto;}
 .matrix-cell {cursor:pointer;shape-rendering:crispEdges;}
 .matrix-cell:hover {stroke:var(--tcsn-text);stroke-width:1;}
 .matrix-cell.selected {stroke:var(--tcsn-text);stroke-width:2;}
@@ -131,10 +117,6 @@ button.text-button {text-decoration:underline;margin:0 0 10px;width:auto;text-un
 .map-preview {position:absolute;z-index:4;top:14px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:8px;pointer-events:none;}
 .map-preview-arrow, .map-preview-close {pointer-events:auto;display:inline-grid;place-items:center;margin:0;cursor:pointer;}
 .map-preview-caption {pointer-events:auto;margin:0;background:var(--tcsn-surface);color:var(--tcsn-text);border:1px solid var(--tcsn-text);padding:8px 12px;font-size:11px;letter-spacing:.03em;}
-.paid-maps {border-top:1px solid var(--tcsn-text);border-bottom:1px solid var(--tcsn-text);padding:10px 0;margin:0 0 16px;}
-.paid-maps summary {cursor:pointer;color:var(--tcsn-text);font-size:12px;}
-.paid-map-links {display:flex;flex-wrap:wrap;gap:8px;}
-.paid-map-links a {display:inline-flex;padding:8px 10px;margin:0;text-decoration:none;font-size:12px;}
 .public-preview-button {margin-bottom:0!important;}
 .preview-status {font-size:11px;}
 .preview-terms {display:block;margin-bottom:8px;}

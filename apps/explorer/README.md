@@ -16,8 +16,9 @@ Uses **OpenFreeMap**'s keyless, open-source "Liberty" vector style by default (O
 MapLibre is the map renderer; OpenFreeMap supplies the default basemap tiles.
 The optional OpenFreeMap name is omitted from the map attribution, as permitted
 by its [attribution guidance](https://openfreemap.org/#attribution). Required
-OpenMapTiles/OpenStreetMap credits remain in a plain footer below the map, with no
-floating attribution badge. Custom-provider credits use the same footer.
+OpenMapTiles/OpenStreetMap credits are available under **Map credits** at the end
+of the left sidebar. Custom-provider credits use the same disclosure; no attribution
+badge or footer covers the map.
 
 ## Tabs
 
@@ -70,10 +71,9 @@ that no imagery exists. Changing the location/dates starts a new search.
 
 The calendar is a catalogue discovery view with public previews; it is not a scientific comparison engine. A separately hosted source may be temporarily unavailable even if previous searches succeeded.
 
-Under **Data sources**, opt into **INPE CBERS-4A (Brazil)** to search the fused visual
-collection. Platform, resolution and cloud fields absent from its items stay unknown.
-The **Additional satellites** switches beside the date also enable INPE or ASF,
-stay synchronized with Data sources and persist in shared URLs. The satellite
+The **Additional satellites** switches beside the date enable **INPE CBERS-4A (Brazil)**
+or **ASF** and persist in shared URLs. INPE searches the fused visual collection;
+platform, resolution and cloud fields absent from its items stay unknown. The satellite
 dropdown filters loaded observations, so an enabled mission only appears when
 the catalogue returns matching records for the location and year.
 The **ASF** option includes **Sentinel-1, NISAR and ALOS-2**; NISAR/ALOS-2 records are
@@ -94,16 +94,23 @@ changes**, while the data behind it follows the active tab — published scenes 
 **Historical**, planned datatakes on **Upcoming** — and it never shows the other tab's data.
 Upcoming asks for the same horizon as the loaded range (now → the range end, capped at a year;
 ESA publishes only a rolling horizon of roughly a month).
-The metric links and quick filters describe published scenes, so they are hidden on Upcoming.
+The metric and observation-type toggles describe published scenes, so they are hidden on Upcoming.
 If a search returns nothing, the panel says why: an explicit empty state for the plans list,
-and a note when scenes were hidden because their footprint does not cover the location. It is a GitHub-style grid of **12×12 px** cells — one
+and a note when scenes were hidden because their footprint does not cover the location. It is a GitHub-style grid of **14×14 px** cells (shrinking on narrower map panes) — one
 per day across the loaded year (columns = weeks, rows = weekdays). Days with no observations
-still render a **placeholder** cell (dimmer for padding days outside the loaded window), so
-the grid has no gaps. A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
-previous/next **year**, and a **month legend** sits under the grid. Small links on one
-horizontal row above it choose the metric (**··· More** adds Resolution, Sensor, Time of day
-and Orbit), and **right-aligned quick filters** (**All / Image / Radar**) narrow the view to
-optical or SAR scenes. Scenes whose footprint does **not** contain the searched point are
+render transparent, borderless cells on the light matrix background. Only the selected
+day has an outline. Internal SVG padding keeps edge outlines fully visible.
+A **‹ / ›** stepper to the left of the panel (arrows stacked) loads the
+previous/next **year**, and a **month legend** sits under the grid. Two shared
+`.tcsn-segments` radio groups sit directly above it in the same light container,
+with a compact 4px gap. The left year arrows align with the top pixel row.
+Both toggles retain top and bottom borders. The metric
+toggle selects **Observations / Cloud / Mission / Provider / Resolution** directly;
+there is no More dropdown. The right-aligned **All / Images / Radar** toggle narrows
+the view to optical or SAR scenes. Both support arrow-key navigation and permalink
+restoration; selection slides between options unless reduced motion is enabled.
+Reset clears the observation-type filter. Scenes whose footprint does
+**not** contain the searched point are
 always hidden, so the map overlay always covers your location: **Observations** (shade by daily count), **Cloud** (best cloud class of
 the day: green &lt;10%, amber &lt;60%, grey ≥60%, dark = unknown), **Mission** or
 **Provider** (colour by the day's dominant value). Click a cell to select that day (this filters the cards; it does not draw a footprint —
@@ -115,23 +122,24 @@ The "select any location" prompt disappears once a location is chosen, and scene
 **resolution** and **AOI coverage**, while planned datatakes show their **status** and
 **datatake window**.
 
+Only observations advertising a public native-resolution tile set are shown in the
+list, calendar and filter choices. This rule is permanent: reset and legacy `tiles=0`
+links cannot disable it. Eligibility comes from catalogue metadata; a temporarily
+unavailable tile service can still fall back to that eligible scene’s still preview.
+
 Filters cover satellite, collection, catalogue (which provider returned it), cloud range,
-hour range, resolution, orbit direction, native-resolution tiles, has-preview and
+hour range, resolution, orbit direction, has-preview and
 unknown-cloud, and commercial-satellite inclusion; the date range is clamped to `1970-01-01` … today + 1 year.
 
 Scene cards show the **STAC scene id** and the acquisition time **to the second** — two
 genuinely different scenes can overlap one location (Landsat adjacent rows are acquired
 seconds apart), and those details are what tell them apart.
 
-A **coverage** line under the filters summarises the loaded result set from the availability
-summary: observations shown, days with data, months, and a per-catalogue split (a trailing `+`
-marks a catalogue that still advertises more pages).
-
 The end-to-end suite is fully mocked: a context route intercepts all external requests,
 and missing fixtures fail the test without reaching the network. Live checks use the
 standard Playwright fixtures and require `LIVE=1`. For a real check run
 `LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "live search"` (it performs
-a live point search and a live drawn-area search and prints the coverage rollup), and
+a live point search and a live drawn-area search and prints result counts), and
 `node tools/smoke/live.mjs` for provider-level reachability.
 
 The **Satellite type** filter can exclude recognized commercial satellites or show
@@ -140,12 +148,10 @@ and closes an excluded observation's preview. Full paid-archive search requires 
 provider account. Maxar scanning was removed after full-year checks found no browser
 preview URLs, including in a known release. See [evidence](../../docs/PUBLIC_PREVIEWS.md).
 
-A **Data sources** panel at the bottom of the left column lists every catalogue the SDK
-knows — from the registry (`listSources()`): what it searches, how imagery is accessed, which
-SDKs implement it, and a docs link. Extra catalogues (**Copernicus Data Space**, **ASF Vertex** radar, **NASA CMR-STAC (ASF)**,
-**JAXA G-Portal** ALOS) are opt-in there and are queried in addition to Earth Search and
-Planetary Computer. A failed catalogue retains its earlier results, reports incomplete
-coverage, and lets the other configured catalogues finish.
+Additional catalogue IDs in the `src` URL parameter remain supported, including
+`copernicus`, `asf-vertex`, `inpe-cbers`, `nasa-cmr` and `jaxa-gportal`. There is no
+registry panel in the explorer. A failed catalogue retains its earlier results,
+reports incomplete coverage, and lets the other configured catalogues finish.
 
 ## Layout
 
@@ -158,15 +164,10 @@ Provider tile sets appear on the map. Still images require explicit WGS84 image 
 and a north-up transform to be placed there; unaligned quicklooks appear in a separate
 panel beside the footprint. Image or tile failures have visible recovery states.
 
-Copernicus can discover an exact Sentinel-2 product's public OData quicklook on demand
-when its STAC preview is absent or fails. Earth Search can use advertised Planetary
-Computer render assets from a verified product match. GeoTIFF/JP2 assets are not image
-URLs, and another acquisition is not substituted just because it has a similar time.
-
-**Paid imagery maps** links open SkyFi or UP42 in a new tab. Copy the current location,
-dates and drawn area for their search using **Copy location and dates**. Accounts and
-purchases remain with the provider. See [public preview routes, safeguards and live
-observations](../../docs/PUBLIC_PREVIEWS.md).
+Thumbnail-only and quicklook-only observations are excluded, including observations
+whose native tile availability has not been advertised. GeoTIFF/JP2 assets alone do
+not qualify. A product copy advertising tiles can represent a grouped observation
+while retaining the other catalogues' provenance.
 
 The explorer loads **one calendar year at a time**, following catalogue pages in five-page
 batches up to its 50-page safety limit. Pick a date or use the year arrows above the
@@ -174,16 +175,19 @@ matrix to load another year. Cloud cover is scene-wide metadata, not per-AOI.
 
 ## Shared interface
 
-The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.8.1`. Its shared header,
+The explorer pins private `@powerpuff-kitty/tcsn-design-system@0.16.0`. Its shared header,
 Geist fonts and 2400px page frame match the other TCSN apps. The satellite theme
 uses pale sky `#EDF4F7` on orbital navy `#102A43` through the shared inverse theme.
 Map imagery, basemap styling, footprints and scientific calendar colour scales retain their
 data colours; map/provider attribution is available in the sidebar disclosure.
+The desktop workspace extends to the bottom of the viewport without page-bottom
+padding or margin; narrower layouts flow with their content.
 
 Inputs, checkboxes, buttons, tabs, native preview buttons and all visible dropdowns use
 shared primitives. The hidden native selects remain the form/value bridge for existing
-catalogue/filter state. The extra calendar metrics use that same dropdown rather than a
-separate menu. Scene and acquisition metadata use shared description lists;
+catalogue/filter state. Calendar metrics and observation types use shared native-radio
+segmented toggles. The package owns their top and bottom borders; the metric toggle
+offers Observations, Cloud, Mission, Provider and Resolution directly. Scene and acquisition metadata use shared description lists;
 empty/recovery states and labelled scroll regions use shared
 patterns. Persistent task status and indeterminate progress follow actual catalogue/ESA
 requests; unknown scan totals are never shown as invented percentages. Cancellation is
@@ -191,8 +195,8 @@ not advertised for tasks without a user-facing cancel action.
 
 All authored interface icons, MapLibre navigation glyphs, dropdown/disclosure indicators
 and the date-field icon come from the shared Font Awesome Free SVG collection. No icon
-CDN, browser kit or icon web font is loaded. Native date-picker popup internals remain
-browser-owned. Icon attribution is in `public/THIRD_PARTY_NOTICES.txt`; the bundled Geist
+CDN, browser kit or icon web font is loaded. The shared editable date field opens its viewport-aware calendar from the calendar
+icon; native values and constraints remain the form bridge. Icon attribution is in `public/THIRD_PARTY_NOTICES.txt`; the bundled Geist
 font license is `public/licenses/Geist-OFL.txt`.
 
 Contact and the common **Buy me a hot chocolate** button align right in the header.
@@ -210,6 +214,11 @@ context, blocks imagery downloads and writes `docs/assets/explorer.jpg`. Measure
 counts, the six-width rendered audit and the live capture are recorded in
 [`docs/evidence/shared-system-0.7.0.json`](../../docs/evidence/shared-system-0.7.0.json).
 
+The shared design package loads as native ESM in development, avoiding stale
+prebundled exports after package upgrades. To check the development module graph
+with the same offline browser fixtures, run
+`EXPLORER_DEV=1 npm run test:e2e -w @satellites-images/explorer -- --grep 'shared satellite shell|segmented toggle|Resolution is'`.
+
 The production build separates MapLibre from application code for independent caching;
 the MapLibre worker remains an explicit asset. npm registry scope mappings are committed;
 registry credentials belong only in per-user npm configuration. The private design package
@@ -226,13 +235,27 @@ The response HTML includes a canonical shared header, sidebar copyright, labelle
 `sm` controls and a data/methods/provenance overview before JavaScript runs.
 Native selects remain styled fallbacks when JavaScript is unavailable; enhancement
 replaces visible selects with shared dropdowns. Interactive search, maps and
-previews still require JavaScript. Default control density is `sm` (32px/14px);
+previews still require JavaScript. Buttons use `sm` (32px/14px), while editable fields use `md` (40px/16px);
 support remains the fixed shared `sm` component. The no-JavaScript browser checks
 verify the two theme colours, local Geist typography, initial controls, canonical
 metadata and useful public explanation at 390px and 1440px.
 
-The final 0.8.1 package keeps editable fields borderless on focus, with an
-underlined label and heading-weight input text. Forced-colour mode retains its
+The 0.15.0 package keeps editable fields borderless on focus, with an
+underlined label, dimmed translucent fill and unchanged input text/weight. Forced-colour mode retains its
 system outline. The focused five-width shell checks exercise both treatments
 and preserve 32px icon-button geometry. The 0.8.0 receipt remains historical;
-current results are in `docs/evidence/shared-system-0.8.1.json`.
+current results are in `docs/evidence/shared-system-0.15.0.json`.
+
+Shared UI is pinned to 0.15.0. Current offline rollout evidence, including typed date/calendar/year synchronization, is in [shared-system-0.15.0.json](../../docs/evidence/shared-system-0.15.0.json).
+
+Shared UI now pins 0.16.0. Historical/upcoming tabs consume `enhanceTabs` with
+`data-tcsn-tabs`, preserving the shared frame, sliding selection, native keyboard
+click path and actual catalogue state. The local keydown implementation and frame
+overrides are removed. Regression checks verify borders, indicator and upcoming
+state after ArrowRight. Product map/matrix graphics, provider behavior and the
+approved Contact/support header plus sidebar copyright remain app-owned.
+
+
+## Gradient-dot favicon — 2026-10-23
+
+The explorer favicon is a circular gradient dot using its installed shared satellites-images background/ink pair. tools/generate-favicon.mjs runs via the explorer prebuild hook and writes public/favicon.svg. The transparent identity image is separate from interface styling and map/catalogue data.

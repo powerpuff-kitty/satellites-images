@@ -1,33 +1,30 @@
-# Public previews and commercial map links
+# Public previews
 
 The explorer uses public previews advertised by scene catalogues. A preview is
 separate from the full image: a product can require an account for downloads and
 still offer an anonymous quicklook. Source imagery terms apply independently of
 the SDK's MIT licence. Cards expose an advertised HTTPS licence link when present.
 
-## Implemented public routes
+## Current explorer behavior
 
-- Earth Search, Planetary Computer, Copernicus, NASA CMR, ASF and JAXA scene assets:
-  display advertised HTTPS JPEG/PNG/WebP/AVIF/GIF previews when available. Declared
-  GeoTIFF/JP2/HTML and authenticated assets are excluded from browser image choices.
-- Planetary Computer: use advertised tile/preview assets. For an Earth Search
-  Sentinel-2 scene, search its MGRS tile/day and accept exactly one match by product
-  URI, or by the same tile and exact timestamp when product identity is absent.
-  Landsat matches require the same collection/item ID. Nearby acquisitions are not
-  substituted. Failed matching keeps the original preview.
-- Copernicus OData: when a Sentinel-2 preview is absent or fails, **View public
-  preview** queries the exact `.SAFE` product name with `$expand=Assets` and `$top=2`.
-  Only one exact product with a returned `QUICKLOOK` link on the catalogue's asset
-  endpoint is accepted. No guessed asset UUIDs or full-product endpoints are used.
-  Extra Copernicus searches remain opt-in under **Data sources**.
+Only observations advertising a public native-resolution tile set are eligible for
+the explorer's list, calendar and filter choices. This is permanent; there is no
+**Native-resolution tiles only** checkbox, and reset or old `tiles=0` links cannot
+show thumbnail-only, quicklook-only or raw-GeoTIFF-only records. Grouped catalogue
+copies retain their provenance and prefer a copy advertising tiles. Eligibility
+reflects catalogue metadata, not a guarantee that the tile service is healthy.
 
-**Has preview** includes advertised still images, tile sets and successfully
-discovered previews. Lookup potential alone does not establish availability.
-**Native-resolution tiles only** requires advertised tiles rather than a guessed
-rendering endpoint. Metadata lookups have a 15-second deadline and a 1 MiB streamed
-response limit. Explicitly aligned image overlays have an 8 MiB streamed limit.
-Closing a preview or changing the search cancels pending lookup work. Failed links
-can be retried; no purchase, asset activation or paid processing is triggered.
+Eligible observations can also display advertised HTTPS JPEG/PNG/WebP/AVIF/GIF
+previews. Declared GeoTIFF/JP2/HTML and authenticated assets are excluded from browser
+image choices. A tile-service failure can fall back to the eligible scene's still
+preview. **Has preview** remains available as a separate filter.
+
+Preview metadata requests have a 15-second deadline and a 1 MiB streamed response
+limit. Explicitly aligned image overlays have an 8 MiB streamed limit. Closing a
+preview or changing the search cancels pending work. Failed links can be retried;
+no purchase, asset activation or paid processing is triggered. The dated lookup
+observations below describe the earlier broader preview implementation; they do
+not make quicklook-only records eligible in the current explorer.
 
 ## Commercial previews and satellite filtering
 
@@ -40,7 +37,7 @@ but no browser-image preview URLs. Both scans completed; no preview URL existed
 to fetch. These results concern the selected public releases, not the full paid archive.
 
 The explorer no longer queries Maxar, including from old `src=maxar-open-data`
-links. Paid-provider map redirects remain available. The SDK's read-only Maxar
+links. Paid-provider map links are currently removed. The SDK's read-only Maxar
 metadata adapter remains available separately; metadata discovery does not establish
 preview availability.
 
@@ -98,14 +95,10 @@ including a shared Sentinel-2 product URI. It preserves catalogue records and li
 their provenance; date/footprint similarity alone cannot collapse acquisitions.
 This does not unify different processing products or seller offers.
 
-## Paid imagery maps
+## Commercial provider links
 
-Expand **Paid imagery maps** below the introduction. **Open SkyFi map** and
-**Open UP42 map** open their official applications in a new
-tab only after a click. **Copy location and dates** copies the current coordinates,
-radius, loaded date window, and drawn GeoJSON area when present. No undocumented
-deep-link parameters are invented. An account or paid entitlement may be needed
-on the provider's site. Commercial APIs are not connected to the browser build.
+The explorer currently has no **Paid imagery maps** section or clipboard export for
+commercial searches. Commercial APIs are not connected to the browser build.
 
 ## Evidence and verification
 

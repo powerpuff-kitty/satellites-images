@@ -1,0 +1,172 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T15:10:42.249081+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Adopt shared skeleton treatments 0.18.0; migrate MosaCut inner paint to shared props.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.18.0",
+    "commit": "1d3444b1368edc5649159432bba2ef73529efa21",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "00eee88834b13425031ce3e04c5e884108230b4382c32ca20305e95b221b9a98",
+    "integrity": "sha512-w7NCpww6sXBnSO2NffyuvfGaIz1yAlb2tSnbgFK7P+eADhiZPclqjzpR5d/+dEIjPWu6kShnMdKSHQcdqGg62A=="
+  },
+  "adoption": {
+    "version": "0.18.0",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.18.0/27d4e7ba37a8d06687bb845165dfe3a37d69836b",
+    "integrity": "sha512-w7NCpww6sXBnSO2NffyuvfGaIz1yAlb2tSnbgFK7P+eADhiZPclqjzpR5d/+dEIjPWu6kShnMdKSHQcdqGg62A==",
+    "archiveFilesVerified": 72,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T15:05:37.391Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-22T15:05:37.394Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:05:48.742Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T15:05:48.744Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:05:49.771Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T15:05:49.777Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:05:52.625Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T15:05:52.649Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:06:08.467Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T15:06:08.469Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:06:14.677Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-22T15:06:14.691Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:07:10.155Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T15:07:10.156Z"
+  },
+  "nativeCounts": [
+    {
+      "step": "typescript-check",
+      "nodeTests": [53, 2]
+    },
+    {
+      "step": "python-tests",
+      "nodeTests": []
+    },
+    {
+      "step": "rust-format",
+      "nodeTests": []
+    },
+    {
+      "step": "rust-tests",
+      "nodeTests": []
+    },
+    {
+      "step": "clippy",
+      "nodeTests": []
+    },
+    {
+      "step": "package-check",
+      "nodeTests": []
+    }
+  ],
+  "sdkGate": {
+    "nativeTestsPerRuntime": 104,
+    "runtimes": ["22.16.0", "24.21.0"],
+    "browserPassed": 347,
+    "browserSkipped": 1,
+    "skipReason": "Desktop-only catalogue navigation case is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "dependencyAudit": "passed",
+    "crossEngineShapeSemanticsCasesPassed": 12,
+    "crossEngineFreshMotionCatalogueCasesPassed": 18,
+    "crossEngineMatrix": "Chromium/Firefox/WebKit, HTML/Vue, 1440/390px; five themes and base/inverse shape/semantics checks, plus motion/pause/preferences and catalogue loaded replacement.",
+    "crossEngineFixtureCorrections": "macOS WebKit uses Option-Tab for native all-control traversal. An earlier Vue pause measurement captured the pending pause frame; now await Animation.ready before asserting frozen time. The geometry run passed all 12 shape/semantics cases with identical src/tokens/dist bytes to the final commit. Fresh 18-case motion/catalogue follow-up passes with unchanged assertions; full Chromium gate includes all corrected cases.",
+    "reviewedScreenshotWidths": [1440, 390, 320],
+    "caseBudgetMs": 300000,
+    "retries": 0,
+    "supersededCI": [
+      {
+        "report": ".local-ci/2026-10-22T14-26-59-068Z/report.json",
+        "reason": "Intentionally interrupted to preserve authored aria-hidden attributes in the canonical Vue adapter; added regression before publication."
+      },
+      {
+        "report": ".local-ci/2026-10-22T14-30-02-110Z/report.json",
+        "reason": "Intentionally interrupted to use macOS WebKit native Option-Tab in the optional keyboard proof. Production component bytes unchanged by that fixture-only fix."
+      },
+      {
+        "report": ".local-ci/2026-10-22T14-38-36-511Z/report.json",
+        "reason": "Interrupted after the expanded catalogue exposed two old hardcoded counts of 37. Both completeness assertions now require 38; targeted catalogue/navigation checks passed before the final full gate."
+      }
+    ],
+    "earlyBehaviorFinding": "Pause style initially lost to the more specific animation shorthand. Increased pause selector specificity; corrected component passes all final motion checks."
+  },
+  "browser": {
+    "sharedShapeSemanticsCasesPassed": 12,
+    "sharedFreshMotionCatalogueCasesPassed": 18,
+    "command": "EXPLORER_TEST_PORT=4329 npx playwright test --config .local-ci/support-browser.config.ts --workers=1",
+    "runner": "Full Chromium 156, 90s test budget, unchanged assertions; offline production app.",
+    "offlineE2EPassed": 79,
+    "skipped": 2,
+    "skipReason": "Live provider capture/search are opt-in and skipped."
+  },
+  "limits": [
+    "Selected shared component and host flows, not every possible composition or physical device.",
+    "No app deployment, credentials, live user/provider data, remote model download or real payment/mail operation."
+  ]
+}

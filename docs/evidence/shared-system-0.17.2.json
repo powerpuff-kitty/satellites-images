@@ -1,0 +1,128 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T10:21:26.530578+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Adopt visible Brussels street basemap correction in private shared UI 0.17.2.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.17.2",
+    "commit": "24464e72e8f892b54cdfaadf60047c4d01cadf52",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "7bf5dc2d9820aa9fd2fb6aa6e09e8f297567d5a662ba0a0be62d283fc4a2014c",
+    "integrity": "sha512-VDBmgl/xLJQL+gmleW6s1Tjg9yDwLDdj7GO7wD+1jyt0K6ehAftWRoEkfjXIxpUXiWNjycMPKrEOV0qVsG3odg=="
+  },
+  "adoption": {
+    "version": "0.17.2",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.17.2/60a33bc9d2750d34ac581ca431942367ad6c5536",
+    "integrity": "sha512-VDBmgl/xLJQL+gmleW6s1Tjg9yDwLDdj7GO7wD+1jyt0K6ehAftWRoEkfjXIxpUXiWNjycMPKrEOV0qVsG3odg==",
+    "archiveFilesVerified": 71,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T10:17:33.572Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": [
+          "npm",
+          "run",
+          "check"
+        ],
+        "startedAt": "2026-10-22T10:17:33.574Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:17:42.120Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T10:17:42.121Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:17:43.870Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T10:17:43.872Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:17:45.208Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T10:17:45.212Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:17:53.505Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T10:17:53.506Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:17:56.420Z"
+      },
+      {
+        "name": "package-check",
+        "command": [
+          "npm",
+          "run",
+          "check:packages"
+        ],
+        "startedAt": "2026-10-22T10:17:56.435Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:18:35.944Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T10:18:35.945Z"
+  },
+  "results": "Full npm check/build/types/SDK/package-checker tests, 43 Python tests, Rust fmt/tests/clippy and package conformance pass. All 11 compiled explorer files are byte-identical to the 0.17.1 build that freshly passed 79 offline browser tests with 2 opt-in live checks skipped. That exact-byte evidence is reused; no new provider capture is claimed.",
+  "sdkGate": "101 native tests on Node 22 and Node 24; packed HTML/Vue production/type checks; 303 browser tests passed, 1 desktop-only navigation check skipped on mobile; dependency audit passed.",
+  "mapCoverage": "18 desktop/mobile Chromium/Firefox/WebKit cases cover the same component bytes, with synthetic raster fixtures for all automated map interactions.",
+  "boundaries": [
+    "No app deployment, secret inspection, cloud resource shutdown, account/payment/mail operation, live traffic/satellite ingestion or imagery export.",
+    "One fixed initial Brussels viewport was read from public OpenStreetMap for visual verification; 12 PNG tiles returned HTTP 200. No live map pan/zoom, bulk download or tile archive.",
+    "SDK source/tag/receipt pushed under existing private-package authorization; consumer worktrees remain uncommitted and owner changes preserved."
+  ],
+  "limitations": [
+    "Mocked and local checks do not certify every live provider condition, physical device or consumer journey.",
+    "Provider failures remain visible and explicit retry reloads the map."
+  ],
+  "reusedExplorerArtifactProof": {
+    "same": true,
+    "fileCount": 11,
+    "changed": []
+  },
+  "priorBrowserReceipt": "docs/evidence/shared-system-0.17.1.json"
+}

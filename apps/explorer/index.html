@@ -2,6 +2,7 @@
 <html lang="en" data-tcsn-theme="satellites-images">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#102A43" />
     <meta name="description" content="Explore public historical and upcoming satellite observations by coordinate, mission and date." />
@@ -36,17 +37,6 @@
             <p>Dates are shown in UTC. Footprints and area coverage are approximate. Preview access is checked when opened, and each provider's imagery terms still apply. The map, interactive search and scene previews require JavaScript; this overview and the form labels remain available without it.</p>
             <p><a href="https://earth-search.aws.element84.com/v1">Earth Search catalogue</a> · <a href="https://planetarycomputer.microsoft.com/catalog">Planetary Computer catalogue</a> · <a href="https://sentinels.copernicus.eu/copernicus/sentinel-2/acquisition-plans">ESA acquisition plans</a></p>
           </div>
-        </details>
-        <details class="paid-maps" id="paid-maps">
-          <summary>Paid imagery maps <span data-shared-icon="arrow-up-right-from-square" aria-hidden="true"></span></summary>
-          <p class="status">Browse commercial imagery on the provider’s map. An account may be required; purchases happen there.</p>
-          <div class="paid-map-links">
-            <a class="secondary-button" href="https://app.skyfi.com/" target="_blank" rel="noopener noreferrer">Open SkyFi map <span data-shared-icon="arrow-up-right-from-square" aria-hidden="true"></span></a>
-            <a class="secondary-button" href="https://console.up42.com/" target="_blank" rel="noopener noreferrer">Open UP42 map <span data-shared-icon="arrow-up-right-from-square" aria-hidden="true"></span></a>
-          </div>
-          <p class="status">Use your search coordinates and dates in the provider’s search.</p>
-          <button id="copy-paid-search" type="button" class="text-button tcsn-button">Copy location and dates</button>
-          <p id="paid-search-status" class="status" role="status"></p>
         </details>
         <form id="search-form">
           <div class="pair">
@@ -96,9 +86,7 @@
                 <label class="check-label tcsn-check"><input type="checkbox" id="has-preview"> Has preview</label>
               </div>
               <label class="check-label filters-unknown tcsn-check"><input type="checkbox" id="include-unknown" checked> Include unknown-cloud scenes</label>
-              <label class="check-label filters-tiles tcsn-check"><input type="checkbox" id="tiles-only"> Native-resolution tiles only</label>
               <p id="calendar-status" class="status" role="status">Search to load observations and acquisition dates.</p>
-              <p id="coverage" class="status" role="status"></p>
               <button id="load-next-pages" type="button" class="secondary-button tcsn-button" hidden>Load next 5 catalogue pages <span data-shared-icon="arrow-down" aria-hidden="true"></span></button>
               <button id="show-all-days" type="button" class="text-button tcsn-button" hidden>Show all loaded dates</button>
             </section>
@@ -111,11 +99,6 @@
             <p class="status" id="upcoming-status" role="status">Planned ESA acquisitions are intended datatakes, not images that already exist. Select a location to load the current plan.</p>
           </section>
         </form>
-        <details class="sources" id="sources">
-          <summary>Data sources</summary>
-          <p class="status">The registry lists every catalogue the SDK knows: what it searches, how imagery is accessed, and which SDKs implement it. Extra catalogues are queried only if you tick them.</p>
-          <div class="source-list" id="source-list"></div>
-        </details>
         <div class="sidebar-end">
           <details class="map-credit-disclosure">
             <summary>Map credits</summary>
@@ -129,36 +112,32 @@
         <div id="map"></div>
         <div class="map-label" id="map-label">SELECT ANY LOCATION ON THE MAP</div>
         <div class="map-matrix" id="map-matrix" hidden>
-          <div class="matrix-year-nav" role="group" aria-label="Change year">
-            <button id="matrix-prev-year" class="matrix-year-button tcsn-button" type="button" aria-label="Previous year" data-size="sm" data-appearance="icon"><span data-shared-icon="chevron-left" aria-hidden="true"></span></button>
-            <button id="matrix-next-year" class="matrix-year-button tcsn-button" type="button" aria-label="Next year" data-size="sm" data-appearance="icon"><span data-shared-icon="chevron-right" aria-hidden="true"></span></button>
-          </div>
           <div class="matrix-head" id="matrix-head">
-          <div class="matrix-links" id="matrix-links" role="group" aria-label="Choose what the day matrix shows">
-            <button class="matrix-link tcsn-button" type="button" data-metric="total" aria-pressed="true">Observations</button>
-            <button class="matrix-link tcsn-button" type="button" data-metric="cloud" aria-pressed="false">Cloud</button>
-            <button class="matrix-link tcsn-button" type="button" data-metric="mission" aria-pressed="false">Mission</button>
-            <button class="matrix-link tcsn-button" type="button" data-metric="provider" aria-pressed="false">Provider</button>
-            <div class="matrix-more">
-              <select id="matrix-more" aria-label="Additional calendar metric" class="tcsn-input">
-                <option value="" disabled selected>More</option>
-                <option value="resolution">Resolution</option>
-                <option value="sensor">Sensor</option>
-                <option value="hour">Time of day</option>
-                <option value="orbit">Orbit</option>
-              </select>
-            </div>
-          </div>
+          <fieldset class="matrix-links tcsn-segments" id="matrix-links" data-size="sm">
+            <legend class="tcsn-sr-only">Calendar metric</legend>
+            <label class="matrix-metric" data-metric="total"><input type="radio" name="metric" value="total" checked><span>Observations</span></label>
+            <label class="matrix-metric" data-metric="cloud"><input type="radio" name="metric" value="cloud"><span>Cloud</span></label>
+            <label class="matrix-metric" data-metric="mission"><input type="radio" name="metric" value="mission"><span>Mission</span></label>
+            <label class="matrix-metric" data-metric="provider"><input type="radio" name="metric" value="provider"><span>Provider</span></label>
+            <label class="matrix-metric" data-metric="resolution"><input type="radio" name="metric" value="resolution"><span>Resolution</span></label>
+          </fieldset>
           <div class="matrix-right">
-            <div class="matrix-quick" id="matrix-quick" role="group" aria-label="Quick filter">
-              <button class="matrix-chip tcsn-button" type="button" data-sensor="all" aria-pressed="true">All</button>
-              <button class="matrix-chip tcsn-button" type="button" data-sensor="optical" aria-pressed="false">Image</button>
-              <button class="matrix-chip tcsn-button" type="button" data-sensor="radar" aria-pressed="false">Radar</button>
+            <fieldset class="matrix-quick tcsn-segments" id="matrix-quick" data-size="sm">
+              <legend class="tcsn-sr-only">Observation type</legend>
+              <label class="matrix-chip" data-sensor="all"><input type="radio" name="sensor" value="all" checked><span>All</span></label>
+              <label class="matrix-chip" data-sensor="optical"><input type="radio" name="sensor" value="optical"><span>Images</span></label>
+              <label class="matrix-chip" data-sensor="radar"><input type="radio" name="sensor" value="radar"><span>Radar</span></label>
+            </fieldset>
+          </div>
+          </div>
+          <div class="matrix-body">
+            <div class="matrix-year-nav" role="group" aria-label="Change year">
+              <button id="matrix-prev-year" class="matrix-year-button tcsn-button" type="button" aria-label="Previous year" data-size="sm" data-appearance="icon"><span data-shared-icon="chevron-left" aria-hidden="true"></span></button>
+              <button id="matrix-next-year" class="matrix-year-button tcsn-button" type="button" aria-label="Next year" data-size="sm" data-appearance="icon"><span data-shared-icon="chevron-right" aria-hidden="true"></span></button>
             </div>
-          </div>
-          </div>
-          <div class="matrix-scroll">
-            <svg class="matrix-svg" id="matrix-svg" role="img" aria-label="Observations per day across the loaded year"></svg>
+            <div class="matrix-scroll">
+              <svg class="matrix-svg" id="matrix-svg" role="img" aria-label="Observations per day across the loaded year"></svg>
+            </div>
           </div>
         </div>
         <div class="map-preview" id="map-preview" hidden role="group" aria-label="Public scene preview">

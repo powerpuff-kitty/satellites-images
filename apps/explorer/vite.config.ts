@@ -3,6 +3,11 @@ import { satellitePublicShell } from "./public-shell.js";
 export default defineConfig({
   base: "./",
   plugins: [{ name: "shared-public-shell", transformIndexHtml: satellitePublicShell }],
+  // This small CSS-first package is native ESM. Load it directly so dependency
+  // upgrades cannot leave a running dev server serving an older export list.
+  optimizeDeps: {
+    exclude: ["@powerpuff-kitty/tcsn-design-system"],
+  },
   build: {
     outDir: "dist",
     rolldownOptions: {

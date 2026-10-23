@@ -16,7 +16,7 @@ A cross-language, open-source satellite **catalogue discovery SDK**. Search exis
 The MapLibre explorer, built from `main` and deployed to GitHub Pages. Deployment is a
 **manually dispatched, reviewed** build (`npm run check` runs first), not every push.
 
-![Satellite catalogue explorer with its shared navy and sky header/footer, coordinate and date filters, vector map and annual day matrix, provider credits and scene metadata. The screenshot uses live catalogue responses without downloading imagery.](docs/assets/explorer.jpg)
+![Satellite catalogue explorer with its shared navy and sky header, coordinate and date filters, vector map and annual day matrix, provider credits and scene metadata. The screenshot uses live catalogue responses without downloading imagery.](docs/assets/explorer.jpg)
 
 ## What it does
 
@@ -48,11 +48,11 @@ endpoints, restrictions and candidates that still need adapters.
 
 ## Packages
 
-| Ecosystem | Local package | Install for development |
-| --- | --- | --- |
-| npm | `packages/typescript` | `npm install && npm run check` |
-| PyPI | `packages/python` | `python -m pip install -e packages/python` |
-| Cargo | `crates/satellites-images` | `cargo test --manifest-path crates/satellites-images/Cargo.toml` |
+| Ecosystem | Local package              | Install for development                                          |
+| --------- | -------------------------- | ---------------------------------------------------------------- |
+| npm       | `packages/typescript`      | `npm install && npm run check`                                   |
+| PyPI      | `packages/python`          | `python -m pip install -e packages/python`                       |
+| Cargo     | `crates/satellites-images` | `cargo test --manifest-path crates/satellites-images/Cargo.toml` |
 
 Proposed (unreserved) distribution names: `@powerpuff-kitty/satellites-images`, `satellites-images` (PyPI), and `satellites-images` (crates.io). Do not use the package-install commands from a registry until published.
 
@@ -61,21 +61,40 @@ Proposed (unreserved) distribution names: `@powerpuff-kitty/satellites-images`, 
 TypeScript:
 
 ```ts
-import { SatelliteCatalog, earthSearch, esaSentinelPlans } from "@powerpuff-kitty/satellites-images";
+import {
+  SatelliteCatalog,
+  earthSearch,
+  esaSentinelPlans,
+} from "@powerpuff-kitty/satellites-images";
 
 const catalog = new SatelliteCatalog([earthSearch()], [esaSentinelPlans()]);
 for await (const page of catalog.search({
-  latitude: -8.5833, longitude: 116.1167, radiusMeters: 5000,
-  from: "2025-01-01", to: "2025-02-01", maxPages: 2,
+  latitude: -8.5833,
+  longitude: 116.1167,
+  radiusMeters: 5000,
+  from: "2025-01-01",
+  to: "2025-02-01",
+  maxPages: 2,
 })) {
-  console.log(page.providerId, page.items.map((item) => [item.id, item.acquiredAt]));
+  console.log(
+    page.providerId,
+    page.items.map((item) => [item.id, item.acquiredAt]),
+  );
 }
-const planned = await catalog.upcoming({ latitude: -8.5833, longitude: 116.1167,
-  radiusMeters: 5000, days: 14 });
+const planned = await catalog.upcoming({
+  latitude: -8.5833,
+  longitude: 116.1167,
+  radiusMeters: 5000,
+  days: 14,
+});
 console.log(planned);
 const history = await catalog.availability({
-  latitude:-8.5833,longitude:116.1167,radiusMeters:5000,
-  from:"2025-01-01",to:"2025-01-31",maxPages:10
+  latitude: -8.5833,
+  longitude: 116.1167,
+  radiusMeters: 5000,
+  from: "2025-01-01",
+  to: "2025-01-31",
+  maxPages: 10,
 });
 console.log(history.days, history.complete, history.truncatedProviders);
 ```
@@ -124,7 +143,7 @@ Upcoming acquisition queries use current ESA KML plans, intersecting approximate
 
 ## Sources and scope
 
-Read [sources/registry.json](sources/registry.json) and [docs/SOURCES.md](docs/SOURCES.md). The registry distinguishes *documented service capability* from *implemented adapter*. Earth Search, Microsoft Planetary Computer, Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC are supported by the shared STAC adapter in all three language packages; the ASF SAR (keyword) and JAXA G-Portal (CSW granule) APIs use bespoke adapters in all three. ESA official future plan discovery is supported by all three language packages, now with conditional caching and coverage/freshness diagnostics. All provider-specific authentication and image-usage terms remain the user's responsibility.
+Read [sources/registry.json](sources/registry.json) and [docs/SOURCES.md](docs/SOURCES.md). The registry distinguishes _documented service capability_ from _implemented adapter_. Earth Search, Microsoft Planetary Computer, Copernicus Data Space, USGS LandsatLook and NASA CMR-STAC are supported by the shared STAC adapter in all three language packages; the ASF SAR (keyword) and JAXA G-Portal (CSW granule) APIs use bespoke adapters in all three. ESA official future plan discovery is supported by all three language packages, now with conditional caching and coverage/freshness diagnostics. All provider-specific authentication and image-usage terms remain the user's responsibility.
 
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for data contracts, pagination, limitations and future plans.
 
@@ -152,3 +171,20 @@ E2E suite (`npm run test:e2e`) intercepts all catalogue and map responses offlin
 smoke checks are opt-in; catalogue availability, data age and rate limits are not guaranteed.
 
 This project is not affiliated with satellite operators. Library code is MIT-licensed; source imagery and metadata are subject to each provider's separate terms.
+
+The explorer consumes exact private `@powerpuff-kitty/tcsn-design-system@0.19.0`.
+The Date control uses the shared editable date field and calendar icon, including
+viewport-aware popup placement and synchronization with year navigation and
+permalinks. Select options use the shared background selection treatment; input
+focus keeps text unchanged. Satellite calendar matrices, geographic layers and
+scene imagery remain product data graphics. Current local evidence is in
+[shared-system-0.19.0.json](docs/evidence/shared-system-0.19.0.json).
+
+Search tabs use the shared tab enhancer, frame and sliding indicator. Arrow-key
+activation reaches the existing search handlers, preserving actual view and URL
+state. Product map, observation matrix and preview logic remain app-owned.
+
+MapLibre navigation glyphs, complementary controls, attribution and popup chrome
+use the shared map adapter. Native renderer handlers and compass orientation are
+preserved; map styles, scene overlays, provider credits and viewport state remain
+owned by the explorer.

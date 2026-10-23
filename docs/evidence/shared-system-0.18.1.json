@@ -1,0 +1,188 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T15:50:54.082212+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Diagonal skeleton sweep, pulsing image example, and table header bottom borders with persistent neutral/directional Font Awesome sort icons.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.18.1",
+    "commit": "d49f1fc238049bdf634ee28d6069a437f4462b82",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "d455a9c7bbe63b44c3c12c7866491e8292e589fadb0aba1ad85234160e57a915",
+    "integrity": "sha512-DQ9/pzyoaJvIv1vj2qeodWWeS8DLLPbbvwZQeF9zhN/j74DyE+VVyd7R/AMpLI/eBoRnTB8vKCWSR10QCOYJfg=="
+  },
+  "adoption": {
+    "version": "0.18.1",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.18.1/b8ad381d58bcf18a5c91168fb85f692c9a621432",
+    "integrity": "sha512-DQ9/pzyoaJvIv1vj2qeodWWeS8DLLPbbvwZQeF9zhN/j74DyE+VVyd7R/AMpLI/eBoRnTB8vKCWSR10QCOYJfg==",
+    "archiveFilesVerified": 72,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T15:43:12.534Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-22T15:43:12.542Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:43:33.627Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T15:43:33.629Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:43:40.718Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T15:43:40.729Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:43:45.916Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T15:43:45.950Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:44:31.051Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T15:44:31.057Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:44:40.463Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-22T15:44:40.473Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:46:06.884Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T15:46:06.889Z"
+  },
+  "sdkValidation": {
+    "ciReport": ".local-ci/2026-10-22T15-30-12-534Z/report.json",
+    "steps": [
+      {
+        "name": "install",
+        "startedAt": "2026-10-22T15:30:12.665Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:19.259Z"
+      },
+      {
+        "name": "check",
+        "startedAt": "2026-10-22T15:30:19.260Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:25.765Z"
+      },
+      {
+        "name": "unit",
+        "startedAt": "2026-10-22T15:30:25.765Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:28.124Z"
+      },
+      {
+        "name": "node22",
+        "startedAt": "2026-10-22T15:30:28.124Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:32.094Z"
+      },
+      {
+        "name": "gallery-build",
+        "startedAt": "2026-10-22T15:30:32.094Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:34.934Z"
+      },
+      {
+        "name": "package-smoke",
+        "startedAt": "2026-10-22T15:30:34.934Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:55.468Z"
+      },
+      {
+        "name": "chromium",
+        "startedAt": "2026-10-22T15:30:55.468Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:30:59.326Z"
+      },
+      {
+        "name": "browser",
+        "startedAt": "2026-10-22T15:30:59.326Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:42:21.757Z"
+      },
+      {
+        "name": "audit",
+        "startedAt": "2026-10-22T15:42:21.759Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T15:42:25.726Z"
+      }
+    ],
+    "nativeTestsPerRuntime": 104,
+    "runtimes": ["22.16.0", "24.21.0"],
+    "browserPassed": 353,
+    "browserSkipped": 1,
+    "skipReason": "Desktop-only catalogue navigation case is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "audit": "passed",
+    "focusedChromiumDesktopMobileCases": 14,
+    "crossEngineCasesPassed": 36,
+    "matrix": "Chromium/Firefox/WebKit at 1440/390px; HTML/Vue diagonal sweep and image pulse geometry, catalogue pause/loaded replacement, header borders and keyboard sort indicators.",
+    "screenshotWidthsReviewed": [1440, 390],
+    "runner": "Full Chromium 156.0.8078.4 for the full source gate; installed Firefox 1555 and WebKit 2370 for the optional matrix.",
+    "caseBudgetMs": 300000,
+    "retries": 0,
+    "supersededTargetedSetup": "Initial focused runs were stopped to use the existing one-pixel panel-border token rather than the generic zero-width border token and to clear the owned preview. Final focused run passed 14 cases. An optional cross-engine launch was stopped because its unset Firefox executable inherited the base Chromium override; explicit executables produced the final 36-case passing matrix."
+  },
+  "limits": [
+    "Selected browser fixtures and host flows do not prove every possible composition or physical device.",
+    "GitHub CLI package-visibility read returned HTTP 403 because its credential lacks read:packages; restricted publication and exact registry bytes are verified by the existing authenticated npm release guard.",
+    "Basemap and domain-data proof uses synthetic/offline fixtures. No app deployment, credential inspection, real payment/mail, live provider operations or remote model downloads."
+  ],
+  "browser": {
+    "command": "EXPLORER_TEST_PORT=4329 npx playwright test --config .local-ci/support-browser.config.ts --workers=1",
+    "passed": 79,
+    "skipped": 2,
+    "skipReason": "Live capture/search remain opt-in.",
+    "runner": "Full Chromium 156; 90s case budget, unchanged assertions, offline fixtures."
+  }
+}

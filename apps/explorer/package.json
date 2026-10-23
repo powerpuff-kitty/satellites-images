@@ -8,11 +8,12 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test:e2e": "npm run build -w @powerpuff-kitty/satellites-images && vite build && playwright test"
+    "test:e2e": "npm run build -w @powerpuff-kitty/satellites-images && vite build && playwright test",
+    "prebuild": "node ../../tools/generate-favicon.mjs"
   },
   "dependencies": {
     "@powerpuff-kitty/satellites-images": "0.3.0",
-    "@powerpuff-kitty/tcsn-design-system": "0.8.1",
+    "@powerpuff-kitty/tcsn-design-system": "0.19.0",
     "maplibre-gl": "^6.14.0"
   },
   "devDependencies": {

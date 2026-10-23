@@ -1,0 +1,540 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T20:02:57.579293+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Remove the Landscape media \u00b7 sweep catalogue example, fix square sparkline/ranked-trend markers and add shared labelled line charts with accessible data; retain completed Fireflies continuity.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.19.0",
+    "commit": "585cf6f192092fe58a97267727a8c5cf43786dc4",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "1baa4f390211198b6536f8fb232a5a6e7851352dc965d3d81f61190863888163",
+    "integrity": "sha512-09yaF9QKiRjee+C5MT7HQwBklDiUjQ7kKLkMmN8JRIrctNwID+hDyADelEQ3D7rb/8nV4EEtRYPuE4PFmHmkfQ=="
+  },
+  "adoption": {
+    "version": "0.19.0",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.19.0/c80379ff10fa7dc74976f94b24ab148a0876ba1c",
+    "integrity": "sha512-09yaF9QKiRjee+C5MT7HQwBklDiUjQ7kKLkMmN8JRIrctNwID+hDyADelEQ3D7rb/8nV4EEtRYPuE4PFmHmkfQ==",
+    "archiveFilesVerified": 74,
+    "optionalVue": true,
+    "dependencyChanges": [],
+    "removedPackages": []
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T19:25:42.222Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-22T19:25:42.230Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:26:35.683Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T19:26:35.694Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:26:41.170Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T19:26:41.183Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:26:47.756Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T19:26:47.778Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:27:54.506Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T19:27:54.536Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:28:04.217Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-22T19:28:04.223Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:37:32.603Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T19:37:32.682Z"
+  },
+  "sdkValidation": {
+    "ciReport": ".local-ci/2026-10-22T19-08-56-921Z/report.json",
+    "steps": [
+      {
+        "name": "install",
+        "startedAt": "2026-10-22T19:08:58.150Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:04.963Z"
+      },
+      {
+        "name": "check",
+        "startedAt": "2026-10-22T19:09:04.963Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:14.833Z"
+      },
+      {
+        "name": "unit",
+        "startedAt": "2026-10-22T19:09:14.833Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:17.030Z"
+      },
+      {
+        "name": "node22",
+        "startedAt": "2026-10-22T19:09:17.031Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:22.205Z"
+      },
+      {
+        "name": "gallery-build",
+        "startedAt": "2026-10-22T19:09:22.205Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:26.063Z"
+      },
+      {
+        "name": "package-smoke",
+        "startedAt": "2026-10-22T19:09:26.063Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:45.062Z"
+      },
+      {
+        "name": "chromium",
+        "startedAt": "2026-10-22T19:09:45.062Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:09:48.014Z"
+      },
+      {
+        "name": "browser",
+        "startedAt": "2026-10-22T19:09:48.014Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:22:03.532Z"
+      },
+      {
+        "name": "audit",
+        "startedAt": "2026-10-22T19:22:03.564Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T19:22:11.212Z"
+      }
+    ],
+    "nativeTestsPerRuntime": 107,
+    "runtimes": ["22.16.0", "24.21.0"],
+    "browserPassed": 367,
+    "browserSkipped": 1,
+    "skipReason": "Desktop-only navigation scrollbar check is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "audit": "passed",
+    "crossEngineCasesPassed": 36,
+    "matrix": "Chromium/Firefox/WebKit at 1440/390px; HTML/Vue charts, actual marker bounding boxes through 1440/390/320px resizing and enlarged text, loading/error/retry, keyboard disclosures and links, axes/gaps/constant/single series, five themes and axe.",
+    "screenshotsReviewed": [1440, 320],
+    "runner": "Canonical managed headless Chromium 156 for the full gate; focused chart compatibility used full Chromium 156, Firefox 1555 and WebKit 2370. Full source case budget 90000ms, focused matrix 90000ms, no retries.",
+    "supersededChecks": [
+      {
+        "status": "35 passed, 1 failed",
+        "reason": "The original shared checkout received concurrent source edits, causing a WebKit execution-context navigation during a measurement. Final clean source matrix passed all 36 cases."
+      }
+    ],
+    "isolatedSourceBranch": "feat/line-charts-square-markers",
+    "isolationReason": "Completed Fireflies source and regression tests were incorporated from the verified continuity review candidate after the user-requested wait; unrelated original checkout work was preserved.",
+    "supersededFullChromeGate": {
+      "status": "interrupted-before-publication",
+      "reason": "Full Chrome runner was unusually slow under host load. The canonical managed headless Chromium runner passed the targeted geometry probe; use that standard runner for the same complete gate and unchanged assertions.",
+      "commit": "585cf6f",
+      "ciDirectory": ".local-ci/2026-10-22T18-52-06-055Z",
+      "completedBrowserPasses": 119,
+      "headlessProbePassed": 2
+    },
+    "supersededChartOnlyGate": {
+      "status": "interrupted-before-publication",
+      "reason": "User requested waiting for simultaneous Fireflies work; combine completed feature source with charts before the final full SDK gate and private release.",
+      "commit": "ef540e7d119074aa4ac5f025c4f63ac1b37a9678",
+      "focusedChartCasesPassed": 36,
+      "nativeTestsPassed": 105,
+      "ciDirectory": ".local-ci/2026-10-22T18-02-35-417Z",
+      "completedBrowserPasses": 252
+    },
+    "runtimePreviewEquivalence": {
+      "status": "passed",
+      "filesCompared": 65,
+      "scope": "src, dist and tokens match the fully tested Fireflies/chart review candidate; package version and release documentation differ.",
+      "files": [
+        {
+          "path": "src/vue/base-gallery.js",
+          "sha256": "1e8c9bed559481553176bf3bd4cdf1264b4c43f769d287fb1614014bc0676b27"
+        },
+        {
+          "path": "src/vue/compositions-gallery.js",
+          "sha256": "fd98a61a11e5eea3a238898380fdceb0c12b2f73fd101b586c41f15a89341e98"
+        },
+        {
+          "path": "src/vue/charts-gallery.js",
+          "sha256": "65b5c9f0720c73c87af464c0e12ec52ab6754a24973cae3f9ad6f9692c753d7c"
+        },
+        {
+          "path": "src/vue/maps.js",
+          "sha256": "7518c008418f6460d44c7e43f259042e61571aa5b41deb89c8281d7c0b354bee"
+        },
+        {
+          "path": "src/vue/field.js",
+          "sha256": "8278f6f155f28e5e3261c7c467333e48b695e75294aa8407a81173c609fb33cf"
+        },
+        {
+          "path": "src/vue/design-system.js",
+          "sha256": "0768fb2051f9d84e72a4044fb64c443a0dd28bafded6613b42b0a999c8547906"
+        },
+        {
+          "path": "src/vue/index.js",
+          "sha256": "13da917b1a896999a5350381e8b4b514d4781281933120f46f6b7598b29b280a"
+        },
+        {
+          "path": "src/vue/base-components.js",
+          "sha256": "157c5e036701c805a51c4605b7ef2ac2e7d34d4fa1764fc42e3078908d5610c0"
+        },
+        {
+          "path": "src/vue/charts.js",
+          "sha256": "4d460b4c6787865f3f902472f69a472bc382216dc50709569afec552de037ba3"
+        },
+        {
+          "path": "src/vue/compositions.js",
+          "sha256": "8ac90a08bbdef718fd61752d2864f996159a0d4ac21833d49dda06329a32ab39"
+        },
+        {
+          "path": "src/vue/maps-gallery.js",
+          "sha256": "782a79d5d17c1104ba427ebed18f1a4fe378b2894276dc7310fc81494a9e5f47"
+        },
+        {
+          "path": "src/vue/index.d.ts",
+          "sha256": "5a1323cb2c9bb9e4061ffea02067ef35f54d7b3febc22d2f4678d3afb175fce9"
+        },
+        {
+          "path": "src/compliance/index.js",
+          "sha256": "c976cda5d578265174422eeb7de4ca23fc89ecefdbd3b99af1487a18c2edb072"
+        },
+        {
+          "path": "src/fireflies/surfaces.js",
+          "sha256": "18c79097848b41ea66eafaddac70ea40fde114c95b8f26523cabcb351030c759"
+        },
+        {
+          "path": "src/fireflies/session.d.ts",
+          "sha256": "5fb235254480608876aa9f8b179a71d150ad68bf6ba5fc96cdb9d8b38f46fa9a"
+        },
+        {
+          "path": "src/fireflies/session.js",
+          "sha256": "8555f505b361fc133d799c52d45b1d476608b662223318d1cf3eb6b43acdafee"
+        },
+        {
+          "path": "src/fireflies/paint.js",
+          "sha256": "3985390bc856de30c189f5169976045a72870904796324246b715966056c605d"
+        },
+        {
+          "path": "src/fireflies/controller.js",
+          "sha256": "ad8fc57ab2a26cabda5524d8ddd01e4d1f5a1116a439aa3794ec4230f5afb92c"
+        },
+        {
+          "path": "src/fireflies/glyphs.js",
+          "sha256": "927a1982040290691d2adb2e08652d37339a7b2268cc69a9220e322001540b45"
+        },
+        {
+          "path": "src/fireflies/density.js",
+          "sha256": "a14ed90f47a7c0bd04783fff28b19120cdd8a4514362f9671f4beed8b91b0496"
+        },
+        {
+          "path": "src/fireflies/model.js",
+          "sha256": "9429fbfbcab22c58469538c181b646d689791b9769050088ef13c8c551430511"
+        },
+        {
+          "path": "src/styles/charts.css",
+          "sha256": "f949f7174b7219a58bde66862b69c7aec89716297af1fe32bacb9975155c5484"
+        },
+        {
+          "path": "src/styles/density.css",
+          "sha256": "0967e461236c7e2d51eeebba85ad63fe160ac17fa212f674c728a9b3f93e38bb"
+        },
+        {
+          "path": "src/styles/compositions.css",
+          "sha256": "ed3ee98bbf1089d1ab71b77f8c861bbf39315a490f934b4e54638c92f91281a3"
+        },
+        {
+          "path": "src/styles/maps.css",
+          "sha256": "61827810b98d59a5db73d7505238a5a9d11a7b20b6c1241fe4e3fe9aba333bd3"
+        },
+        {
+          "path": "src/styles/fonts.css",
+          "sha256": "e9d6f521e793985a374acd1c0452e409b46c4c7ceacf071a1855f2e1a2e9c1fe"
+        },
+        {
+          "path": "src/styles/components.css",
+          "sha256": "9f51218394f446f5c871ac2e5116005d9fc9d7d941b40540d4763728e005fc00"
+        },
+        {
+          "path": "src/styles/base.css",
+          "sha256": "282b5c39d176f22acf8c091971e6edf24538fcdfbb540eb7f50332667eec8140"
+        },
+        {
+          "path": "src/dom/icon-data.js",
+          "sha256": "ab6265c91912b42a20916c0adaa6da576909b014491e2f15738f80d796c030e3"
+        },
+        {
+          "path": "src/dom/disclosure.js",
+          "sha256": "5936e6e024712634b4f42709b1cdb035c2254827c50e4da29a5d17ff3edcf780"
+        },
+        {
+          "path": "src/dom/segments.js",
+          "sha256": "1505a1f225eef12cc8742c5f7131b435f387c95348f94394025115784514d8df"
+        },
+        {
+          "path": "src/dom/icons.js",
+          "sha256": "286eba1bca72d810317a765f7d0afbd100399f215cf4de895aab0ee86ddbdc3e"
+        },
+        {
+          "path": "src/dom/skeleton.js",
+          "sha256": "6e0303e4807d66438abe063a832f8240b26308fe140d59104c38887e49da2549"
+        },
+        {
+          "path": "src/dom/popup.js",
+          "sha256": "741f95343418ca19e64216ed652104b0f452e255853a2eca9fb6562118f0c833"
+        },
+        {
+          "path": "src/dom/sizes.js",
+          "sha256": "7b270c6b2a8ad111b1aab4d46d2bc78ededf25e94db803502cd7d861b9ce92a8"
+        },
+        {
+          "path": "src/dom/maps.js",
+          "sha256": "9cb2dc02cd8bc68d8e385d32d0e0671f82ac8bad5e31ee7f51ebdd50cbbd678f"
+        },
+        {
+          "path": "src/dom/index.js",
+          "sha256": "01e19088f7180a63a5cc0849e23bbe236a5a2abcd29268469e5b1f4f46eae100"
+        },
+        {
+          "path": "src/dom/header.js",
+          "sha256": "211d7b7352abbcef07d03a312e6fb10167cc06a8b739cdbcdc86bbb866bc2696"
+        },
+        {
+          "path": "src/dom/charts.js",
+          "sha256": "73a00531fbbf7bf02f967665f55c43dca4b8105b9e5511a2a379de2d018515a9"
+        },
+        {
+          "path": "src/dom/patterns.js",
+          "sha256": "53aec8c7ba7393e2638c8571baa949977e005e0be5b283aac4d446d1139c444a"
+        },
+        {
+          "path": "src/dom/dropdown.js",
+          "sha256": "eaca7ac1e1a1d62db4703232e6dba923695ba0460f2f650d90df02706295c6ec"
+        },
+        {
+          "path": "src/dom/components.js",
+          "sha256": "6d71ec5dfc89939e2ef7697638834580f88c9b5e10fd0f5b9b50284427e07bd7"
+        },
+        {
+          "path": "src/dom/progress.js",
+          "sha256": "403babd434494a43d63d97057d53d6cfb06d738ddfd3a3c83f24bd36904d9c77"
+        },
+        {
+          "path": "src/dom/navigation.js",
+          "sha256": "2dec59bd86fa3507a4ab9e411bc4ba811d3f565601ba659205391a12792e4d67"
+        },
+        {
+          "path": "src/dom/FONT-AWESOME-LICENSE.txt",
+          "sha256": "20c6f40715a567c97b80f6944beb8bb325835cab47ea7dcab89ee3b8e077eced"
+        },
+        {
+          "path": "src/dom/support-button.js",
+          "sha256": "0a8c8f3679913dbe8ee21328b883538d340335a5d1d9e41ee6bf4c04c9bd99f0"
+        },
+        {
+          "path": "src/dom/compositions.js",
+          "sha256": "56f2e409fe45cbd56a9c123e007366b5af79363958ade52590e6f17e4c2f0383"
+        },
+        {
+          "path": "src/dom/motion.js",
+          "sha256": "15ee7c5547164656a59d953e94121ed628a27d8b7ed0b6731138842176d8d584"
+        },
+        {
+          "path": "src/dom/index.d.ts",
+          "sha256": "9e169aeb63d09cc95ea22ad3fcdc9477a0cf544fc795b19687afc1329e7fbb35"
+        },
+        {
+          "path": "src/dom/icon-names.d.ts",
+          "sha256": "7142ee67dfba54d69abda3689ab7d9b0244364d96e7d154c55096580af93ad0c"
+        },
+        {
+          "path": "src/dom/footer.js",
+          "sha256": "4fc475a105470441b9922df6222ed58380c65f55e013d2cfa43c8906024f642e"
+        },
+        {
+          "path": "src/dom/date-time.js",
+          "sha256": "f9838c45e2c1ca10ca900a5bf19ae161ff2a1a6fbcb8ab768f59f70d0d352324"
+        },
+        {
+          "path": "dist/styles.css",
+          "sha256": "bd7cef01941d2ff8a8cff14cd54f6729c75b252dfe79058b743a5d215d998ad6"
+        },
+        {
+          "path": "dist/tokens.css",
+          "sha256": "80f9f04e9e00070170a82f96335e42e9960771783000bbaf345a193d78092aa8"
+        },
+        {
+          "path": "dist/fonts.css",
+          "sha256": "e9d6f521e793985a374acd1c0452e409b46c4c7ceacf071a1855f2e1a2e9c1fe"
+        },
+        {
+          "path": "dist/icons.css",
+          "sha256": "c54457f46531682cccf49fc44f47563611405fd623c463b46c094ab21c6d4e0a"
+        },
+        {
+          "path": "dist/compat/tcsn.css",
+          "sha256": "746b77936ef31afb643486cbda83f14ffe1d393f72deb52cb3be610f33d2eab6"
+        },
+        {
+          "path": "dist/compat/tcsn-document.json",
+          "sha256": "4810bed57a50732749c95250d28d958304a47948245e5decb60252e411716414"
+        },
+        {
+          "path": "dist/compat/tcsn-foundations.css",
+          "sha256": "e2d258351a6d0319d58cdade0942f2691cf978b75cc1a8852e81ba3035c4ba6f"
+        },
+        {
+          "path": "dist/fonts/geist-variable.woff2",
+          "sha256": "2ffebe993e969069a9789d15164b7715d42491b5835516c5e3b935d5f81b05f1"
+        },
+        {
+          "path": "dist/fonts/source.json",
+          "sha256": "a4938ce8504b5855a48b594650c39da887d3255e52d62a2ea5570c71db573bc2"
+        },
+        {
+          "path": "dist/fonts/geist-mono-variable.woff2",
+          "sha256": "afaacc4c5fbba89d2ebf7a02dc4070208540874592a5504d57175782fe893101"
+        },
+        {
+          "path": "dist/fonts/OFL.txt",
+          "sha256": "c683bfbcc7e087f5d37a54ef628f10387c451a83ddc459b151403a164ac46c90"
+        },
+        {
+          "path": "tokens/foundations.json",
+          "sha256": "b55ceb97dde2cb96b085694221acff358d7c2c428e40b9c6a36bcfeff122ed2d"
+        },
+        {
+          "path": "tokens/themes.json",
+          "sha256": "92b2bc16866bd3c24732f75b2221df8c43657ae712a73838d2a40b36b9efbd27"
+        }
+      ]
+    },
+    "combinedPrereleaseGate": {
+      "startedAt": "2026-10-22T18:26:43.523Z",
+      "runtime": "v24.21.0",
+      "snapshotHash": "fc3cf87add5d22d74a00cb256b32594e12ba30e4a1490f80eb58200cfe735e4c",
+      "steps": [
+        {
+          "name": "install",
+          "startedAt": "2026-10-22T18:26:45.046Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:27:04.866Z"
+        },
+        {
+          "name": "check",
+          "startedAt": "2026-10-22T18:27:04.867Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:27:15.223Z"
+        },
+        {
+          "name": "unit",
+          "startedAt": "2026-10-22T18:27:15.223Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:27:22.075Z"
+        },
+        {
+          "name": "node22",
+          "startedAt": "2026-10-22T18:27:22.084Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:27:30.588Z"
+        },
+        {
+          "name": "gallery-build",
+          "startedAt": "2026-10-22T18:27:30.590Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:27:34.897Z"
+        },
+        {
+          "name": "package-smoke",
+          "startedAt": "2026-10-22T18:27:34.898Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:28:17.594Z"
+        },
+        {
+          "name": "chromium",
+          "startedAt": "2026-10-22T18:28:17.595Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:28:21.049Z"
+        },
+        {
+          "name": "browser",
+          "startedAt": "2026-10-22T18:28:21.049Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:43:26.606Z"
+        },
+        {
+          "name": "audit",
+          "startedAt": "2026-10-22T18:43:26.613Z",
+          "exitCode": 0,
+          "finishedAt": "2026-10-22T18:43:31.255Z"
+        }
+      ],
+      "status": "passed",
+      "artifacts": ".local-ci/2026-10-22T18-26-43-506Z",
+      "finishedAt": "2026-10-22T18:43:32.839Z"
+    }
+  },
+  "limits": [
+    "Selected fixtures and app checks do not prove every possible composition or physical device.",
+    "No app deployment, credential inspection, real payment/mail, live-provider collection or remote model downloads.",
+    "Existing guarded restricted GitHub publication verifies registry integrity and downloaded bytes; package visibility is not independently re-read through the GitHub CLI."
+  ],
+  "browser": {
+    "command": "LIVE= EXPLORER_TEST_PORT=4329 npm run test:e2e -w @satellites-images/explorer -- --config ../../.local-ci/support-browser.config.ts --workers=1",
+    "passed": 79,
+    "skipped": 2,
+    "skipReason": "Live search/capture are opt-in; LIVE was empty.",
+    "scope": "Fresh production build and offline mocked explorer journeys; unchanged assertions and 90000ms case budget."
+  }
+}

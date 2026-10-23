@@ -1,0 +1,134 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T09:43:00.874607+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Adopt private shared UI 0.17.1: hidden desktop catalogue scrollbar and actual lazy MapLibre GL JS catalogue renderer.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.17.1",
+    "commit": "c550102c2bb6d3b77b39845c83de7e5737e58b17",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "b2d6f4fa95ae1e5699a070188825a9f382ddb08c3f027b8fecb604c191ee416c",
+    "integrity": "sha512-q8LPXn8dBRnGM9ir9wPGoRkgpr+JOSPUfFmAYMFmMsogyz2ffo2dTWIThNODf2U/Rb3Z1YuB38JVnWxo+SQUNg=="
+  },
+  "adoption": {
+    "version": "0.17.1",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.17.1/8b15a749c4f3303853317712d612a8138ccd9de2",
+    "integrity": "sha512-q8LPXn8dBRnGM9ir9wPGoRkgpr+JOSPUfFmAYMFmMsogyz2ffo2dTWIThNODf2U/Rb3Z1YuB38JVnWxo+SQUNg==",
+    "archiveFilesVerified": 71,
+    "dependencyChanges": [
+      {
+        "path": "node_modules/@maplibre/geojson-vt",
+        "before": "6.1.2",
+        "after": "6.3.0"
+      },
+      {
+        "path": "node_modules/maplibre-gl",
+        "before": "6.14.0",
+        "after": "6.15.0"
+      }
+    ],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T09:38:10.694Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": [
+          "npm",
+          "run",
+          "check"
+        ],
+        "startedAt": "2026-10-22T09:38:10.696Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T09:38:17.910Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T09:38:17.911Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T09:38:19.593Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T09:38:19.593Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T09:38:21.093Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T09:38:21.101Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T09:38:29.690Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T09:38:29.691Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T09:38:32.109Z"
+      },
+      {
+        "name": "package-check",
+        "command": [
+          "npm",
+          "run",
+          "check:packages"
+        ],
+        "startedAt": "2026-10-22T09:38:32.110Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T09:39:11.716Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T09:39:11.717Z"
+  },
+  "results": "Full npm check/build/types/SDK tests, 43 Python tests, Rust fmt/tests/clippy and package conformance passed. All 79 offline browser cases passed on the published package; two opt-in live checks skipped. MapLibre aligned 6.14.0 -> 6.15.0 and geojson-vt 6.1.2 -> 6.3.0 to satisfy the shared package; all other existing locked versions retained. Optional Vue peer metadata restored from the archive and 19 newly auto-installed peer-only entries removed and pruned.",
+  "sdkValidation": "101 tests on Node 22 and Node 24; packed HTML/Vue production and type checks; 301 browser cases passed and one desktop-only case skipped on mobile. Required gate passed on unchanged source with 300s case budget after a dense header/footer comparison exceeded 120s; assertions unchanged.",
+  "browserLimitations": "SDK map interactions covered Chromium/Firefox/WebKit; initial optional cross-engine run had two Firefox module-startup timeouts; all four Firefox cases passed with a 30s assertion budget. Physical devices and live provider behavior are not certified.",
+  "boundaries": [
+    "No app deployment, secret inspection, live imagery/provider operation, real location/account/payment/mail operation or cloud shutdown.",
+    "SDK source/tag/release receipt pushed under existing private publication authorization. Consumer worktrees remain uncommitted; existing owner work preserved."
+  ],
+  "browserCommand": "npx playwright test --config .local-ci/maps-0.17.1/playwright.config.ts",
+  "browserResult": {
+    "passed": 79,
+    "skippedLive": 2,
+    "engine": "Installed Chromium headless shell 1248; no browser download; all provider requests mocked."
+  }
+}

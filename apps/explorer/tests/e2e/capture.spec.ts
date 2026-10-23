@@ -16,7 +16,7 @@ test("capture the live explorer", async ({ page }) => {
     }
     return route.continue();
   });
-  await page.setViewportSize({ width: 1600, height: 1000 });
+  await page.setViewportSize({ width: 1920, height: 1080 });
   const until = new Date(Date.now() - 5 * 86400000).toISOString().slice(0, 10);
   await page.goto(`/?lat=-8.58330&lon=116.11700&date=${until}`);
   await page.addStyleTag({ content: "#results .preview-thumbnail { display: none !important; }" });
@@ -24,7 +24,7 @@ test("capture the live explorer", async ({ page }) => {
   const allDays = page.locator("#show-all-days");
   if (await allDays.isVisible()) await allDays.click();
   await expect.poll(async () => page.locator("#results li:not(.empty)").count(), { timeout: 30_000 }).toBeGreaterThan(0);
-  await expect(page.locator("#coverage")).toContainText(/planetary-computer|earth-search/);
+  await expect(page.locator("#results")).toContainText(/planetary-computer|earth-search/);
   await expect(page.locator("#map-preview")).toBeHidden();
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -35,5 +35,5 @@ test("capture the live explorer", async ({ page }) => {
   });
   await expect(page.locator("h1")).toBeInViewport();
   await page.screenshot({ path: "../../docs/assets/explorer.jpg", type: "jpeg", quality: 86, fullPage: true });
-  console.log(JSON.stringify({ screenshot: "docs/assets/explorer.jpg", view: "Live catalogue metadata; imagery downloads blocked", blockedImageRequests: blockedImages, scenes: await page.locator("#results li:not(.empty)").count(), coverage: await page.locator("#coverage").textContent() }));
+  console.log(JSON.stringify({ screenshot: "docs/assets/explorer.jpg", view: "Live catalogue metadata; imagery downloads blocked", blockedImageRequests: blockedImages, scenes: await page.locator("#results li:not(.empty)").count(), counter: await page.locator("#counter").textContent() }));
 });

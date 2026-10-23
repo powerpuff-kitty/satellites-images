@@ -6,7 +6,7 @@ import { test, expect } from "@playwright/test";
 //   LIVE=1 npm run test:e2e -w @satellites-images/explorer -- --grep "live search"
 test.skip(!process.env.LIVE, "opt-in: run with LIVE=1");
 
-test("live search returns scenes, a coverage rollup and no page errors", async ({ page }) => {
+test("live search returns scenes and no page errors", async ({ page }) => {
   test.setTimeout(180_000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(String(error)));
@@ -20,18 +20,14 @@ test("live search returns scenes, a coverage rollup and no page errors", async (
 
   await expect.poll(async () => page.locator("#results li").count(), { timeout: 90_000 })
     .toBeGreaterThan(0);
-  // Wait for the scan to settle: default catalogues should report before we read the
-  // rollup (the first page can land well before the second catalogue responds).
-  await expect(page.locator("#coverage")).toContainText(/earth-search/, { timeout: 90_000 });
+  // Wait for the scan to settle before reading results.
+  await expect(page.locator("#results")).toContainText(/earth-search/, { timeout: 90_000 });
   await expect(page.locator("#status")).toHaveText("", { timeout: 90_000 });
 
-  const coverage = await page.locator("#coverage").textContent();
   const status = await page.locator("#status").textContent();
-  console.log("   coverage:", coverage);
   console.log("   status:  ", status);
   console.log("   cards:   ", await page.locator("#results li").count());
 
-  expect(coverage).toMatch(/observations? shown/);
 
   // Draw an area over the same view and search it: results must still appear.
   await page.locator("#draw-area").click();
@@ -45,7 +41,7 @@ test("live search returns scenes, a coverage rollup and no page errors", async (
   await expect.poll(async () => page.locator("#results li").count(), { timeout: 90_000 })
     .toBeGreaterThan(0);
   await expect(page.locator("#status")).toHaveText("", { timeout: 90_000 });
-  console.log("   area:", await page.locator("#coverage").textContent());
+  console.log("   area:", await page.locator("#counter").textContent());
 
   expect(errors).toEqual([]);
 });

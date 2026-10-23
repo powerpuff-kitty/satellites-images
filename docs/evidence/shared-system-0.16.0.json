@@ -1,0 +1,125 @@
+{
+  "date": "2026-10-22",
+  "status": "passed-with-recorded-scope-limits",
+  "repo": "satellites-images",
+  "branch": "feat/catalogue-and-shared-system",
+  "headBeforeUncommittedChanges": "14f549dd80cead3367155fd48998917d00453d21",
+  "ownerWorktreePreserved": true,
+  "sdk": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.16.0",
+    "commit": "e76c80fe07c17152639df118630d0ddb32b17d1a",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "046df34f00dfe177570fbe572bc9d2e709b1090a2abc143e18947c1573419d2a",
+    "integrity": "sha512-d6xIvdwC/aVQHCvm/bwC1G+Jv2vSzSjkvjVuci6Kbnl1MzMTIHPt3BM5lEgFzfcR7Y7A/IenNuCh+yy7NbdjJw=="
+  },
+  "scope": "Shared tab frame, indicator, keyboard enhancement and actual view activation.",
+  "adoption": {
+    "version": "0.16.0",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.16.0/65c8929cbcd1a2f79b6c3eead2c06e513e7aa827",
+    "integrity": "sha512-d6xIvdwC/aVQHCvm/bwC1G+Jv2vSzSjkvjVuci6Kbnl1MzMTIHPt3BM5lEgFzfcR7Y7A/IenNuCh+yy7NbdjJw==",
+    "archiveFilesVerified": 67,
+    "mismatches": [],
+    "nonSdkVersionChanges": [],
+    "removedNonSdkPackages": [],
+    "optionalVue": true,
+    "vueInstalled": false,
+    "actualResolverVerified": "/Users/tcsntcsn/TCSN/satellites-images/node_modules/@powerpuff-kitty/tcsn-design-system/package.json"
+  },
+  "nativeBuildChecks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-21T23:39:10.286Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-21T23:39:10.287Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-21T23:39:14.142Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-21T23:39:14.146Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-21T23:39:16.247Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-21T23:39:16.250Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-21T23:39:19.763Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-21T23:39:19.767Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-21T23:39:35.005Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-21T23:39:35.025Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-21T23:39:41.211Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-21T23:39:41.219Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-21T23:40:42.697Z"
+      }
+    ],
+    "finishedAt": "2026-10-21T23:40:42.698Z"
+  },
+  "nativeTestCounts": {
+    "typescript": 53,
+    "packageChecker": 2,
+    "python": 43,
+    "rustUnitIntegrationDoctest": 37
+  },
+  "browserChecks": {
+    "command": "node node_modules/@playwright/test/cli.js test --config .local-ci/design-system-0.16.0/playwright.config.ts",
+    "result": "79 offline mocked cases passed;2 opt-in live cases skipped.",
+    "evidence": "/tmp/satellites-images-pattern-final-browser.log",
+    "coverage": "Shared tab borders/indicator and keyboard-triggered app state are explicitly asserted; all external provider requests remain mocked/blocked."
+  },
+  "limits": [
+    "No app deployment, secret inspection, live provider/data export, real application-account, payment or mail operation. Synthetic account/mail/browser fixtures are local test state.",
+    "Automated checks and selected visual review do not certify every journey, physical device, production or assistive technology.",
+    "Consumer worktrees include preserved owner changes; no blanket consumer commit/push was made."
+  ]
+}

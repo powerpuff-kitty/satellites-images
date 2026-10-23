@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-22",
+  "status": "passed-with-recorded-scope-limits",
+  "repo": "satellites-images",
+  "branch": "feat/catalogue-and-shared-system",
+  "headWithUncommittedOwnerWork": "14f549dd80cead3367155fd48998917d00453d21",
+  "sdk": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.17.0",
+    "commit": "193322d3c76f53795a57eb6c7dc9771979a0d042",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "c8f62da389e4ebc22b45cc2d0f7b32ce0fecd1d7f696b2ff76a570c56fd3ef9d",
+    "integrity": "sha512-1sHGTtFjdhMfDse6j4Rh4WJ647wcIjRAblJHR0NH2GPPA5ifGRhgK9K3GCaIargHbGpm0pjOUrdnzrInYzreEA=="
+  },
+  "scope": "Shared MapLibre control icons, attribution and popup styling replace local recipes; native controls and provider/scene/viewport logic retained.",
+  "adoption": {
+    "version": "0.17.0",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.17.0/b858ae02b2b128d33729a7d7301acdfa4aa35f15",
+    "integrity": "sha512-1sHGTtFjdhMfDse6j4Rh4WJ647wcIjRAblJHR0NH2GPPA5ifGRhgK9K3GCaIargHbGpm0pjOUrdnzrInYzreEA==",
+    "archiveFilesVerified": 71,
+    "mismatches": [],
+    "nonSdkVersionChanges": [],
+    "removedNonSdkPackages": [],
+    "optionalVue": true,
+    "vueInstalled": false
+  },
+  "nativeBuildChecks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T07:46:21.297Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": ["npm", "run", "check"],
+        "startedAt": "2026-10-22T07:46:21.300Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:46:38.984Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T07:46:38.987Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:46:41.637Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T07:46:41.643Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:46:44.388Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T07:46:44.423Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:47:04.654Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T07:47:04.657Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:47:08.901Z"
+      },
+      {
+        "name": "package-check",
+        "command": ["npm", "run", "check:packages"],
+        "startedAt": "2026-10-22T07:47:08.907Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T07:48:11.100Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T07:48:11.101Z"
+  },
+  "nativeTestCounts": {
+    "typescript": 53,
+    "packageChecker": 2,
+    "python": 43,
+    "rustUnitIntegrationDoctests": 37
+  },
+  "browserChecks": {
+    "command": [
+      "node",
+      "node_modules/@playwright/test/cli.js",
+      "test",
+      "--config",
+      ".local-ci/maps-0.17.0/playwright.config.ts"
+    ],
+    "result": "79 offline real-renderer browser cases passed; 2 opt-in live cases skipped.",
+    "stage": "Committed packed-artifact preflight. Published archive has identical SHA256; all 71 installed files match. All 16 application source and 11 compiled output files remain byte-identical after genuine registry build.",
+    "bytes": {
+      "sourceFilesVerified": 16,
+      "sourceChanges": [],
+      "distFilesVerified": 11,
+      "distChanges": [],
+      "sameCompiledApplication": true
+    },
+    "evidence": "/tmp/satellites-images-maps-all-browser.log",
+    "additionalPreflight": "12 focused shared-system cases passed at five widths before full 79-case suite."
+  },
+  "limitations": [
+    "Native/build and scoped browser checks do not certify every product journey, physical device, assistive technology or live provider.",
+    "Original owner work is preserved. No blanket consumer commit/push, app deployment, secret inspection, live export, real location/application-account/payment/mail operation."
+  ]
+}

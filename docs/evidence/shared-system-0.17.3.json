@@ -1,0 +1,146 @@
+{
+  "date": "2026-10-22",
+  "completedAt": "2026-10-22T10:46:04.999930+00:00",
+  "status": "passed-with-recorded-validation-limits",
+  "scope": "Adopt shared component decoration, padding and full alert border corrections.",
+  "release": {
+    "package": "@powerpuff-kitty/tcsn-design-system",
+    "version": "0.17.3",
+    "commit": "53dd68e1edf465d257d4cfab7cb9542302840158",
+    "registry": "https://npm.pkg.github.com",
+    "sha256": "fca7d6504547b6d01eeb54ff9192c61a9f9060d2cbc69052b712a11bd8f52edf",
+    "integrity": "sha512-zO7WdyTJ1u+hlFs3W68/crJi/sZ4IEuZn/140x7v0+yXOSGN1MtyuXFwbeyy/WjqqG0C9OD/hiRS57yO9laCFw=="
+  },
+  "adoption": {
+    "version": "0.17.3",
+    "registry": "https://npm.pkg.github.com/download/@powerpuff-kitty/tcsn-design-system/0.17.3/1d58224ef9d3c09fc942ee4a75c97af98e06aa66",
+    "integrity": "sha512-zO7WdyTJ1u+hlFs3W68/crJi/sZ4IEuZn/140x7v0+yXOSGN1MtyuXFwbeyy/WjqqG0C9OD/hiRS57yO9laCFw==",
+    "archiveFilesVerified": 71,
+    "dependencyChanges": [],
+    "removedPackages": [],
+    "optionalVue": true
+  },
+  "checks": {
+    "repo": "satellites-images",
+    "stage": "registry-adoption",
+    "startedAt": "2026-10-22T10:41:28.440Z",
+    "runtime": "v24.21.0",
+    "status": "passed",
+    "steps": [
+      {
+        "name": "typescript-check",
+        "command": [
+          "npm",
+          "run",
+          "check"
+        ],
+        "startedAt": "2026-10-22T10:41:28.443Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:41:40.641Z"
+      },
+      {
+        "name": "python-tests",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "packages/python/tests"
+        ],
+        "startedAt": "2026-10-22T10:41:40.646Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:41:42.807Z"
+      },
+      {
+        "name": "rust-format",
+        "command": [
+          "cargo",
+          "fmt",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--check"
+        ],
+        "startedAt": "2026-10-22T10:41:42.809Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:41:44.463Z"
+      },
+      {
+        "name": "rust-tests",
+        "command": [
+          "cargo",
+          "test",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml"
+        ],
+        "startedAt": "2026-10-22T10:41:44.464Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:41:55.316Z"
+      },
+      {
+        "name": "clippy",
+        "command": [
+          "cargo",
+          "clippy",
+          "--manifest-path",
+          "crates/satellites-images/Cargo.toml",
+          "--all-targets",
+          "--",
+          "-D",
+          "warnings"
+        ],
+        "startedAt": "2026-10-22T10:41:55.318Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:41:59.010Z"
+      },
+      {
+        "name": "package-check",
+        "command": [
+          "npm",
+          "run",
+          "check:packages"
+        ],
+        "startedAt": "2026-10-22T10:41:59.037Z",
+        "exitCode": 0,
+        "finishedAt": "2026-10-22T10:43:01.714Z"
+      }
+    ],
+    "finishedAt": "2026-10-22T10:43:01.715Z"
+  },
+  "browser": {
+    "status": "passed",
+    "command": "EXPLORER_TEST_PORT=4329 npm run test:e2e -w @satellites-images/explorer -- --workers=1",
+    "passed": 79,
+    "skipped": 2,
+    "skipReason": "Opt-in live provider search/screenshot checks; all executed catalogue/map traffic is mocked."
+  },
+  "sdkGate": {
+    "nativeTestsPerRuntime": 101,
+    "runtimes": [
+      "22.16.0",
+      "24.21.0"
+    ],
+    "browserPassed": 311,
+    "browserSkipped": 1,
+    "skipReason": "Desktop navigation scrollbar check is inapplicable on mobile.",
+    "packedHtmlVueBuildsAndTypes": "passed",
+    "dependencyAudit": "passed",
+    "focusedStateInteractionVisualCases": 36,
+    "focusedCompositionAuditorCases": 20,
+    "reviewedScreenshotWidths": [
+      1440,
+      390,
+      320
+    ],
+    "caseBudgetMs": 300000,
+    "retries": 0,
+    "providerTiles": "Synthetic fixtures; no live provider fetch for this task.",
+    "supersededCI": ".local-ci/2026-10-22T10-33-05-652Z/report.json",
+    "supersededReason": "Interrupted after the runtime auditor reported corrected collection padding against its stale zero-padding expectation. Commit 53dd68e corrects that contract and adds a broken-padding/doubled-decoration regression. Full final gate passes."
+  },
+  "limits": [
+    "All shared styles and 37 catalogue sections audited; not certification of every possible host composition or physical device.",
+    "No deployment, secrets, live data/provider collection or real payment/account/mail operation.",
+    "Consumer owner work preserved; no blanket consumer commits or pushes."
+  ]
+}
