@@ -32,6 +32,6 @@
     "typescript": "^7.0.2"
   },
   "dependencies": {
-    "fast-xml-parser": "^5.11.2"
+    "fast-xml-parser": "^5.12.0"
   }
 }
